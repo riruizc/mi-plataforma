@@ -40,15 +40,10 @@ type CartItem = {
 }
 
 function MapPicker({
-  lat,
-  lng,
-  onSelect,
-  themeColor,
+  lat, lng, onSelect, themeColor,
 }: {
-  lat: number | null
-  lng: number | null
-  onSelect: (lat: number, lng: number) => void
-  themeColor: string
+  lat: number | null; lng: number | null
+  onSelect: (lat: number, lng: number) => void; themeColor: string
 }) {
   const mapRef = useRef<any>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -57,10 +52,7 @@ function MapPicker({
   useEffect(() => {
     initMap()
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-      }
+      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null }
     }
   }, [])
 
@@ -73,8 +65,7 @@ function MapPicker({
       const icon = L.divIcon({
         className: '',
         html: '<div style="background:' + themeColor + ';width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>',
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
+        iconSize: [22, 22], iconAnchor: [11, 11],
       })
       markerRef.current = L.marker([lat, lng], { icon }).addTo(map)
     })
@@ -86,21 +77,16 @@ function MapPicker({
     if (!mapRef.current) return
     const L = await import('leaflet')
     await import('leaflet/dist/leaflet.css' as any)
-    if ((mapRef.current as any)._leaflet_id) {
-      ;(mapRef.current as any)._leaflet_id = null
-    }
+    if ((mapRef.current as any)._leaflet_id) { (mapRef.current as any)._leaflet_id = null }
     const map = L.map(mapRef.current).setView([-8.1116, -79.0286], 14)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
-    }).addTo(map)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map)
     map.on('click', (e: any) => {
       const { lat, lng } = e.latlng
       if (markerRef.current) markerRef.current.remove()
       const icon = L.divIcon({
         className: '',
         html: '<div style="background:' + themeColor + ';width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>',
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
+        iconSize: [22, 22], iconAnchor: [11, 11],
       })
       markerRef.current = L.marker([lat, lng], { icon }).addTo(map)
       onSelect(lat, lng)
@@ -115,34 +101,29 @@ function MapPicker({
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={async () => {
-          if (!navigator.geolocation) { alert('Tu navegador no soporta geolocalización'); return }
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const { latitude, longitude } = pos.coords
-              const map = mapInstanceRef.current
-              if (map) {
-                map.setView([latitude, longitude], 17)
-                import('leaflet').then((L) => {
-                  if (markerRef.current) markerRef.current.remove()
-                  const icon = L.divIcon({
-                    className: '',
-                    html: '<div style="background:' + themeColor + ';width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>',
-                    iconSize: [22, 22],
-                    iconAnchor: [11, 11],
-                  })
-                  markerRef.current = L.marker([latitude, longitude], { icon }).addTo(map)
-                  onSelect(latitude, longitude)
+      <button type="button" onClick={async () => {
+        if (!navigator.geolocation) { alert('Tu navegador no soporta geolocalización'); return }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords
+            const map = mapInstanceRef.current
+            if (map) {
+              map.setView([latitude, longitude], 17)
+              import('leaflet').then((L) => {
+                if (markerRef.current) markerRef.current.remove()
+                const icon = L.divIcon({
+                  className: '',
+                  html: '<div style="background:' + themeColor + ';width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>',
+                  iconSize: [22, 22], iconAnchor: [11, 11],
                 })
-              }
-            },
-            () => alert('No se pudo obtener tu ubicación')
-          )
-        }}
-        className="w-full mb-3 py-3 rounded-xl text-sm font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-gray-100 flex items-center justify-center gap-2 touch-manipulation"
-      >
+                markerRef.current = L.marker([latitude, longitude], { icon }).addTo(map)
+                onSelect(latitude, longitude)
+              })
+            }
+          },
+          () => alert('No se pudo obtener tu ubicación')
+        )
+      }} className="w-full mb-3 py-3 rounded-xl text-sm font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-gray-100 flex items-center justify-center gap-2 touch-manipulation">
         📍 Usar mi ubicación actual
       </button>
       <div ref={mapRef} className="w-full rounded-xl overflow-hidden border border-gray-200" style={{ height: '220px' }} />
@@ -165,14 +146,13 @@ export default function OrderForm() {
   const [agencies, setAgencies] = useState<Agency[]>([])
   const [formDisabled, setFormDisabled] = useState(false)
 
+  // 🔍 Búsqueda y filtro de categoría
+  const [search, setSearch] = useState('')
+  const [activeCategory, setActiveCategory] = useState('Todos')
+
   const [customer, setCustomer] = useState({ dni: '', name: '', phone: '' })
   const [delivery, setDelivery] = useState({
-    method: 'motorizado',
-    destination: '',
-    reference: '',
-    lat: '',
-    lng: '',
-    agency_name: '',
+    method: 'motorizado', destination: '', reference: '', lat: '', lng: '', agency_name: '',
   })
 
   useEffect(() => { loadStore() }, [prefix])
@@ -181,44 +161,32 @@ export default function OrderForm() {
     try {
       const supabase = createClient()
       const { data: storeData } = await supabase
-        .from('stores')
-        .select('*')
-        .eq('store_prefix', prefix)
-        .eq('status', 'active')
-        .single()
-
+        .from('stores').select('*').eq('store_prefix', prefix).eq('status', 'active').single()
       if (!storeData) { setLoading(false); return }
-
-      // Verificar si el formulario está activo
-      if (storeData.form_active === false) {
-        setStore(storeData)
-        setFormDisabled(true)
-        setLoading(false)
-        return
-      }
-
+      if (storeData.form_active === false) { setStore(storeData); setFormDisabled(true); setLoading(false); return }
       setStore(storeData)
-
       const { data: prods } = await supabase
-        .from('products')
-        .select('*, product_variants(*)')
-        .eq('store_id', storeData.id)
-        .eq('is_active', true)
-
+        .from('products').select('*, product_variants(*)')
+        .eq('store_id', storeData.id).eq('is_active', true)
       const { data: agencyData } = await supabase
-        .from('delivery_agencies')
-        .select('*')
-        .eq('store_id', storeData.id)
-        .eq('is_active', true)
-
+        .from('delivery_agencies').select('*').eq('store_id', storeData.id).eq('is_active', true)
       setAgencies(agencyData || [])
       setProducts((prods || []).map((p: any) => ({ ...p, variants: p.product_variants || [] })))
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
   }
+
+  // Categorías únicas
+  const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
+
+  // Productos filtrados por búsqueda + categoría
+  const filteredProducts = products.filter(p => {
+    const matchSearch = search.trim() === '' ||
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.category?.toLowerCase().includes(search.toLowerCase())
+    const matchCategory = activeCategory === 'Todos' || p.category === activeCategory
+    return matchSearch && matchCategory
+  })
 
   const addToCart = (product: Product, variant: { id: string; color: string; stock: number }) => {
     const existing = cart.find((c) => c.variant_id === variant.id)
@@ -226,19 +194,13 @@ export default function OrderForm() {
       setCart(cart.map((c) => c.variant_id === variant.id ? { ...c, quantity: c.quantity + 1 } : c))
     } else {
       setCart([...cart, {
-        product_id: product.id,
-        variant_id: variant.id,
-        product_name: product.name,
-        color: variant.color,
-        quantity: 1,
-        unit_price: product.sale_price,
+        product_id: product.id, variant_id: variant.id, product_name: product.name,
+        color: variant.color, quantity: 1, unit_price: product.sale_price,
       }])
     }
   }
 
-  const removeFromCart = (variantId: string) => {
-    setCart(cart.filter((c) => c.variant_id !== variantId))
-  }
+  const removeFromCart = (variantId: string) => setCart(cart.filter((c) => c.variant_id !== variantId))
 
   const updateQty = (variantId: string, qty: number) => {
     if (qty <= 0) { removeFromCart(variantId); return }
@@ -253,59 +215,37 @@ export default function OrderForm() {
     if (!customer.name || !customer.phone) { alert('Completa tu nombre y celular'); return }
     if (delivery.method === 'agencia' && !delivery.agency_name) { alert('Selecciona una agencia'); return }
     if (!delivery.destination) { alert('Indica tu dirección o destino de entrega'); return }
-
     setSubmitting(true)
     try {
       const supabase = createClient()
-
       const { data: existingCustomer } = await supabase
-        .from('customers').select('id')
-        .eq('store_id', store.id).eq('phone', customer.phone).single()
-
+        .from('customers').select('id').eq('store_id', store.id).eq('phone', customer.phone).single()
       let customerId = existingCustomer?.id
       if (!customerId) {
         const { data: newCustomer } = await supabase
-          .from('customers')
-          .insert({ store_id: store.id, name: customer.name, phone: customer.phone, dni: customer.dni })
+          .from('customers').insert({ store_id: store.id, name: customer.name, phone: customer.phone, dni: customer.dni })
           .select('id').single()
         customerId = newCustomer?.id
       }
-
       const year = new Date().getFullYear()
       const { data: counterData } = await supabase.rpc('increment_order_counter', { p_store_id: store.id })
       const code = store.store_prefix + '-' + year + '-' + String(counterData).padStart(3, '0')
       const token = Math.random().toString(36).substring(2, 15)
-
-      const { data: order } = await supabase
-        .from('orders')
-        .insert({
-          store_id: store.id,
-          customer_id: customerId,
-          order_code: code,
-          delivery_method: delivery.method,
-          agency_name: delivery.method === 'agencia' ? delivery.agency_name : null,
-          destination: delivery.destination,
-          reference: delivery.reference || null,
-          lat: delivery.method === 'motorizado' && delivery.lat ? Number(delivery.lat) : null,
-          lng: delivery.method === 'motorizado' && delivery.lng ? Number(delivery.lng) : null,
-          total_amount: total,
-          pending_amount: total,
-          status: 'pending',
-          tracking_token: token,
-        })
-        .select('id').single()
-
+      const { data: order } = await supabase.from('orders').insert({
+        store_id: store.id, customer_id: customerId, order_code: code,
+        delivery_method: delivery.method,
+        agency_name: delivery.method === 'agencia' ? delivery.agency_name : null,
+        destination: delivery.destination, reference: delivery.reference || null,
+        lat: delivery.method === 'motorizado' && delivery.lat ? Number(delivery.lat) : null,
+        lng: delivery.method === 'motorizado' && delivery.lng ? Number(delivery.lng) : null,
+        total_amount: total, pending_amount: total, status: 'pending', tracking_token: token,
+      }).select('id').single()
       if (order) {
         await supabase.from('order_items').insert(
           cart.map((c) => ({
-            order_id: order.id,
-            product_id: c.product_id,
-            variant_id: c.variant_id,
-            product_name: c.product_name,
-            color: c.color,
-            quantity: c.quantity,
-            unit_price: c.unit_price,
-            subtotal: c.unit_price * c.quantity,
+            order_id: order.id, product_id: c.product_id, variant_id: c.variant_id,
+            product_name: c.product_name, color: c.color, quantity: c.quantity,
+            unit_price: c.unit_price, subtotal: c.unit_price * c.quantity,
           }))
         )
         for (const item of cart) {
@@ -316,86 +256,65 @@ export default function OrderForm() {
         setOrderCode(code)
         setStep(4)
       }
-    } catch (e) {
-      console.error(e)
-      alert('Error al enviar el pedido, intenta de nuevo')
-    } finally {
-      setSubmitting(false)
-    }
+    } catch (e) { console.error(e); alert('Error al enviar el pedido, intenta de nuevo') }
+    finally { setSubmitting(false) }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Cargando tienda...</p>
-        </div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-gray-500 text-sm">Cargando tienda...</p>
       </div>
-    )
-  }
+    </div>
+  )
 
-  if (!store) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="text-center">
-          <p className="text-5xl mb-4">🔍</p>
-          <p className="text-gray-700 font-semibold text-lg">Tienda no encontrada</p>
-          <p className="text-gray-500 text-sm mt-1">Verifica el enlace e intenta de nuevo</p>
-        </div>
+  if (!store) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="text-center">
+        <p className="text-5xl mb-4">🔍</p>
+        <p className="text-gray-700 font-semibold text-lg">Tienda no encontrada</p>
+        <p className="text-gray-500 text-sm mt-1">Verifica el enlace e intenta de nuevo</p>
       </div>
-    )
-  }
+    </div>
+  )
 
-  // Formulario desactivado
-  if (formDisabled) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
-          {store.logo_url && (
-            <img src={store.logo_url} alt="Logo" className="w-16 h-16 rounded-2xl object-cover mx-auto mb-4" />
-          )}
-          <p className="text-4xl mb-3">🚫</p>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">{store.name}</h2>
-          <p className="text-gray-500 text-sm">
-            No estamos recibiendo pedidos en este momento.
-          </p>
-          <p className="text-gray-400 text-xs mt-2">
-            Intenta más tarde o contacta directamente a la tienda.
-          </p>
-        </div>
+  if (formDisabled) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
+        {store.logo_url && <img src={store.logo_url} alt="Logo" className="w-16 h-16 rounded-2xl object-cover mx-auto mb-4" />}
+        <p className="text-4xl mb-3">🚫</p>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">{store.name}</h2>
+        <p className="text-gray-500 text-sm">No estamos recibiendo pedidos en este momento.</p>
+        <p className="text-gray-400 text-xs mt-2">Intenta más tarde o contacta directamente a la tienda.</p>
       </div>
-    )
-  }
+    </div>
+  )
 
-  // ─── PASO 4: CONFIRMACIÓN ───────────────────────────────────────────────────
-  if (step === 4) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 max-w-sm w-full text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">✅</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">¡Pedido recibido!</h2>
-          <p className="text-gray-500 text-sm mb-4">Tu código de pedido es:</p>
-          <div className="bg-gray-100 rounded-xl px-4 py-4 mb-4">
-            <span className="text-xl sm:text-2xl font-bold text-gray-900 tracking-wide">{orderCode}</span>
-          </div>
-          <p className="text-gray-400 text-xs mb-6">Guarda este código para rastrear tu pedido.</p>
-          <a
-            href={`/track?code=${orderCode}`}
-            className="w-full py-4 rounded-xl text-white font-bold block text-center text-base touch-manipulation"
-            style={{ backgroundColor: store.theme_color || '#2563eb' }}
-          >
-            🔍 Rastrear mi pedido
-          </a>
+  if (step === 4) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 max-w-sm w-full text-center">
+        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <span className="text-3xl">✅</span>
         </div>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">¡Pedido recibido!</h2>
+        <p className="text-gray-500 text-sm mb-4">Tu código de pedido es:</p>
+        <div className="bg-gray-100 rounded-xl px-4 py-4 mb-4">
+          <span className="text-xl sm:text-2xl font-bold text-gray-900 tracking-wide">{orderCode}</span>
+        </div>
+        <p className="text-gray-400 text-xs mb-6">Guarda este código para rastrear tu pedido.</p>
+        <a href={`/track?code=${orderCode}`}
+          className="w-full py-4 rounded-xl text-white font-bold block text-center text-base touch-manipulation"
+          style={{ backgroundColor: store.theme_color || '#2563eb' }}>
+          🔍 Rastrear mi pedido
+        </a>
       </div>
-    )
-  }
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* HEADER CON PASOS */}
       <div className="sticky top-0 z-10 shadow-sm" style={{ backgroundColor: store.theme_color || '#2563eb' }}>
         <div className="flex items-center justify-center gap-2 pt-3 pb-2 px-4">
           {store.logo_url && (
@@ -406,10 +325,8 @@ export default function OrderForm() {
         <div className="px-4 pb-3 flex items-center justify-center gap-1">
           {['Productos', 'Tus datos', 'Entrega'].map((s, i) => (
             <div key={s} className="flex items-center gap-1">
-              <div
-                className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${step >= i + 1 ? 'bg-white' : 'bg-white bg-opacity-30'}`}
-                style={{ color: step >= i + 1 ? store.theme_color || '#2563eb' : 'white' }}
-              >
+              <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${step >= i + 1 ? 'bg-white' : 'bg-white bg-opacity-30'}`}
+                style={{ color: step >= i + 1 ? store.theme_color || '#2563eb' : 'white' }}>
                 {step > i + 1 ? '✓' : i + 1}
               </div>
               <span className={`text-white text-xs font-medium ${step === i + 1 ? 'opacity-100' : 'opacity-60'}`}>{s}</span>
@@ -417,20 +334,64 @@ export default function OrderForm() {
             </div>
           ))}
         </div>
+
+        {/* 🔍 BUSCADOR — solo visible en paso 1 */}
+        {step === 1 && (
+          <div className="px-4 pb-3">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base">🔍</span>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar producto..."
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm bg-white bg-opacity-95 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-60 border-0"
+              />
+              {search && (
+                <button onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg leading-none">×</button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* FILTRO POR CATEGORÍA — solo en paso 1, si hay más de 1 categoría */}
+      {step === 1 && categories.length > 2 && (
+        <div className="sticky z-9 bg-gray-50 border-b border-gray-200 px-4 py-2" style={{ top: search !== undefined ? '0' : '0' }}>
+          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {categories.map(cat => (
+              <button key={cat} onClick={() => setActiveCategory(cat)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors touch-manipulation ${activeCategory === cat
+                  ? 'text-white border-transparent'
+                  : 'bg-white text-gray-600 border-gray-200'}`}
+                style={activeCategory === cat ? { backgroundColor: store?.theme_color || '#2563eb', borderColor: store?.theme_color || '#2563eb' } : {}}>
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="max-w-lg mx-auto px-4 py-5 pb-32">
 
+        {/* PASO 1 — PRODUCTOS */}
         {step === 1 && (
           <div>
-            <h2 className="text-base font-bold text-gray-900 mb-3">Elige tus productos</h2>
-            {products.length === 0 ? (
-              <div className="bg-white rounded-xl p-8 text-center">
-                <p className="text-gray-400 text-sm">No hay productos disponibles</p>
+            {filteredProducts.length === 0 ? (
+              <div className="bg-white rounded-xl p-10 text-center mt-2">
+                <p className="text-3xl mb-2">😕</p>
+                <p className="text-gray-500 text-sm font-medium">No encontramos productos</p>
+                {search && <p className="text-gray-400 text-xs mt-1">con "{search}"</p>}
+                {search && (
+                  <button onClick={() => setSearch('')} className="mt-3 text-blue-600 text-sm underline">
+                    Limpiar búsqueda
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
-                {products.map((product) => (
+                {filteredProducts.map((product) => (
                   <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0 pr-3">
@@ -461,8 +422,9 @@ export default function OrderForm() {
                 ))}
               </div>
             )}
+
             {cart.length > 0 && (
-              <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg safe-area-bottom">
+              <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
                 <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-gray-500">{cart.reduce((s, c) => s + c.quantity, 0)} producto{cart.reduce((s, c) => s + c.quantity, 0) !== 1 ? 's' : ''}</p>
@@ -479,6 +441,7 @@ export default function OrderForm() {
           </div>
         )}
 
+        {/* PASO 2 — DATOS DEL CLIENTE */}
         {step === 2 && (
           <div>
             <h2 className="text-base font-bold text-gray-900 mb-3">Tus datos</h2>
@@ -513,6 +476,7 @@ export default function OrderForm() {
           </div>
         )}
 
+        {/* PASO 3 — ENTREGA */}
         {step === 3 && (
           <div>
             <h2 className="text-base font-bold text-gray-900 mb-3">Datos de entrega</h2>
