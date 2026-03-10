@@ -8,6 +8,7 @@ type Store = { id: string; name: string; owner_name: string; email: string; phon
 export default function StoresPage() {
   const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   useEffect(() => { loadStores() }, [])
 
@@ -33,6 +34,26 @@ export default function StoresPage() {
     loadStores()
   }
 
+  const deleteStore = async (store: Store) => {
+    if (!confirm(`⚠️ ¿Estás seguro de eliminar "${store.name}"?\n\nEsto borrará TODOS sus pedidos, productos, clientes y rutas. Esta acción no se puede deshacer.`)) return
+
+    setDeleting(store.id)
+    try {
+      const res = await fetch('/api/admin/delete-store', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId: store.id, email: store.email })
+      })
+
+      if (!res.ok) throw new Error('Error al eliminar')
+      loadStores()
+    } catch (e) {
+      alert('Error al eliminar la tienda. Intenta de nuevo.')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto" />
@@ -55,7 +76,6 @@ export default function StoresPage() {
         <div className="space-y-3">
           {stores.map(store => (
             <div key={store.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
-              {/* Info tienda */}
               <div className="flex items-start gap-2 mb-3 flex-wrap">
                 <h3 className="font-semibold text-gray-900">{store.name}</h3>
                 <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{store.store_prefix}</span>
@@ -68,7 +88,6 @@ export default function StoresPage() {
                 <p>📅 Vence: {store.expires_at ? new Date(store.expires_at).toLocaleDateString('es-PE') : 'Sin fecha'}</p>
               </div>
 
-              {/* Botones en grid */}
               <div className="grid grid-cols-2 sm:flex gap-2">
                 <button onClick={() => toggleStatus(store)}
                   className={`py-2 rounded-lg text-xs font-medium touch-manipulation ${store.status === 'active' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
@@ -80,6 +99,13 @@ export default function StoresPage() {
                     +{days} días
                   </button>
                 ))}
+                <button
+                  onClick={() => deleteStore(store)}
+                  disabled={deleting === store.id}
+                  className="py-2 rounded-lg text-xs font-medium bg-red-600 text-white touch-manipulation disabled:opacity-50 sm:ml-auto"
+                >
+                  {deleting === store.id ? '⏳ Eliminando...' : '🗑️ Eliminar'}
+                </button>
               </div>
             </div>
           ))}
