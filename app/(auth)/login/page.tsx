@@ -17,7 +17,7 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.toLowerCase().trim(), password })
 
     if (error) {
       setError('Correo o contraseña incorrectos')
@@ -29,7 +29,7 @@ export default function LoginPage() {
     const { data: store } = await supabase
       .from('stores')
       .select('id, status')
-      .eq('email', email)
+      .eq('email', email.toLowerCase().trim())
       .single()
 
       if (!store || store.status === 'admin') {

@@ -3,34 +3,17 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-type Store = {
-  id: string
-  name: string
-  owner_name: string
-  email: string
-  phone: string
-  status: string
-  store_prefix: string
-  expires_at: string
-  created_at: string
-}
+type Store = { id: string; name: string; owner_name: string; email: string; phone: string; status: string; store_prefix: string; expires_at: string; created_at: string }
 
 export default function StoresPage() {
   const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadStores()
-  }, [])
+  useEffect(() => { loadStores() }, [])
 
   const loadStores = async () => {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('stores')
-      .select('*')
-      .not('status', 'eq', 'pending')
-      .not('status', 'eq', 'admin')
-      .order('created_at', { ascending: false })
+    const { data } = await supabase.from('stores').select('*').not('status', 'eq', 'pending').not('status', 'eq', 'admin').order('created_at', { ascending: false })
     setStores(data || [])
     setLoading(false)
   }
@@ -52,15 +35,15 @@ export default function StoresPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <p className="text-gray-500">Cargando tiendas...</p>
+      <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto" />
     </div>
   )
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Gestión de tiendas</h1>
-        <p className="text-gray-500 mt-1">{stores.length} tiendas registradas</p>
+      <div className="mb-6">
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Gestión de tiendas</h1>
+        <p className="text-gray-500 text-sm mt-0.5">{stores.length} tiendas registradas</p>
       </div>
 
       {stores.length === 0 ? (
@@ -69,65 +52,34 @@ export default function StoresPage() {
           <p className="text-gray-500">No hay tiendas activas aún</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {stores.map((store) => (
-            <div key={store.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-3">
+          {stores.map(store => (
+            <div key={store.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
+              {/* Info tienda */}
+              <div className="flex items-start gap-2 mb-3 flex-wrap">
+                <h3 className="font-semibold text-gray-900">{store.name}</h3>
+                <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{store.store_prefix}</span>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${store.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {store.status === 'active' ? 'Activa' : 'Inactiva'}
+                </span>
+              </div>
+              <div className="text-xs text-gray-500 space-y-0.5 mb-3">
+                <p>👤 {store.owner_name} · ✉️ {store.email}</p>
+                <p>📅 Vence: {store.expires_at ? new Date(store.expires_at).toLocaleDateString('es-PE') : 'Sin fecha'}</p>
+              </div>
 
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-gray-900">{store.name}</h3>
-                    <span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                      {store.store_prefix}
-                    </span>
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      store.status === 'active'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {store.status === 'active' ? 'Activa' : 'Inactiva'}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-500 space-y-1">
-                    <p>👤 {store.owner_name} — ✉️ {store.email}</p>
-                    <p>📅 Vence: {store.expires_at
-                      ? new Date(store.expires_at).toLocaleDateString('es-PE')
-                      : 'Sin fecha'
-                    }</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => toggleStatus(store)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      store.status === 'active'
-                        ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                        : 'bg-green-50 text-green-600 hover:bg-green-100'
-                    }`}
-                  >
-                    {store.status === 'active' ? '🔴 Desactivar' : '🟢 Activar'}
+              {/* Botones en grid */}
+              <div className="grid grid-cols-2 sm:flex gap-2">
+                <button onClick={() => toggleStatus(store)}
+                  className={`py-2 rounded-lg text-xs font-medium touch-manipulation ${store.status === 'active' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                  {store.status === 'active' ? '🔴 Desactivar' : '🟢 Activar'}
+                </button>
+                {[30, 60, 90].map(days => (
+                  <button key={days} onClick={() => extendPlan(store.id, days)}
+                    className="py-2 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 touch-manipulation">
+                    +{days} días
                   </button>
-                  <button
-                    onClick={() => extendPlan(store.id, 30)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                  >
-                    +30 días
-                  </button>
-                  <button
-                    onClick={() => extendPlan(store.id, 60)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                  >
-                    +60 días
-                  </button>
-                  <button
-                    onClick={() => extendPlan(store.id, 90)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                  >
-                    +90 días
-                  </button>
-                </div>
-
+                ))}
               </div>
             </div>
           ))}

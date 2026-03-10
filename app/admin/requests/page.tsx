@@ -3,14 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
-type Store = {
-  id: string
-  name: string
-  owner_name: string
-  email: string
-  phone: string
-  created_at: string
-}
+type Store = { id: string; name: string; owner_name: string; email: string; phone: string; created_at: string }
 
 export default function RequestsPage() {
   const [requests, setRequests] = useState<Store[]>([])
@@ -18,45 +11,25 @@ export default function RequestsPage() {
   const [processing, setProcessing] = useState<string | null>(null)
   const [prefix, setPrefix] = useState<{ [key: string]: string }>({})
 
-  useEffect(() => {
-    loadRequests()
-  }, [])
+  useEffect(() => { loadRequests() }, [])
 
   const loadRequests = async () => {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('stores')
-      .select('id, name, owner_name, email, phone, created_at')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
+    const { data } = await supabase.from('stores').select('id, name, owner_name, email, phone, created_at').eq('status', 'pending').order('created_at', { ascending: false })
     setRequests(data || [])
     setLoading(false)
   }
 
   const handleApprove = async (store: Store) => {
     const storePrefix = prefix[store.id]?.toUpperCase()
-    if (!storePrefix || storePrefix.length < 2) {
-      alert('Ingresa un prefijo de al menos 2 letras para esta tienda')
-      return
-    }
+    if (!storePrefix || storePrefix.length < 2) { alert('Ingresa un prefijo de al menos 2 letras'); return }
     setProcessing(store.id)
     const supabase = createClient()
     const expires = new Date()
     expires.setDate(expires.getDate() + 30)
-    const { error } = await supabase
-      .from('stores')
-      .update({
-        status: 'active',
-        store_prefix: storePrefix,
-        expires_at: expires.toISOString(),
-      })
-      .eq('id', store.id)
-    if (error) {
-      alert('Error al aprobar: ' + error.message)
-    } else {
-      await supabase.from('store_features').insert({ store_id: store.id })
-      loadRequests()
-    }
+    const { error } = await supabase.from('stores').update({ status: 'active', store_prefix: storePrefix, expires_at: expires.toISOString() }).eq('id', store.id)
+    if (error) { alert('Error al aprobar: ' + error.message) }
+    else { await supabase.from('store_features').insert({ store_id: store.id }); loadRequests() }
     setProcessing(null)
   }
 
@@ -71,15 +44,15 @@ export default function RequestsPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <p className="text-gray-500">Cargando solicitudes...</p>
+      <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto" />
     </div>
   )
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Solicitudes pendientes</h1>
-        <p className="text-gray-500 mt-1">Tiendas que esperan aprobación</p>
+      <div className="mb-6">
+        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Solicitudes pendientes</h1>
+        <p className="text-gray-500 text-sm mt-0.5">Tiendas que esperan aprobación</p>
       </div>
 
       {requests.length === 0 ? (
@@ -89,11 +62,11 @@ export default function RequestsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {requests.map((store) => (
-            <div key={store.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{store.name}</h3>
+          {requests.map(store => (
+            <div key={store.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
+              <div className="flex flex-col gap-4">
+                <div>
+                  <h3 className="text-base lg:text-lg font-semibold text-gray-900">{store.name}</h3>
                   <div className="mt-2 space-y-1 text-sm text-gray-500">
                     <p>👤 {store.owner_name}</p>
                     <p>✉️ {store.email}</p>
@@ -102,34 +75,22 @@ export default function RequestsPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3 min-w-48">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Prefijo único (ej: SYR, FAR)
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={5}
-                      value={prefix[store.id] || ''}
-                      onChange={(e) => setPrefix({ ...prefix, [store.id]: e.target.value })}
-                      placeholder="Ej: SYR"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-600">Prefijo único (ej: SYR, FAR)</label>
+                  <input type="text" maxLength={5} value={prefix[store.id] || ''}
+                    onChange={e => setPrefix({ ...prefix, [store.id]: e.target.value })}
+                    placeholder="Ej: SYR"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => handleApprove(store)} disabled={processing === store.id}
+                      className="py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl text-sm disabled:opacity-50 touch-manipulation">
+                      ✅ Aprobar
+                    </button>
+                    <button onClick={() => handleReject(store.id)} disabled={processing === store.id}
+                      className="py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-xl text-sm disabled:opacity-50 touch-manipulation">
+                      ❌ Rechazar
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleApprove(store)}
-                    disabled={processing === store.id}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
-                  >
-                    ✅ Aprobar
-                  </button>
-                  <button
-                    onClick={() => handleReject(store.id)}
-                    disabled={processing === store.id}
-                    className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-medium py-2 px-4 rounded-lg text-sm transition-colors disabled:opacity-50"
-                  >
-                    ❌ Rechazar
-                  </button>
                 </div>
               </div>
             </div>

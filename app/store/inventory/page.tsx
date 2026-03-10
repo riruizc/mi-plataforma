@@ -23,7 +23,7 @@ export default function InventoryPage() {
   const [form, setForm] = useState({ name: '', category: '', cost_price: '', sale_price: '' })
   const [variants, setVariants] = useState<Variant[]>([{ color: '', stock: 0 }])
   const [saving, setSaving] = useState(false)
-
+  const [tab, setTab] = useState<'productos' | 'finanzas'>('productos')
   useEffect(() => { loadProducts() }, [])
 
   const loadProducts = async () => {
@@ -158,68 +158,176 @@ export default function InventoryPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
-          <p className="text-gray-500 mt-1">{products.length} productos</p>
-        </div>
-        <button
-          onClick={openNew}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm"
-        >
-          + Nuevo producto
-        </button>
-      </div>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  <div>
+    <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
+    <p className="text-gray-500 mt-1">{products.length} productos</p>
+  </div>
+  <div className="flex items-center gap-3">
+    <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+      <button
+        onClick={() => setTab('productos')}
+        className={'px-3 py-1.5 rounded-lg text-sm font-medium ' + (tab === 'productos' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500')}
+      >
+        📦 Productos
+      </button>
+      <button
+        onClick={() => setTab('finanzas')}
+        className={'px-3 py-1.5 rounded-lg text-sm font-medium ' + (tab === 'finanzas' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500')}
+      >
+        💰 Finanzas
+      </button>
+    </div>
+    {tab === 'productos' && (
+      <button onClick={openNew} className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm">
+        + Nuevo producto
+      </button>
+    )}
+  </div>
+</div>
 
-      {products.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
-          <p className="text-4xl mb-3">🗃️</p>
-          <p className="text-gray-500">No hay productos aún</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {products.map(product => (
-            <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="font-semibold text-gray-900">{product.name}</h3>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${product.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {product.is_active ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-500">{product.category}</p>
-                  <div className="flex gap-4 mt-1 text-sm">
-                    <span className="text-gray-500">Costo: <strong>S/ {Number(product.cost_price).toFixed(2)}</strong></span>
-                    <span className="text-gray-900">Venta: <strong>S/ {Number(product.sale_price).toFixed(2)}</strong></span>
-                  </div>
-                  {product.variants.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {product.variants.map((v, i) => (
-                        <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                          {v.color} — {v.stock} und.
-                        </span>
-                      ))}
-                    </div>
-                  )}
+{tab === 'productos' && (
+  <>
+    {products.length === 0 ? (
+      <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
+        <p className="text-4xl mb-3">🗃️</p>
+        <p className="text-gray-500">No hay productos aún</p>
+      </div>
+    ) : (
+      <div className="space-y-3">
+        {products.map(product => (
+          <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className="font-semibold text-gray-900">{product.name}</h3>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${product.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {product.is_active ? 'Activo' : 'Inactivo'}
+                  </span>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => openEdit(product)} className="px-3 py-1.5 rounded-lg text-sm bg-blue-50 text-blue-600 hover:bg-blue-100">
-                    ✏️ Editar
-                  </button>
-                  <button onClick={() => toggleActive(product)} className={`px-3 py-1.5 rounded-lg text-sm ${product.is_active ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}>
-                    {product.is_active ? 'Desactivar' : 'Activar'}
-                  </button>
-                  <button onClick={() => handleDelete(product.id)} className="px-3 py-1.5 rounded-lg text-sm bg-red-50 text-red-600 hover:bg-red-100">
-                    Eliminar
-                  </button>
+                <p className="text-sm text-gray-500">{product.category}</p>
+                <div className="flex gap-4 mt-1 text-sm">
+                  <span className="text-gray-500">Costo: <strong>S/ {Number(product.cost_price).toFixed(2)}</strong></span>
+                  <span className="text-gray-900">Venta: <strong>S/ {Number(product.sale_price).toFixed(2)}</strong></span>
                 </div>
+                {product.variants.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {product.variants.map((v, i) => (
+                      <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                        {v.color} — {v.stock} und.
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => openEdit(product)} className="px-3 py-1.5 rounded-lg text-sm bg-blue-50 text-blue-600 hover:bg-blue-100">
+                  ✏️ Editar
+                </button>
+                <button onClick={() => toggleActive(product)} className={`px-3 py-1.5 rounded-lg text-sm ${product.is_active ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}>
+                  {product.is_active ? 'Desactivar' : 'Activar'}
+                </button>
+                <button onClick={() => handleDelete(product.id)} className="px-3 py-1.5 rounded-lg text-sm bg-red-50 text-red-600 hover:bg-red-100">
+                  Eliminar
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
+    )}
+  </>
+)}
+{tab === 'finanzas' && (() => {
+  const totalProductos = products.length
+  const activos = products.filter(p => p.is_active).length
+  const totalStock = products.reduce((sum, p) => sum + p.variants.reduce((s, v) => s + v.stock, 0), 0)
+  const valorCosto = products.reduce((sum, p) => sum + p.variants.reduce((s, v) => s + v.stock * Number(p.cost_price), 0), 0)
+  const valorVenta = products.reduce((sum, p) => sum + p.variants.reduce((s, v) => s + v.stock * Number(p.sale_price), 0), 0)
+  const gananciaEstimada = valorVenta - valorCosto
 
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 mb-1">Productos activos</p>
+          <p className="text-3xl font-bold text-gray-900">{activos}</p>
+          <p className="text-xs text-gray-400 mt-1">de {totalProductos} en total</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 mb-1">Stock total</p>
+          <p className="text-3xl font-bold text-blue-600">{totalStock}</p>
+          <p className="text-xs text-gray-400 mt-1">unidades disponibles</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 mb-1">Valor en costo</p>
+          <p className="text-3xl font-bold text-orange-500">S/ {valorCosto.toFixed(2)}</p>
+          <p className="text-xs text-gray-400 mt-1">inversión en stock</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <p className="text-xs text-gray-500 mb-1">Ganancia estimada</p>
+          <p className="text-3xl font-bold text-green-600">S/ {gananciaEstimada.toFixed(2)}</p>
+          <p className="text-xs text-gray-400 mt-1">si vendes todo el stock</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <h2 className="font-semibold text-gray-900 mb-4">Detalle por producto</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left py-2 text-gray-500 font-medium">Producto</th>
+                <th className="text-right py-2 text-gray-500 font-medium">Stock</th>
+                <th className="text-right py-2 text-gray-500 font-medium">Costo unit.</th>
+                <th className="text-right py-2 text-gray-500 font-medium">Venta unit.</th>
+                <th className="text-right py-2 text-gray-500 font-medium">Margen</th>
+                <th className="text-right py-2 text-gray-500 font-medium">Ganancia est.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map(p => {
+                const stock = p.variants.reduce((s, v) => s + v.stock, 0)
+                const margen = Number(p.sale_price) - Number(p.cost_price)
+                const margenPct = Number(p.cost_price) > 0 ? (margen / Number(p.cost_price) * 100).toFixed(0) : '-'
+                const ganancia = stock * margen
+                return (
+                  <tr key={p.id} className="border-b border-gray-50 last:border-0">
+                    <td className="py-3">
+                      <p className="font-medium text-gray-900">{p.name}</p>
+                      <p className="text-xs text-gray-400">{p.category}</p>
+                    </td>
+                    <td className="py-3 text-right font-medium text-gray-900">{stock}</td>
+                    <td className="py-3 text-right text-gray-600">S/ {Number(p.cost_price).toFixed(2)}</td>
+                    <td className="py-3 text-right text-gray-600">S/ {Number(p.sale_price).toFixed(2)}</td>
+                    <td className="py-3 text-right">
+                      <span className={'font-medium ' + (margen >= 0 ? 'text-green-600' : 'text-red-500')}>
+                        {margenPct}%
+                      </span>
+                    </td>
+                    <td className="py-3 text-right font-bold text-green-600">
+                      S/ {ganancia.toFixed(2)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-200">
+                <td className="py-3 font-bold text-gray-900">TOTAL</td>
+                <td className="py-3 text-right font-bold text-gray-900">{totalStock}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td className="py-3 text-right font-bold text-green-600">S/ {gananciaEstimada.toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+})()}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-screen overflow-y-auto">
