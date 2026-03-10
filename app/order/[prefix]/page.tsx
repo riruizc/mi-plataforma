@@ -447,10 +447,11 @@ export default function OrderForm() {
             <h2 className="text-base font-bold text-gray-900 mb-3">Tus datos</h2>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">DNI <span className="text-gray-400 font-normal">(opcional)</span></label>
-                <input type="number" inputMode="numeric" value={customer.dni}
-                  onChange={(e) => setCustomer({ ...customer, dni: e.target.value })}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="12345678" />
+                <label className="block text-sm font-medium text-gray-700 mb-1">DNI / CE <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <input type="text" inputMode="numeric" value={customer.dni}
+                  onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 12) setCustomer({ ...customer, dni: val }) }}
+                  className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="DNI (8 dígitos) o CE (hasta 12)" maxLength={12} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo <span className="text-red-500">*</span></label>
@@ -460,9 +461,10 @@ export default function OrderForm() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Celular <span className="text-red-500">*</span></label>
-                <input type="tel" inputMode="tel" value={customer.phone}
-                  onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="999 999 999" />
+                <input type="text" inputMode="numeric" value={customer.phone}
+                  onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 9) setCustomer({ ...customer, phone: val }) }}
+                  className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="999 999 999" maxLength={9} />
               </div>
             </div>
             <div className="flex gap-3 mt-4">
