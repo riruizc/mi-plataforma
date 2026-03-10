@@ -84,7 +84,7 @@ function MapPicker({
     if (mapInstanceRef.current) return
     if (!mapRef.current) return
     const L = await import('leaflet')
-    await import('leaflet/dist/leaflet.css')
+    await import('leaflet/dist/leaflet.css' as any)
     if ((mapRef.current as any)._leaflet_id) {
       ;(mapRef.current as any)._leaflet_id = null
     }
