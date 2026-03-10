@@ -11,8 +11,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const supabase = createClient()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  useEffect(() => { setMenuOpen(false) }, [pathname])
-
+  useEffect(() => { 
+    setMenuOpen(false) 
+  }, [pathname])
+  
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+  
+      if (!user) {
+        router.push('/login')
+        return
+      }
+  
+      const { data: store } = await supabase
+        .from('stores')
+        .select('status')
+        .eq('email', user.email!)
+        .single()
+  
+      if (store?.status !== 'admin') {
+        router.push('/store/dashboard')
+      }
+    }
+  
+    checkAdmin()
+  }, [])
+  
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')

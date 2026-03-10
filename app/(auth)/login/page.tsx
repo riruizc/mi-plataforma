@@ -32,9 +32,9 @@ export default function LoginPage() {
       .eq('email', email.toLowerCase().trim())
       .single()
 
-      if (!store || store.status === 'admin') {
+      if (store?.status === 'admin') {
         router.push('/admin/dashboard')
-      } else if (store.status === 'pending') {
+      } else if (!store || store.status === 'pending') {
         router.push('/pending')
       } else if (store.status === 'active') {
         router.push('/store/dashboard')
