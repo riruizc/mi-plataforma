@@ -14,7 +14,12 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
   const [storeId, setStoreId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [features, setFeatures] = useState<Record<string, boolean>>({
-    inventory: true, routes: true, summary: true, tools: true, comprobante: true,
+    inventory: true,
+    routes: true,
+    summary: true,
+    tools: true,
+    comprobante: true,
+    combos: true,
   })
 
   useEffect(() => {
@@ -34,6 +39,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
           summary: feat.summary ?? true,
           tools: feat.labels ?? true,
           comprobante: feat.comprobante ?? true,
+          combos: feat.combos ?? true,
         })
       }
 
@@ -70,6 +76,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
     { label: 'Pedidos', href: '/store/orders', icon: '📦', feature: null },
     { label: 'Clientes', href: '/store/customers', icon: '👥', feature: null },
     { label: 'Inventario', href: '/store/inventory', icon: '🗃️', feature: 'inventory' },
+    { label: 'Combos', href: '/store/combos', icon: '🎁', feature: 'combos' },
     { label: 'Rutas', href: '/store/routes', icon: '🗺️', feature: 'routes' },
     { label: 'Resumen', href: '/store/summary', icon: '📈', feature: 'summary' },
     { label: 'Herramientas', href: '/store/tools', icon: '🔧', feature: 'tools' },
