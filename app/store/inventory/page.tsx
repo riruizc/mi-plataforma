@@ -38,6 +38,7 @@ export default function InventoryPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const scannerRef = useRef<any>(null)
+  const hasScannedRef = useRef(false)
 
   useEffect(() => { loadProducts() }, [])
 
@@ -65,6 +66,7 @@ export default function InventoryPage() {
 
   // ── SCANNER ──────────────────────────────────────────────
   const startScanner = async (mode: 'inventory' | 'form') => {
+    hasScannedRef.current = false
     setScannerMode(mode)
     setScannerError('')
     setShowScanner(true)
@@ -115,6 +117,8 @@ export default function InventoryPage() {
   }, [showScanner])
 
   const handleBarcodeDetected = (code: string) => {
+    if (hasScannedRef.current) return
+    hasScannedRef.current = true
     try { scannerRef.current?.reset() } catch (_) {}
     setShowScanner(false)
     setScanning(false)
