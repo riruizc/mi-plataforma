@@ -4,11 +4,25 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
 type Store = { id: string; name: string; owner_name: string; email: string; phone: string; status: string; store_prefix: string; expires_at: string; created_at: string }
+type Features = { inventory: boolean; routes: boolean; summary: boolean; tools: boolean; comprobante: boolean }
+
+const FEATURE_LABELS: { key: keyof Features; label: string; icon: string }[] = [
+  { key: 'inventory', label: 'Inventario', icon: '🗃️' },
+  { key: 'routes', label: 'Rutas', icon: '🗺️' },
+  { key: 'summary', label: 'Resumen', icon: '📈' },
+  { key: 'tools', label: 'Herramientas', icon: '🔧' },
+  { key: 'comprobante', label: 'Comprobante PDF', icon: '🧾' },
+]
 
 export default function StoresPage() {
   const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
+
+  // Features modal
+  const [featuresStore, setFeaturesStore] = useState<Store | null>(null)
+  const [features, setFeatures] = useState<Features>({ inventory: true, routes: true, summary: true, tools: true, comprobante: true })
+  const [savingFeatures, setSavingFeatures] = useState(false)
 
   useEffect(() => { loadStores() }, [])
 
@@ -36,7 +50,6 @@ export default function StoresPage() {
 
   const deleteStore = async (store: Store) => {
     if (!confirm(`⚠️ ¿Estás seguro de eliminar "${store.name}"?\n\nEsto borrará TODOS sus pedidos, productos, clientes y rutas. Esta acción no se puede deshacer.`)) return
-
     setDeleting(store.id)
     try {
       const res = await fetch('/api/admin/delete-store', {
@@ -44,7 +57,6 @@ export default function StoresPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ storeId: store.id, email: store.email })
       })
-
       if (!res.ok) throw new Error('Error al eliminar')
       loadStores()
     } catch (e) {
@@ -52,6 +64,41 @@ export default function StoresPage() {
     } finally {
       setDeleting(null)
     }
+  }
+
+  const openFeatures = async (store: Store) => {
+    setFeaturesStore(store)
+    const supabase = createClient()
+    const { data } = await supabase.from('store_features').select('*').eq('store_id', store.id).single()
+    if (data) {
+      setFeatures({
+        inventory: data.inventory ?? true,
+        routes: data.routes ?? true,
+        summary: data.summary ?? true,
+        tools: data.labels ?? true,
+        comprobante: data.comprobante ?? true,
+      })
+    } else {
+      // Si no existe registro, crear uno con todo activado
+      await supabase.from('store_features').insert({ store_id: store.id, inventory: true, routes: true, summary: true, labels: true, comprobante: true })
+      setFeatures({ inventory: true, routes: true, summary: true, tools: true, comprobante: true })
+    }
+  }
+
+  const saveFeatures = async () => {
+    if (!featuresStore) return
+    setSavingFeatures(true)
+    const supabase = createClient()
+    await supabase.from('store_features').upsert({
+      store_id: featuresStore.id,
+      inventory: features.inventory,
+      routes: features.routes,
+      summary: features.summary,
+      labels: features.tools,
+      comprobante: features.comprobante,
+    }, { onConflict: 'store_id' })
+    setSavingFeatures(false)
+    setFeaturesStore(null)
   }
 
   if (loading) return (
@@ -62,6 +109,46 @@ export default function StoresPage() {
 
   return (
     <div>
+      {/* MODAL FEATURES */}
+      {featuresStore && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="mb-5">
+              <h3 className="font-bold text-gray-900 text-lg">⚙️ Módulos activos</h3>
+              <p className="text-gray-500 text-sm mt-0.5">{featuresStore.name}</p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              {FEATURE_LABELS.map(({ key, label, icon }) => (
+                <div key={key} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">{icon}</span>
+                    <span className="text-sm font-medium text-gray-800">{label}</span>
+                  </div>
+                  <button
+                    onClick={() => setFeatures(prev => ({ ...prev, [key]: !prev[key] }))}
+                    className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${features[key] ? 'bg-green-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${features[key] ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={saveFeatures} disabled={savingFeatures}
+                className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50">
+                {savingFeatures ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+              <button onClick={() => setFeaturesStore(null)}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-6">
         <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Gestión de tiendas</h1>
         <p className="text-gray-500 text-sm mt-0.5">{stores.length} tiendas registradas</p>
@@ -99,11 +186,12 @@ export default function StoresPage() {
                     +{days} días
                   </button>
                 ))}
-                <button
-                  onClick={() => deleteStore(store)}
-                  disabled={deleting === store.id}
-                  className="py-2 rounded-lg text-xs font-medium bg-red-600 text-white touch-manipulation disabled:opacity-50 sm:ml-auto"
-                >
+                <button onClick={() => openFeatures(store)}
+                  className="py-2 rounded-lg text-xs font-medium bg-purple-50 text-purple-600 touch-manipulation">
+                  ⚙️ Módulos
+                </button>
+                <button onClick={() => deleteStore(store)} disabled={deleting === store.id}
+                  className="py-2 rounded-lg text-xs font-medium bg-red-600 text-white touch-manipulation disabled:opacity-50 sm:ml-auto">
                   {deleting === store.id ? '⏳ Eliminando...' : '🗑️ Eliminar'}
                 </button>
               </div>
