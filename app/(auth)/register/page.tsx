@@ -41,7 +41,7 @@ export default function RegisterPage() {
 
     // Crear usuario en Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: formData.email,
+      email: formData.email.toLowerCase().trim(),
       password: formData.password
     })
 
@@ -57,7 +57,7 @@ export default function RegisterPage() {
       .insert({
         name: formData.name,
         owner_name: formData.owner_name,
-        email: formData.email,
+        email: formData.email.toLowerCase().trim(),
         phone: formData.phone,
         status: 'pending'
       })
