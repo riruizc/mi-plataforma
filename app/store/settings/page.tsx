@@ -9,6 +9,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [formActive, setFormActive] = useState(true)
+  const [togglingForm, setTogglingForm] = useState(false)
+  const [copied, setCopied] = useState(false)
   const [formData, setFormData] = useState({
     name: '', phone: '', owner_name: '', theme_color: '#3b82f6',
     origin_lat: '', origin_lng: ''
@@ -25,6 +28,7 @@ export default function SettingsPage() {
       const { data } = await supabase.from('stores').select('*').eq('email', (user.email ?? '').toLowerCase()).single()
       if (data) {
         setStore(data)
+        setFormActive(data.form_active !== false)
         setFormData({
           name: data.name || '',
           phone: data.phone || '',
@@ -76,6 +80,28 @@ export default function SettingsPage() {
     finally { setSaving(false) }
   }
 
+  const toggleFormActive = async () => {
+    if (!store) return
+    setTogglingForm(true)
+    try {
+      const supabase = createClient()
+      const newValue = !formActive
+      await supabase.from('stores').update({ form_active: newValue }).eq('id', store.id)
+      setFormActive(newValue)
+    } catch (e) { alert('Error al cambiar estado') }
+    finally { setTogglingForm(false) }
+  }
+
+  const formLink = typeof window !== 'undefined' && store
+    ? `${window.location.origin}/order/${store.store_prefix}`
+    : ''
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(formLink)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto" />
@@ -91,6 +117,53 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
+
+          {/* Link del formulario */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <h2 className="font-semibold text-gray-900 mb-1">🔗 Link de tu formulario</h2>
+            <p className="text-xs text-gray-400 mb-3">Comparte este link con tus clientes para que hagan pedidos</p>
+
+            <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-3 border border-gray-200">
+              <p className="text-xs text-gray-600 flex-1 truncate font-mono">{formLink}</p>
+              <button onClick={copyLink}
+                className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white touch-manipulation">
+                {copied ? '✅ Copiado' : '📋 Copiar'}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl border border-gray-200">
+              <div>
+                <p className="text-sm font-medium text-gray-800">Formulario activo</p>
+                <p className="text-xs text-gray-400">
+                  {formActive ? 'Tus clientes pueden hacer pedidos' : 'El formulario está desactivado'}
+                </p>
+              </div>
+              <button
+                onClick={toggleFormActive}
+                disabled={togglingForm}
+                className={`relative w-12 h-6 rounded-full transition-colors touch-manipulation disabled:opacity-50 ${
+                  formActive ? 'bg-green-500' : 'bg-gray-300'
+                }`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                  formActive ? 'translate-x-7' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+
+            {!formActive && (
+              <div className="mt-2 bg-orange-50 border border-orange-200 rounded-xl p-3">
+                <p className="text-xs text-orange-700 font-medium">
+                  ⚠️ El formulario está desactivado. Los clientes verán un mensaje de "no disponible".
+                </p>
+              </div>
+            )}
+
+            <button onClick={() => window.open(formLink, '_blank')}
+              className="w-full mt-3 py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 touch-manipulation">
+              👁️ Ver formulario
+            </button>
+          </div>
 
           {/* Logo */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
