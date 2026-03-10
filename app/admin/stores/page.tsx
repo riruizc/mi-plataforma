@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
 type Store = { id: string; name: string; owner_name: string; email: string; phone: string; status: string; store_prefix: string; expires_at: string; created_at: string }
-type Features = { inventory: boolean; routes: boolean; summary: boolean; tools: boolean; comprobante: boolean }
+type Features = { inventory: boolean; routes: boolean; summary: boolean; tools: boolean; comprobante: boolean; combos: boolean }
 
 const FEATURE_LABELS: { key: keyof Features; label: string; icon: string }[] = [
   { key: 'inventory', label: 'Inventario', icon: '🗃️' },
@@ -12,6 +12,7 @@ const FEATURE_LABELS: { key: keyof Features; label: string; icon: string }[] = [
   { key: 'summary', label: 'Resumen', icon: '📈' },
   { key: 'tools', label: 'Herramientas', icon: '🔧' },
   { key: 'comprobante', label: 'Comprobante PDF', icon: '🧾' },
+  { key: 'combos', label: 'Combos', icon: '🎁' },
 ]
 
 export default function StoresPage() {
@@ -21,7 +22,7 @@ export default function StoresPage() {
 
   // Features modal
   const [featuresStore, setFeaturesStore] = useState<Store | null>(null)
-  const [features, setFeatures] = useState<Features>({ inventory: true, routes: true, summary: true, tools: true, comprobante: true })
+  const [features, setFeatures] = useState<Features>({ inventory: true, routes: true, summary: true, tools: true, comprobante: true, combos: true })
   const [savingFeatures, setSavingFeatures] = useState(false)
 
   useEffect(() => { loadStores() }, [])
@@ -77,11 +78,12 @@ export default function StoresPage() {
         summary: data.summary ?? true,
         tools: data.labels ?? true,
         comprobante: data.comprobante ?? true,
+        combos: data.combos ?? true,
       })
     } else {
       // Si no existe registro, crear uno con todo activado
-      await supabase.from('store_features').insert({ store_id: store.id, inventory: true, routes: true, summary: true, labels: true, comprobante: true })
-      setFeatures({ inventory: true, routes: true, summary: true, tools: true, comprobante: true })
+      await supabase.from('store_features').insert({ store_id: store.id, inventory: true, routes: true, summary: true, labels: true, comprobante: true, combos: true })
+      setFeatures({ inventory: true, routes: true, summary: true, tools: true, comprobante: true, combos: true })
     }
   }
 
