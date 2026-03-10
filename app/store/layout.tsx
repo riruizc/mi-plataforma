@@ -68,6 +68,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
     { label: 'Dashboard', href: '/store/dashboard', icon: '📊', feature: null },
     { label: 'Ajustes', href: '/store/settings', icon: '⚙️', feature: null },
     { label: 'Pedidos', href: '/store/orders', icon: '📦', feature: null },
+    { label: 'Clientes', href: '/store/customers', icon: '👥', feature: null },
     { label: 'Inventario', href: '/store/inventory', icon: '🗃️', feature: 'inventory' },
     { label: 'Rutas', href: '/store/routes', icon: '🗺️', feature: 'routes' },
     { label: 'Resumen', href: '/store/summary', icon: '📈', feature: 'summary' },
