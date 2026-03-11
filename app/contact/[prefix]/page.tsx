@@ -6,11 +6,12 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
 
-export default async function ContactPage({ params }: { params: { prefix: string } }) {
+export default async function ContactPage({ params }: { params: Promise<{ prefix: string }> }) {
+    const { prefix } = await params
   const { data: store } = await supabase
     .from('stores')
     .select('id, name, logo_url, phone, contact_active, contact_bg_color, contact_logo_shape, contact_description, contact_whatsapp_msg, contact_facebook, contact_tiktok, contact_instagram, store_prefix')
-    .eq('store_prefix', params.prefix)
+    .eq('store_prefix', prefix)
     .single()
 
   if (!store || !store.contact_active) return notFound()
@@ -18,7 +19,7 @@ export default async function ContactPage({ params }: { params: { prefix: string
   const phone = (store.phone || '').replace(/\D/g, '')
   const waMsg = encodeURIComponent(store.contact_whatsapp_msg || '¡Hola! Quiero hacer un pedido 👋')
   const waLink = phone ? `https://wa.me/51${phone}?text=${waMsg}` : null
-  const catalogLink = `/catalog/${store.store_prefix}`
+  const catalogLink = `/catalog/${prefix}`
   const bgColor = store.contact_bg_color || '#ffffff'
   const isLight = isLightColor(bgColor)
   const textColor = isLight ? '#111827' : '#ffffff'
