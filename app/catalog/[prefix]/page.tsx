@@ -33,24 +33,26 @@ export default function CatalogPage({ params }: { params: { prefix: string } }) 
   }, [])
 
   const loadData = async (prefix: string) => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
     const { data: storeData } = await supabase
       .from('stores')
-      .select('id, name, phone, theme_color, logo_url, store_prefix, contact_whatsapp_msg')
+      .select('id, name, phone, theme_color, logo_url, store_prefix, contact_whatsapp_msg, catalog_active')
       .eq('store_prefix', prefix)
       .single()
-
-    if (!storeData) { setNotFound(true); setLoading(false); return }
+  
+    if (!storeData || !storeData.catalog_active) { setNotFound(true); setLoading(false); return }
     setStore(storeData)
-
+  
     const [{ data: prods }, { data: combosData }, { data: comboItems }] = await Promise.all([
       supabase.from('products').select('id, name, category, sale_price, is_active').eq('store_id', storeData.id).eq('is_active', true).order('category').order('name'),
       supabase.from('combos').select('id, name, description, price, is_active').eq('store_id', storeData.id).eq('is_active', true).order('name'),
       supabase.from('combo_items').select('combo_id, quantity, products(name)') as any,
     ])
-
+  
     setProducts(prods || [])
-
-    // Mapear items a combos
     const mappedCombos = (combosData || []).map((c: any) => ({
       ...c,
       items: (comboItems || [])
