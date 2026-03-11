@@ -14,7 +14,7 @@ type ComboItem = { product_name: string; quantity: number }
 type Combo = { id: string; name: string; description: string; price: number; is_active: boolean; items: ComboItem[] }
 type Selected = { id: string; name: string; price: number; type: 'product' | 'combo'; qty: number }
 
-export default function CatalogPage({ params }: { params: { prefix: string } }) {
+export default function CatalogPage({ params }: { params: Promise<{ prefix: string }> }) {
   const [store, setStore] = useState<Store | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [combos, setCombos] = useState<Combo[]>([])
@@ -25,8 +25,7 @@ export default function CatalogPage({ params }: { params: { prefix: string } }) 
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    const prefix = params.prefix
-    loadData(prefix)
+    params.then(({ prefix }) => loadData(prefix))
   }, [])
 
   const loadData = async (prefix: string) => {
