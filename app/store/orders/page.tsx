@@ -152,17 +152,56 @@ export default function OrdersPage() {
   }
 
   const handleStatusChange = async (order: Order, newStatus: string) => {
-    if (newStatus === 'cancelled') { handleCancel(order); return }
+    if (newStatus === 'cancelled') {
+      handleCancel(order)
+      return
+    }
+  
     const supabase = createClient()
     const updateData: any = { status: newStatus }
-    if (newStatus === 'delivered') updateData.delivered_at = new Date().toISOString()
+  
+    if (newStatus === 'delivered') {
+      updateData.delivered_at = new Date().toISOString()
+    }
+  
     await supabase.from('orders').update(updateData).eq('id', order.id)
+  
+    if (newStatus === 'delivered' && order.status !== 'delivered' && storeId) {
+      await supabase.from('finance_transactions').insert({
+        store_id: storeId,
+        type: 'income',
+        source: 'order',
+        description: `Pedido ${order.order_code}`,
+        amount: order.total_amount,
+        order_id: order.id,
+      })
+    }
+  
     loadOrders()
   }
 
   const handleDeliver = async (order: Order) => {
     const supabase = createClient()
-    await supabase.from('orders').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', order.id)
+  
+    await supabase
+      .from('orders')
+      .update({
+        status: 'delivered',
+        delivered_at: new Date().toISOString(),
+      })
+      .eq('id', order.id)
+  
+    if (order.status !== 'delivered' && storeId) {
+      await supabase.from('finance_transactions').insert({
+        store_id: storeId,
+        type: 'income',
+        source: 'order',
+        description: `Pedido ${order.order_code}`,
+        amount: order.total_amount,
+        order_id: order.id,
+      })
+    }
+  
     loadOrders()
   }
 
