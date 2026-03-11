@@ -49,9 +49,7 @@ export default function SettingsPage() {
         setFormActive(data.form_active !== false)
         setCatalogActive(data.catalog_active || false)
         setFormData({
-          name: data.name || '',
-          phone: data.phone || '',
-          owner_name: data.owner_name || '',
+          name: data.name || '', phone: data.phone || '', owner_name: data.owner_name || '',
           theme_color: data.theme_color || '#3b82f6',
           origin_lat: data.origin_lat ? String(data.origin_lat) : '',
           origin_lng: data.origin_lng ? String(data.origin_lng) : '',
@@ -163,38 +161,37 @@ export default function SettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
 
-          {/* Link del formulario */}
+          {/* 1. Formulario */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-1">🔗 Link de tu formulario</h2>
-            <p className="text-xs text-gray-400 mb-3">Comparte este link con tus clientes para que hagan pedidos</p>
-            <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-3 border border-gray-200">
-              <p className="text-xs text-gray-600 flex-1 truncate font-mono">{formLink}</p>
-              <button onClick={copyLink} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white touch-manipulation">
-                {copied ? '✅ Copiado' : '📋 Copiar'}
-              </button>
-            </div>
-            <div className="flex items-center justify-between p-3 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-sm font-medium text-gray-800">Formulario activo</p>
-                <p className="text-xs text-gray-400">{formActive ? 'Tus clientes pueden hacer pedidos' : 'El formulario está desactivado'}</p>
+                <h2 className="font-semibold text-gray-900">🔗 Link de tu formulario</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {formActive ? 'Tus clientes pueden hacer pedidos' : 'El formulario está desactivado'}
+                </p>
               </div>
               <button onClick={toggleFormActive} disabled={togglingForm}
                 className={`relative w-12 h-6 rounded-full transition-colors touch-manipulation disabled:opacity-50 ${formActive ? 'bg-green-500' : 'bg-gray-300'}`}>
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${formActive ? 'translate-x-7' : 'translate-x-1'}`} />
               </button>
             </div>
-            {!formActive && (
-              <div className="mt-2 bg-orange-50 border border-orange-200 rounded-xl p-3">
-                <p className="text-xs text-orange-700 font-medium">⚠️ El formulario está desactivado.</p>
-              </div>
+            {formActive && (
+              <>
+                <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-3 border border-gray-200">
+                  <p className="text-xs text-gray-600 flex-1 truncate font-mono">{formLink}</p>
+                  <button onClick={copyLink} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white touch-manipulation">
+                    {copied ? '✅ Copiado' : '📋 Copiar'}
+                  </button>
+                </div>
+                <button onClick={() => window.open(formLink, '_blank')}
+                  className="w-full py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 touch-manipulation">
+                  👁️ Ver formulario
+                </button>
+              </>
             )}
-            <button onClick={() => window.open(formLink, '_blank')}
-              className="w-full mt-3 py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 touch-manipulation">
-              👁️ Ver formulario
-            </button>
           </div>
 
-          {/* Catálogo público */}
+          {/* 2. Catálogo */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -221,63 +218,7 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Logo */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-4">Logo de la tienda</h2>
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-2xl border-2 border-gray-200 overflow-hidden flex items-center justify-center bg-gray-50">
-                {store?.logo_url ? <img src={store.logo_url} alt="Logo" className="w-full h-full object-cover" /> : <span className="text-3xl">🏪</span>}
-              </div>
-              <div className="flex-1">
-                <p className="text-sm text-gray-600 mb-2">PNG o JPG, máximo 2MB</p>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden"
-                  onChange={e => { if (e.target.files?.[0]) uploadLogo(e.target.files[0]) }} />
-                <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium disabled:opacity-50 touch-manipulation">
-                  {uploading ? 'Subiendo...' : '📤 Subir logo'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Color */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-4">Color de tema</h2>
-            <div className="flex items-center gap-4">
-              <input type="color" value={formData.theme_color}
-                onChange={e => setFormData(prev => ({ ...prev, theme_color: e.target.value }))}
-                className="w-16 h-16 rounded-xl border border-gray-200 cursor-pointer" />
-              <div>
-                <p className="text-sm font-medium text-gray-700">Color seleccionado</p>
-                <p className="text-sm text-gray-500 font-mono">{formData.theme_color}</p>
-                <p className="text-xs text-gray-400 mt-1">Aparece en el formulario público</p>
-              </div>
-            </div>
-            <div className="mt-4 rounded-xl p-4 text-white text-sm font-medium text-center" style={{ backgroundColor: formData.theme_color }}>
-              Vista previa del color en tu formulario
-            </div>
-          </div>
-
-          {/* Punto de origen */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-1">Punto de salida del motorizado</h2>
-            <p className="text-xs text-gray-400 mb-4">Desde aquí se calcula la ruta óptima.</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Latitud</label>
-                <input type="text" value={formData.origin_lat} onChange={e => setFormData(prev => ({ ...prev, origin_lat: e.target.value }))}
-                  placeholder="Ej: -8.1116" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Longitud</label>
-                <input type="text" value={formData.origin_lng} onChange={e => setFormData(prev => ({ ...prev, origin_lng: e.target.value }))}
-                  placeholder="Ej: -79.0286" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-            </div>
-            {formData.origin_lat && formData.origin_lng && <p className="text-xs text-green-600 mt-2">📍 Coordenadas configuradas</p>}
-          </div>
-
-          {/* PANEL DE CONTACTO */}
+          {/* 3. Panel de contacto */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -290,12 +231,14 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-4 border border-gray-200">
-              <p className="text-xs text-gray-600 flex-1 truncate font-mono">{contactLink}</p>
-              <button onClick={copyContactLink} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white">
-                {copiedContact ? '✅ Copiado' : '📋 Copiar'}
-              </button>
-            </div>
+            {contactData.contact_active && (
+              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-4 border border-gray-200">
+                <p className="text-xs text-gray-600 flex-1 truncate font-mono">{contactLink}</p>
+                <button onClick={copyContactLink} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white">
+                  {copiedContact ? '✅ Copiado' : '📋 Copiar'}
+                </button>
+              </div>
+            )}
 
             <div className="space-y-4">
               <div>
@@ -339,27 +282,19 @@ export default function SettingsPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-2">Redes sociales <span className="text-gray-400">(deja vacío para ocultar)</span></label>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg w-7">📘</span>
-                    <input type="text" value={contactData.contact_facebook}
-                      onChange={e => setContactData(p => ({ ...p, contact_facebook: e.target.value }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="URL de Facebook" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg w-7">🎵</span>
-                    <input type="text" value={contactData.contact_tiktok}
-                      onChange={e => setContactData(p => ({ ...p, contact_tiktok: e.target.value }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="URL de TikTok" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg w-7">📸</span>
-                    <input type="text" value={contactData.contact_instagram}
-                      onChange={e => setContactData(p => ({ ...p, contact_instagram: e.target.value }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="URL de Instagram" />
-                  </div>
+                  {[
+                    { key: 'contact_facebook', icon: '📘', placeholder: 'URL de Facebook' },
+                    { key: 'contact_tiktok', icon: '🎵', placeholder: 'URL de TikTok' },
+                    { key: 'contact_instagram', icon: '📸', placeholder: 'URL de Instagram' },
+                  ].map(({ key, icon, placeholder }) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="text-lg w-7">{icon}</span>
+                      <input type="text" value={(contactData as any)[key]}
+                        onChange={e => setContactData(p => ({ ...p, [key]: e.target.value }))}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder={placeholder} />
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -378,6 +313,62 @@ export default function SettingsPage() {
                 <button onClick={() => window.open(contactLink, '_blank')}
                   className="px-4 py-3 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium">👁️ Ver</button>
               )}
+            </div>
+          </div>
+
+          {/* 4. Punto de origen */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <h2 className="font-semibold text-gray-900 mb-1">📍 Punto de salida del motorizado</h2>
+            <p className="text-xs text-gray-400 mb-4">Desde aquí se calcula la ruta óptima.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Latitud</label>
+                <input type="text" value={formData.origin_lat} onChange={e => setFormData(prev => ({ ...prev, origin_lat: e.target.value }))}
+                  placeholder="Ej: -8.1116" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Longitud</label>
+                <input type="text" value={formData.origin_lng} onChange={e => setFormData(prev => ({ ...prev, origin_lng: e.target.value }))}
+                  placeholder="Ej: -79.0286" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            {formData.origin_lat && formData.origin_lng && <p className="text-xs text-green-600 mt-2">📍 Coordenadas configuradas</p>}
+          </div>
+
+          {/* 5. Logo */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Logo de la tienda</h2>
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-2xl border-2 border-gray-200 overflow-hidden flex items-center justify-center bg-gray-50">
+                {store?.logo_url ? <img src={store.logo_url} alt="Logo" className="w-full h-full object-cover" /> : <span className="text-3xl">🏪</span>}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-2">PNG o JPG, máximo 2MB</p>
+                <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                  onChange={e => { if (e.target.files?.[0]) uploadLogo(e.target.files[0]) }} />
+                <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium disabled:opacity-50 touch-manipulation">
+                  {uploading ? 'Subiendo...' : '📤 Subir logo'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 6. Color */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Color de tema</h2>
+            <div className="flex items-center gap-4">
+              <input type="color" value={formData.theme_color}
+                onChange={e => setFormData(prev => ({ ...prev, theme_color: e.target.value }))}
+                className="w-16 h-16 rounded-xl border border-gray-200 cursor-pointer" />
+              <div>
+                <p className="text-sm font-medium text-gray-700">Color seleccionado</p>
+                <p className="text-sm text-gray-500 font-mono">{formData.theme_color}</p>
+                <p className="text-xs text-gray-400 mt-1">Aparece en el formulario público</p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-xl p-4 text-white text-sm font-medium text-center" style={{ backgroundColor: formData.theme_color }}>
+              Vista previa del color en tu formulario
             </div>
           </div>
 

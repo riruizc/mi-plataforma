@@ -121,7 +121,7 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
     <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50">
       <p className="text-4xl mb-3">🏪</p>
       <p className="text-gray-700 font-semibold text-lg">Catálogo no disponible</p>
-      <p className="text-gray-400 text-sm mt-1">Esta tienda no existe o no tiene catálogo activo</p>
+      <p className="text-gray-400 text-sm mt-1">Catálogo en actualización, vuelve pronto</p>
     </div>
   )
 
