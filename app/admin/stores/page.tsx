@@ -4,16 +4,35 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
 type Store = { id: string; name: string; owner_name: string; email: string; phone: string; status: string; store_prefix: string; expires_at: string; created_at: string }
-type Features = { inventory: boolean; routes: boolean; summary: boolean; tools: boolean; comprobante: boolean; combos: boolean }
+type Features = {
+  settings: boolean; orders: boolean; customers: boolean; quotes: boolean;
+  suppliers: boolean; finances: boolean; goals: boolean;
+  inventory: boolean; combos: boolean; routes: boolean; summary: boolean;
+  tools: boolean; comprobante: boolean;
+}
 
 const FEATURE_LABELS: { key: keyof Features; label: string; icon: string; desc: string }[] = [
-  { key: 'inventory',   label: 'Inventario',      icon: '🗃️', desc: 'Stock, variantes y código de barras' },
-  { key: 'combos',      label: 'Combos',           icon: '🎁', desc: 'Paquetes de productos con precio especial' },
-  { key: 'routes',      label: 'Rutas',            icon: '🗺️', desc: 'Planificación de rutas de delivery' },
-  { key: 'summary',     label: 'Resumen',          icon: '📈', desc: 'Reportes de ventas por período' },
-  { key: 'tools',       label: 'Herramientas',     icon: '🔧', desc: 'Etiquetas y lector de código de barras' },
-  { key: 'comprobante', label: 'Comprobante PDF',  icon: '🧾', desc: 'Genera y envía PDF de pedidos por WhatsApp' },
+  { key: 'settings',    label: 'Ajustes',          icon: '⚙️',  desc: 'Configuración de la tienda, formulario y contacto' },
+  { key: 'orders',      label: 'Pedidos',           icon: '📦',  desc: 'Gestión y seguimiento de pedidos' },
+  { key: 'customers',   label: 'Clientes',          icon: '👥',  desc: 'Base de datos de clientes con historial' },
+  { key: 'quotes',      label: 'Cotizaciones',      icon: '📄',  desc: 'Crear y gestionar cotizaciones' },
+  { key: 'suppliers',   label: 'Proveedores',       icon: '🚚',  desc: 'Directorio de proveedores' },
+  { key: 'finances',    label: 'Finanzas',          icon: '💰',  desc: 'Capital, ingresos y egresos' },
+  { key: 'goals',       label: 'Metas',             icon: '🎯',  desc: 'Seguimiento de objetivos de venta' },
+  { key: 'inventory',   label: 'Inventario',        icon: '🗃️',  desc: 'Stock, variantes y código de barras' },
+  { key: 'combos',      label: 'Combos',            icon: '🎁',  desc: 'Paquetes de productos con precio especial' },
+  { key: 'routes',      label: 'Rutas',             icon: '🗺️',  desc: 'Planificación de rutas de delivery' },
+  { key: 'summary',     label: 'Resumen',           icon: '📈',  desc: 'Reportes de ventas por período' },
+  { key: 'tools',       label: 'Herramientas',      icon: '🔧',  desc: 'Etiquetas y lector de código de barras' },
+  { key: 'comprobante', label: 'Comprobante PDF',   icon: '🧾',  desc: 'Genera y envía PDF de pedidos por WhatsApp' },
 ]
+
+const DEFAULT_FEATURES: Features = {
+  settings: true, orders: true, customers: true, quotes: true,
+  suppliers: true, finances: true, goals: true,
+  inventory: true, combos: true, routes: true, summary: true,
+  tools: true, comprobante: true,
+}
 
 export default function StoresPage() {
   const [stores, setStores] = useState<Store[]>([])
@@ -21,7 +40,7 @@ export default function StoresPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
 
   const [featuresStore, setFeaturesStore] = useState<Store | null>(null)
-  const [features, setFeatures] = useState<Features>({ inventory: true, routes: true, summary: true, tools: true, comprobante: true, combos: true })
+  const [features, setFeatures] = useState<Features>(DEFAULT_FEATURES)
   const [savingFeatures, setSavingFeatures] = useState(false)
   const [savedOk, setSavedOk] = useState(false)
 
@@ -74,22 +93,30 @@ export default function StoresPage() {
     const { data } = await supabase.from('store_features').select('*').eq('store_id', store.id).single()
     if (data) {
       setFeatures({
+        settings:    data.settings    ?? true,
+        orders:      data.orders      ?? true,
+        customers:   data.customers   ?? true,
+        quotes:      data.quotes      ?? true,
+        suppliers:   data.suppliers   ?? true,
+        finances:    data.finances    ?? true,
+        goals:       data.goals       ?? true,
         inventory:   data.inventory   ?? true,
+        combos:      data.combos      ?? true,
         routes:      data.routes      ?? true,
         summary:     data.summary     ?? true,
-        tools:       data.labels      ?? true,   // columna BD = labels
+        tools:       data.labels      ?? true,
         comprobante: data.comprobante ?? true,
-        combos:      data.combos      ?? true,
       })
     } else {
-      // Crear registro si no existe
       const supabase2 = createClient()
       await supabase2.from('store_features').insert({
         store_id: store.id,
+        settings: true, orders: true, customers: true, quotes: true,
+        suppliers: true, finances: true, goals: true,
         inventory: true, routes: true, summary: true,
-        labels: true, comprobante: true, combos: true
+        labels: true, comprobante: true, combos: true,
       })
-      setFeatures({ inventory: true, routes: true, summary: true, tools: true, comprobante: true, combos: true })
+      setFeatures(DEFAULT_FEATURES)
     }
   }
 
@@ -100,12 +127,19 @@ export default function StoresPage() {
     const supabase = createClient()
     const { error } = await supabase.from('store_features').upsert({
       store_id:    featuresStore.id,
+      settings:    features.settings,
+      orders:      features.orders,
+      customers:   features.customers,
+      quotes:      features.quotes,
+      suppliers:   features.suppliers,
+      finances:    features.finances,
+      goals:       features.goals,
       inventory:   features.inventory,
+      combos:      features.combos,
       routes:      features.routes,
       summary:     features.summary,
-      labels:      features.tools,       // columna BD = labels
+      labels:      features.tools,
       comprobante: features.comprobante,
-      combos:      features.combos,
     }, { onConflict: 'store_id' })
 
     setSavingFeatures(false)
@@ -131,17 +165,18 @@ export default function StoresPage() {
       {/* MODAL FEATURES */}
       {featuresStore && (
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-            <div className="mb-5">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl max-h-[90vh] flex flex-col">
+            <div className="mb-4">
               <h3 className="font-bold text-gray-900 text-lg">⚙️ Módulos activos</h3>
               <p className="text-gray-500 text-sm mt-0.5">{featuresStore.name}</p>
+              <p className="text-xs text-gray-400 mt-1">Dashboard siempre visible. El resto puedes activarlo o desactivarlo.</p>
             </div>
 
-            <div className="space-y-1 mb-6">
+            <div className="overflow-y-auto flex-1 -mx-1 px-1">
               {FEATURE_LABELS.map(({ key, label, icon, desc }) => (
                 <div key={key} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
                   <div className="flex items-start gap-3 flex-1 min-w-0 pr-3">
-                    <span className="text-xl mt-0.5">{icon}</span>
+                    <span className="text-lg mt-0.5">{icon}</span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-800">{label}</p>
                       <p className="text-xs text-gray-400 leading-tight">{desc}</p>
@@ -158,12 +193,12 @@ export default function StoresPage() {
             </div>
 
             {savedOk && (
-              <div className="mb-3 py-2 bg-green-50 border border-green-200 rounded-xl text-center">
+              <div className="mt-3 py-2 bg-green-50 border border-green-200 rounded-xl text-center">
                 <p className="text-green-700 text-sm font-medium">✅ Cambios guardados</p>
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-4">
               <button onClick={saveFeatures} disabled={savingFeatures}
                 className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50">
                 {savingFeatures ? 'Guardando...' : 'Guardar cambios'}

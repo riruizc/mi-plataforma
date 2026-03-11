@@ -14,12 +14,10 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
   const [storeId, setStoreId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [features, setFeatures] = useState<Record<string, boolean>>({
-    inventory: true,
-    routes: true,
-    summary: true,
-    tools: true,
-    comprobante: true,
-    combos: true,
+    settings: true, orders: true, customers: true, quotes: true,
+    suppliers: true, finances: true, goals: true,
+    inventory: true, routes: true, summary: true,
+    tools: true, comprobante: true, combos: true,
   })
 
   useEffect(() => {
@@ -30,16 +28,22 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
       if (!store) return
       setStoreId(store.id)
 
-      // Cargar features de la tienda
       const { data: feat } = await supabase.from('store_features').select('*').eq('store_id', store.id).single()
       if (feat) {
         setFeatures({
-          inventory: feat.inventory ?? true,
-          routes: feat.routes ?? true,
-          summary: feat.summary ?? true,
-          tools: feat.labels ?? true,
+          settings:    feat.settings    ?? true,
+          orders:      feat.orders      ?? true,
+          customers:   feat.customers   ?? true,
+          quotes:      feat.quotes      ?? true,
+          suppliers:   feat.suppliers   ?? true,
+          finances:    feat.finances    ?? true,
+          goals:       feat.goals       ?? true,
+          inventory:   feat.inventory   ?? true,
+          combos:      feat.combos      ?? true,
+          routes:      feat.routes      ?? true,
+          summary:     feat.summary     ?? true,
+          tools:       feat.labels      ?? true,
           comprobante: feat.comprobante ?? true,
-          combos: feat.combos ?? true,
         })
       }
 
@@ -69,21 +73,20 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
   const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   const handleLogout = async () => { await supabase.auth.signOut(); router.push('/login') }
 
-  // Nav items filtrados según features
   const allNavItems = [
-    { label: 'Dashboard', href: '/store/dashboard', icon: '📊', feature: null },
-    { label: 'Ajustes', href: '/store/settings', icon: '⚙️', feature: null },
-    { label: 'Pedidos', href: '/store/orders', icon: '📦', feature: null },
-    { label: 'Clientes', href: '/store/customers', icon: '👥', feature: null },
-    { label: 'Cotizaciones', href: '/store/quotes', icon: '📄', feature: null },
-    { label: 'Proveedores', href: '/store/suppliers', icon: '🚚', feature: null },
-    { label: 'Finanzas', href: '/store/finances', icon: '💰', feature: null },
-    { label: 'Metas', href: '/store/goals', icon: '🎯', feature: null },
-    { label: 'Inventario', href: '/store/inventory', icon: '🗃️', feature: 'inventory' },
-    { label: 'Combos', href: '/store/combos', icon: '🎁', feature: 'combos' },
-    { label: 'Rutas', href: '/store/routes', icon: '🗺️', feature: 'routes' },
-    { label: 'Resumen', href: '/store/summary', icon: '📈', feature: 'summary' },
-    { label: 'Herramientas', href: '/store/tools', icon: '🔧', feature: 'tools' },
+    { label: 'Dashboard',     href: '/store/dashboard',  icon: '📊', feature: null },
+    { label: 'Ajustes',       href: '/store/settings',   icon: '⚙️', feature: 'settings' },
+    { label: 'Pedidos',       href: '/store/orders',     icon: '📦', feature: 'orders' },
+    { label: 'Clientes',      href: '/store/customers',  icon: '👥', feature: 'customers' },
+    { label: 'Cotizaciones',  href: '/store/quotes',     icon: '📄', feature: 'quotes' },
+    { label: 'Proveedores',   href: '/store/suppliers',  icon: '🚚', feature: 'suppliers' },
+    { label: 'Finanzas',      href: '/store/finances',   icon: '💰', feature: 'finances' },
+    { label: 'Metas',         href: '/store/goals',      icon: '🎯', feature: 'goals' },
+    { label: 'Inventario',    href: '/store/inventory',  icon: '🗃️', feature: 'inventory' },
+    { label: 'Combos',        href: '/store/combos',     icon: '🎁', feature: 'combos' },
+    { label: 'Rutas',         href: '/store/routes',     icon: '🗺️', feature: 'routes' },
+    { label: 'Resumen',       href: '/store/summary',    icon: '📈', feature: 'summary' },
+    { label: 'Herramientas',  href: '/store/tools',      icon: '🔧', feature: 'tools' },
   ]
 
   const navItems = allNavItems.filter(item => item.feature === null || features[item.feature])
