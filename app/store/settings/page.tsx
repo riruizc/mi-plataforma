@@ -15,6 +15,8 @@ export default function SettingsPage() {
   const [copiedContact, setCopiedContact] = useState(false)
   const [savingContact, setSavingContact] = useState(false)
   const [successContact, setSuccessContact] = useState(false)
+  const [catalogActive, setCatalogActive] = useState(false)
+  const [togglingCatalog, setTogglingCatalog] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '', phone: '', owner_name: '', theme_color: '#3b82f6',
@@ -45,6 +47,7 @@ export default function SettingsPage() {
       if (data) {
         setStore(data)
         setFormActive(data.form_active !== false)
+        setCatalogActive(data.catalog_active || false)
         setFormData({
           name: data.name || '',
           phone: data.phone || '',
@@ -126,8 +129,21 @@ export default function SettingsPage() {
     finally { setTogglingForm(false) }
   }
 
+  const toggleCatalogActive = async () => {
+    if (!store) return
+    setTogglingCatalog(true)
+    try {
+      const supabase = createClient()
+      const newValue = !catalogActive
+      await supabase.from('stores').update({ catalog_active: newValue }).eq('id', store.id)
+      setCatalogActive(newValue)
+    } catch (e) { alert('Error al cambiar estado') }
+    finally { setTogglingCatalog(false) }
+  }
+
   const formLink = typeof window !== 'undefined' && store ? `${window.location.origin}/order/${store.store_prefix}` : ''
   const contactLink = typeof window !== 'undefined' && store ? `${window.location.origin}/contact/${store.store_prefix}` : ''
+  const catalogLink = typeof window !== 'undefined' && store ? `${window.location.origin}/catalog/${store.store_prefix}` : ''
   const copyLink = () => { navigator.clipboard.writeText(formLink); setCopied(true); setTimeout(() => setCopied(false), 2000) }
   const copyContactLink = () => { navigator.clipboard.writeText(contactLink); setCopiedContact(true); setTimeout(() => setCopiedContact(false), 2000) }
 
@@ -176,6 +192,33 @@ export default function SettingsPage() {
               className="w-full mt-3 py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 touch-manipulation">
               👁️ Ver formulario
             </button>
+          </div>
+
+          {/* Catálogo público */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="font-semibold text-gray-900">🛍️ Catálogo público</h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {catalogActive ? 'Tus clientes pueden ver tu catálogo' : 'El catálogo está desactivado'}
+                </p>
+              </div>
+              <button onClick={toggleCatalogActive} disabled={togglingCatalog}
+                className={`relative w-12 h-6 rounded-full transition-colors disabled:opacity-50 ${catalogActive ? 'bg-green-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${catalogActive ? 'translate-x-7' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            {catalogActive && (
+              <>
+                <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-3 border border-gray-200">
+                  <p className="text-xs text-gray-600 flex-1 truncate font-mono">{catalogLink}</p>
+                </div>
+                <button onClick={() => window.open(catalogLink, '_blank')}
+                  className="w-full py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-700">
+                  👁️ Ver catálogo
+                </button>
+              </>
+            )}
           </div>
 
           {/* Logo */}
