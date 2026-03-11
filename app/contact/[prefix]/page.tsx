@@ -1,8 +1,12 @@
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export default async function ContactPage({ params }: { params: { prefix: string } }) {
-  const supabase = createClient()
   const { data: store } = await supabase
     .from('stores')
     .select('id, name, logo_url, phone, contact_active, contact_bg_color, contact_logo_shape, contact_description, contact_whatsapp_msg, contact_facebook, contact_tiktok, contact_instagram, store_prefix')
