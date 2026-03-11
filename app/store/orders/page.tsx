@@ -683,9 +683,21 @@ export default function OrdersPage() {
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Mapa</label>
-                      <div ref={el => { editMapRef.current = el }} className="w-full rounded-xl overflow-hidden border border-gray-200" style={{ height: '180px' }} />
-                      {editData.lat && editData.lng && <p className="text-xs text-green-600 mt-1">📍 Ubicación marcada</p>}
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Ingresar coordenadas</label>
+                      <input
+                        type="text"
+                        placeholder="(-12.0508110, -76.9717180)"
+                        defaultValue={editData.lat && editData.lng ? `(${editData.lat}, ${editData.lng})` : ''}
+                        onChange={e => {
+                          const match = e.target.value.match(/\(?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\)?/)
+                          if (match) setEditData((p: any) => ({ ...p, lat: match[1], lng: match[2] }))
+                        }}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                      />
+                      {editData.lat && editData.lng
+                        ? <p className="text-xs text-green-600 mt-1">📍 Lat: {Number(editData.lat).toFixed(6)}, Lng: {Number(editData.lng).toFixed(6)}</p>
+                        : <p className="text-xs text-gray-400 mt-1">Pega las coordenadas en cualquier formato con paréntesis o sin ellos</p>
+                      }
                     </div>
                   </div>
                 )}
