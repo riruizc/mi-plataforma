@@ -122,7 +122,6 @@ export default function OrdersPage() {
         customer_phone: o.customers?.phone || ''
       }))
 
-      // Ordenar: pending → in_route → delivered → cancelled
       mapped.sort((a: any, b: any) => {
         const sa = STATUS_ORDER[a.status] ?? 99
         const sb = STATUS_ORDER[b.status] ?? 99
@@ -135,12 +134,28 @@ export default function OrdersPage() {
     finally { setLoading(false) }
   }
 
+  // ── REVERTIR TRANSACCIÓN si el pedido sale de "delivered" ──
+  const removeFinanceTransaction = async (orderId: string) => {
+    if (!storeId) return
+    const supabase = createClient()
+    await supabase
+      .from('finance_transactions')
+      .delete()
+      .eq('order_id', orderId)
+      .eq('store_id', storeId)
+      .eq('source', 'order')
+  }
+
   // ── CANCELAR CON REINTEGRO DE STOCK ──
   const handleCancel = async (order: Order) => {
     if (!confirm('¿Cancelar este pedido? Se reintegrará el stock de los productos.')) return
     const supabase = createClient()
     await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
-    // Reintegrar stock por cada item
+    // Revertir transacción si estaba entregado
+    if (order.status === 'delivered') {
+      await removeFinanceTransaction(order.id)
+    }
+    // Reintegrar stock
     if (order.order_items && order.order_items.length > 0) {
       for (const item of order.order_items) {
         if (item.variant_id) {
@@ -156,17 +171,18 @@ export default function OrdersPage() {
       handleCancel(order)
       return
     }
-  
+
     const supabase = createClient()
     const updateData: any = { status: newStatus }
-  
+
     if (newStatus === 'delivered') {
       updateData.delivered_at = new Date().toISOString()
     }
-  
+
     await supabase.from('orders').update(updateData).eq('id', order.id)
-  
+
     if (newStatus === 'delivered' && order.status !== 'delivered' && storeId) {
+      // Agregar ingreso
       await supabase.from('finance_transactions').insert({
         store_id: storeId,
         type: 'income',
@@ -175,22 +191,22 @@ export default function OrdersPage() {
         amount: order.total_amount,
         order_id: order.id,
       })
+    } else if (newStatus !== 'delivered' && order.status === 'delivered') {
+      // Revertir ingreso si sale de entregado
+      await removeFinanceTransaction(order.id)
     }
-  
+
     loadOrders()
   }
 
   const handleDeliver = async (order: Order) => {
     const supabase = createClient()
-  
+
     await supabase
       .from('orders')
-      .update({
-        status: 'delivered',
-        delivered_at: new Date().toISOString(),
-      })
+      .update({ status: 'delivered', delivered_at: new Date().toISOString() })
       .eq('id', order.id)
-  
+
     if (order.status !== 'delivered' && storeId) {
       await supabase.from('finance_transactions').insert({
         store_id: storeId,
@@ -201,7 +217,7 @@ export default function OrdersPage() {
         order_id: order.id,
       })
     }
-  
+
     loadOrders()
   }
 
@@ -322,7 +338,15 @@ export default function OrdersPage() {
       if (editOrder.customer_id) {
         await supabase.from('customers').update({ name: editData.name, phone: editData.phone, dni: editData.dni }).eq('id', editOrder.customer_id)
       }
-      await supabase.from('orders').update({ delivery_method: editData.delivery_method, destination: editData.destination, reference: editData.reference, lat: editData.lat ? parseFloat(editData.lat) : null, lng: editData.lng ? parseFloat(editData.lng) : null, agency_name: editData.agency_name || null, pending_amount: parseFloat(editData.pending_amount) || 0 }).eq('id', editOrder.id)
+      await supabase.from('orders').update({
+        delivery_method: editData.delivery_method,
+        destination: editData.destination,
+        reference: editData.reference,
+        lat: editData.lat ? parseFloat(editData.lat) : null,
+        lng: editData.lng ? parseFloat(editData.lng) : null,
+        agency_name: editData.agency_name || null,
+        pending_amount: parseFloat(editData.pending_amount) || 0
+      }).eq('id', editOrder.id)
       await loadOrders()
       closeEdit()
     } catch (e) { alert('Error al guardar los cambios') }
@@ -341,7 +365,6 @@ export default function OrdersPage() {
     try {
       const supabase = createClient()
 
-      // Buscar o crear cliente
       const { data: existing } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', manualData.phone).single()
       let customerId = existing?.id
       if (!customerId) {
@@ -414,7 +437,6 @@ export default function OrdersPage() {
           </button>
         </div>
 
-        {/* Buscador */}
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -425,7 +447,6 @@ export default function OrdersPage() {
           )}
         </div>
 
-        {/* Filtros */}
         <div className="flex gap-1.5 flex-wrap">
           {['all', 'pending', 'in_route', 'delivered', 'cancelled'].map(f => (
             <button key={f} onClick={() => setFilter(f)}
