@@ -118,37 +118,87 @@ export default function OrderForm() {
   const loadStore = async () => {
     try {
       const supabase = createClient()
-      const { data: storeData } = await supabase.from('stores').select('*').eq('store_prefix', prefix).eq('status', 'active').single()
-      if (!storeData) { setLoading(false); return }
-      if (storeData.form_active === false) { setStore(storeData); setFormDisabled(true); setLoading(false); return }
+  
+      const { data: storeData } = await supabase
+        .from('stores')
+        .select('*')
+        .eq('store_prefix', prefix)
+        .eq('status', 'active')
+        .single()
+  
+      if (!storeData) {
+        setLoading(false)
+        return
+      }
+  
+      if (storeData.form_active === false) {
+        setStore(storeData)
+        setFormDisabled(true)
+        setLoading(false)
+        return
+      }
+  
       setStore(storeData)
-
-      const [{ data: prods }, { data: agencyData }, { data: combosData }, { data: comboItems }] = await Promise.all([
-        supabase.from('products').select('*, product_variants(*)').eq('store_id', storeData.id).eq('is_active', true),
-        supabase.from('delivery_agencies').select('*').eq('store_id', storeData.id).eq('is_active', true),
-        supabase.from('combos').select('*').eq('store_id', storeData.id).eq('is_active', true).order('name'),
-        supabase.from('combo_items').select('combo_id, product_id, variant_id, quantity, products(name), product_variants(color)'),
-      ])
-
+  
+      const [{ data: prods }, { data: agencyData }, { data: combosData }] =
+        await Promise.all([
+          supabase
+            .from('products')
+            .select('*, product_variants(*)')
+            .eq('store_id', storeData.id)
+            .eq('is_active', true),
+  
+          supabase
+            .from('delivery_agencies')
+            .select('*')
+            .eq('store_id', storeData.id)
+            .eq('is_active', true),
+  
+          supabase
+            .from('combos')
+            .select('*')
+            .eq('store_id', storeData.id)
+            .eq('is_active', true)
+            .order('name'),
+        ])
+  
       setAgencies(agencyData || [])
       setProducts((prods || []).map((p: any) => ({ ...p, variants: p.product_variants || [] })))
-
-      // Mapear items a combos
-      const mappedCombos = (combosData || []).map((c: any) => ({
+  
+      const comboIds = (combosData || []).map((c: any) => c.id)
+      let mappedCombos: Combo[] = (combosData || []).map((c: any) => ({
         ...c,
-        items: ((comboItems || []) as any[])
-          .filter((ci: any) => ci.combo_id === c.id)
-          .map((ci: any) => ({
-            product_id: ci.product_id,
-            variant_id: ci.variant_id || null,
-            quantity: ci.quantity,
-            product_name: ci.products?.name || '',
-            color: ci.product_variants?.color || null,
-          }))
+        items: [],
       }))
+  
+      if (comboIds.length > 0) {
+        const { data: comboItems } = await supabase
+          .from('combo_items')
+          .select(
+            'combo_id, product_id, variant_id, quantity, products(name), product_variants(color)'
+          )
+          .in('combo_id', comboIds)
+  
+        mappedCombos = (combosData || []).map((c: any) => ({
+          ...c,
+          items: ((comboItems || []) as any[])
+            .filter((ci: any) => ci.combo_id === c.id)
+            .map((ci: any) => ({
+              product_id: ci.product_id,
+              variant_id: ci.variant_id || null,
+              quantity: ci.quantity,
+              product_name: ci.products?.name || '',
+              color: ci.product_variants?.color || null,
+            })),
+        }))
+      }
+  
       setCombos(mappedCombos)
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
