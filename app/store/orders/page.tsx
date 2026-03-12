@@ -67,6 +67,12 @@ export default function OrdersPage() {
   const editMarkerRef = useRef<any>(null)
   const editSearchTimeout = useRef<any>(null)
 
+  // Edit items (productos del pedido)
+  const [editItems, setEditItems] = useState<OrderItem[]>([])
+  const [allProducts, setAllProducts] = useState<any[]>([])
+  const [productSearch, setProductSearch] = useState('')
+  const [showProductSearch, setShowProductSearch] = useState(false)
+
   // Manual order modal
   const [showManual, setShowManual] = useState(false)
   const [manualData, setManualData] = useState({ name: '', phone: '', dni: '', destination: '', reference: '', delivery_method: 'motorizado', agency_name: '', total_amount: '' })
@@ -134,90 +140,52 @@ export default function OrdersPage() {
     finally { setLoading(false) }
   }
 
-  // ── REVERTIR TRANSACCIÓN si el pedido sale de "delivered" ──
   const removeFinanceTransaction = async (orderId: string) => {
     if (!storeId) return
     const supabase = createClient()
-    await supabase
-      .from('finance_transactions')
-      .delete()
-      .eq('order_id', orderId)
-      .eq('store_id', storeId)
-      .eq('source', 'order')
+    await supabase.from('finance_transactions').delete()
+      .eq('order_id', orderId).eq('store_id', storeId).eq('source', 'order')
   }
 
-  // ── CANCELAR CON REINTEGRO DE STOCK ──
   const handleCancel = async (order: Order) => {
     if (!confirm('¿Cancelar este pedido? Se reintegrará el stock de los productos.')) return
     const supabase = createClient()
     await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
-    // Revertir transacción si estaba entregado
-    if (order.status === 'delivered') {
-      await removeFinanceTransaction(order.id)
-    }
-    // Reintegrar stock
+    if (order.status === 'delivered') await removeFinanceTransaction(order.id)
     if (order.order_items && order.order_items.length > 0) {
       for (const item of order.order_items) {
-        if (item.variant_id) {
-          await supabase.rpc('increment_stock', { p_variant_id: item.variant_id, p_qty: item.quantity })
-        }
+        if (item.variant_id) await supabase.rpc('increment_stock', { p_variant_id: item.variant_id, p_qty: item.quantity })
       }
     }
     loadOrders()
   }
 
   const handleStatusChange = async (order: Order, newStatus: string) => {
-    if (newStatus === 'cancelled') {
-      handleCancel(order)
-      return
-    }
-
+    if (newStatus === 'cancelled') { handleCancel(order); return }
     const supabase = createClient()
     const updateData: any = { status: newStatus }
-
-    if (newStatus === 'delivered') {
-      updateData.delivered_at = new Date().toISOString()
-    }
-
+    if (newStatus === 'delivered') updateData.delivered_at = new Date().toISOString()
     await supabase.from('orders').update(updateData).eq('id', order.id)
-
     if (newStatus === 'delivered' && order.status !== 'delivered' && storeId) {
-      // Agregar ingreso
       await supabase.from('finance_transactions').insert({
-        store_id: storeId,
-        type: 'income',
-        source: 'order',
-        description: `Pedido ${order.order_code}`,
-        amount: order.total_amount,
-        order_id: order.id,
+        store_id: storeId, type: 'income', source: 'order',
+        description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id,
       })
     } else if (newStatus !== 'delivered' && order.status === 'delivered') {
-      // Revertir ingreso si sale de entregado
       await removeFinanceTransaction(order.id)
     }
-
     loadOrders()
   }
 
   const handleDeliver = async (order: Order) => {
     const supabase = createClient()
-
-    await supabase
-      .from('orders')
-      .update({ status: 'delivered', delivered_at: new Date().toISOString() })
-      .eq('id', order.id)
-
+    await supabase.from('orders').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', order.id)
     if (order.status !== 'delivered' && storeId) {
       await supabase.from('finance_transactions').insert({
-        store_id: storeId,
-        type: 'income',
-        source: 'order',
-        description: `Pedido ${order.order_code}`,
-        amount: order.total_amount,
-        order_id: order.id,
+        store_id: storeId, type: 'income', source: 'order',
+        description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id,
       })
     }
-
     loadOrders()
   }
 
@@ -255,7 +223,6 @@ export default function OrdersPage() {
     if (order.destination) { y += 7; doc.text('Direccion: ' + order.destination, 20, y) }
     if (order.reference) { y += 7; doc.text('Referencia: ' + order.reference, 20, y) }
     doc.save('comprobante-' + order.order_code + '.pdf')
-
     const nombre = order.customers?.name || 'Cliente'
     const phone = (order.customers?.phone || '').replace(/\D/g, '')
     if (!phone) { alert('Este pedido no tiene número de celular registrado'); return }
@@ -268,16 +235,30 @@ export default function OrdersPage() {
   // ── EDITAR PEDIDO ──
   const openEdit = async (order: any) => {
     setEditOrder(order)
-    setEditData({ name: order.customers?.name || '', phone: order.customers?.phone || '', dni: order.customers?.dni || '', delivery_method: order.delivery_method || 'motorizado', destination: order.destination || '', reference: order.reference || '', lat: order.lat || '', lng: order.lng || '', agency_name: order.agency_name || '', pending_amount: order.pending_amount || 0 })
+    setEditData({
+      name: order.customers?.name || '', phone: order.customers?.phone || '',
+      dni: order.customers?.dni || '', delivery_method: order.delivery_method || 'motorizado',
+      destination: order.destination || '', reference: order.reference || '',
+      lat: order.lat || '', lng: order.lng || '',
+      agency_name: order.agency_name || '', pending_amount: order.pending_amount || 0
+    })
+    setEditItems(order.order_items || [])
     setEditSuggestions([])
+    setProductSearch('')
+    setShowProductSearch(false)
     const supabase = createClient()
-    const { data } = await supabase.from('delivery_agencies').select('*').eq('store_id', order.store_id).eq('is_active', true)
-    setEditAgencies(data || [])
+    const [{ data: agencyData }, { data: prods }] = await Promise.all([
+      supabase.from('delivery_agencies').select('*').eq('store_id', order.store_id).eq('is_active', true),
+      supabase.from('products').select('*, product_variants(*)').eq('store_id', order.store_id).eq('is_active', true).order('name'),
+    ])
+    setEditAgencies(agencyData || [])
+    setAllProducts((prods || []).map((p: any) => ({ ...p, variants: p.product_variants || [] })))
   }
 
   const closeEdit = () => {
     if (editMapInstanceRef.current) editMapInstanceRef.current.remove()
     setEditOrder(null); setEditData(null); setEditSuggestions([])
+    setEditItems([]); setAllProducts([]); setProductSearch(''); setShowProductSearch(false)
     editMapInstanceRef.current = null; editMarkerRef.current = null
     clearTimeout(editSearchTimeout.current)
   }
@@ -330,6 +311,56 @@ export default function OrdersPage() {
     }
   }
 
+  // ── MANEJO DE ITEMS EN EDICIÓN ──
+  const addItemToEdit = (product: any, variant: any) => {
+    const isVariant = variant.id !== product.id
+    const matchKey = isVariant ? variant.id : product.id
+    const existing = editItems.find(i => isVariant ? i.variant_id === matchKey : (!i.variant_id && i.product_id === matchKey))
+    if (existing) {
+      setEditItems(prev => prev.map(i => {
+        const match = isVariant ? i.variant_id === matchKey : (!i.variant_id && i.product_id === matchKey)
+        return match ? { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.unit_price } : i
+      }))
+    } else {
+      setEditItems(prev => [...prev, {
+        product_id: product.id,
+        variant_id: isVariant ? variant.id : undefined,
+        product_name: product.name,
+        color: variant.color,
+        quantity: 1,
+        unit_price: product.sale_price,
+        subtotal: product.sale_price,
+      }])
+    }
+    setShowProductSearch(false)
+    setProductSearch('')
+  }
+
+  const updateEditItemQty = (index: number, qty: number) => {
+    if (qty <= 0) {
+      setEditItems(prev => prev.filter((_, i) => i !== index))
+    } else {
+      setEditItems(prev => prev.map((item, i) =>
+        i === index ? { ...item, quantity: qty, subtotal: qty * item.unit_price } : item
+      ))
+    }
+  }
+
+  const updateEditItemPrice = (index: number, price: number) => {
+    setEditItems(prev => prev.map((item, i) =>
+      i === index ? { ...item, unit_price: price, subtotal: item.quantity * price } : item
+    ))
+  }
+
+  const filteredProducts = productSearch.trim().length < 1
+    ? allProducts
+    : allProducts.filter(p =>
+        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+        (p.category || '').toLowerCase().includes(productSearch.toLowerCase())
+      )
+
+  const editTotal = editItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0)
+
   const saveEdit = async () => {
     if (!editOrder || !editData) return
     setEditSaving(true)
@@ -338,6 +369,7 @@ export default function OrdersPage() {
       if (editOrder.customer_id) {
         await supabase.from('customers').update({ name: editData.name, phone: editData.phone, dni: editData.dni }).eq('id', editOrder.customer_id)
       }
+      const newTotal = editItems.length > 0 ? editTotal : editOrder.total_amount
       await supabase.from('orders').update({
         delivery_method: editData.delivery_method,
         destination: editData.destination,
@@ -345,8 +377,27 @@ export default function OrdersPage() {
         lat: editData.lat ? parseFloat(editData.lat) : null,
         lng: editData.lng ? parseFloat(editData.lng) : null,
         agency_name: editData.agency_name || null,
-        pending_amount: parseFloat(editData.pending_amount) || 0
+        pending_amount: parseFloat(editData.pending_amount) || 0,
+        total_amount: newTotal,
       }).eq('id', editOrder.id)
+
+      // Actualizar items
+      await supabase.from('order_items').delete().eq('order_id', editOrder.id)
+      if (editItems.length > 0) {
+        await supabase.from('order_items').insert(
+          editItems.map(item => ({
+            order_id: editOrder.id,
+            product_id: item.product_id || null,
+            variant_id: item.variant_id || null,
+            product_name: item.product_name,
+            color: item.color,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.unit_price * item.quantity,
+          }))
+        )
+      }
+
       await loadOrders()
       closeEdit()
     } catch (e) { alert('Error al guardar los cambios') }
@@ -357,59 +408,39 @@ export default function OrdersPage() {
   const resetManual = () => setManualData({ name: '', phone: '', dni: '', destination: '', reference: '', delivery_method: 'motorizado', agency_name: '', total_amount: '' })
 
   const saveManualOrder = async () => {
-    if (!manualData.name || !manualData.phone || !manualData.total_amount) {
-      alert('Nombre, celular y total son obligatorios'); return
-    }
+    if (!manualData.name || !manualData.phone || !manualData.total_amount) { alert('Nombre, celular y total son obligatorios'); return }
     if (!storeId) return
     setManualSaving(true)
     try {
       const supabase = createClient()
-
       const { data: existing } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', manualData.phone).single()
       let customerId = existing?.id
       if (!customerId) {
         const { data: newC } = await supabase.from('customers').insert({ store_id: storeId, name: manualData.name, phone: manualData.phone, dni: manualData.dni }).select('id').single()
         customerId = newC?.id
       }
-
       const year = new Date().getFullYear()
       const { data: counterData } = await supabase.rpc('increment_order_counter', { p_store_id: storeId })
       const code = storePrefix + '-' + year + '-' + String(counterData).padStart(3, '0')
       const token = Math.random().toString(36).substring(2, 15)
-
       await supabase.from('orders').insert({
-        store_id: storeId,
-        customer_id: customerId,
-        order_code: code,
+        store_id: storeId, customer_id: customerId, order_code: code,
         delivery_method: manualData.delivery_method,
         agency_name: manualData.delivery_method === 'agencia' ? manualData.agency_name : null,
-        destination: manualData.destination || null,
-        reference: manualData.reference || null,
-        total_amount: parseFloat(manualData.total_amount),
-        pending_amount: parseFloat(manualData.total_amount),
-        status: 'pending',
-        tracking_token: token,
+        destination: manualData.destination || null, reference: manualData.reference || null,
+        total_amount: parseFloat(manualData.total_amount), pending_amount: parseFloat(manualData.total_amount),
+        status: 'pending', tracking_token: token,
       })
-
-      setShowManual(false)
-      resetManual()
-      loadOrders()
-    } catch (e: any) {
-      alert('Error: ' + e.message)
-    } finally {
-      setManualSaving(false)
-    }
+      setShowManual(false); resetManual(); loadOrders()
+    } catch (e: any) { alert('Error: ' + e.message) }
+    finally { setManualSaving(false) }
   }
 
   // ── FILTROS Y BÚSQUEDA ──
   const filtered = orders.filter(o => {
     const matchFilter = filter === 'all' || o.status === filter
     const q = search.toLowerCase().trim()
-    const matchSearch = !q ||
-      o.order_code.toLowerCase().includes(q) ||
-      o.customer_phone.includes(q) ||
-      (o.customers?.dni || '').includes(q) ||
-      o.customer_name.toLowerCase().includes(q)
+    const matchSearch = !q || o.order_code.toLowerCase().includes(q) || o.customer_phone.includes(q) || (o.customers?.dni || '').includes(q) || o.customer_name.toLowerCase().includes(q)
     return matchFilter && matchSearch
   })
 
@@ -431,22 +462,15 @@ export default function OrdersPage() {
             <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Pedidos</h1>
             <p className="text-gray-500 text-sm mt-0.5">{filtered.length} pedidos</p>
           </div>
-          <button onClick={() => setShowManual(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm flex items-center gap-2">
-            + Agregar
-          </button>
+          <button onClick={() => setShowManual(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm">+ Agregar</button>
         </div>
-
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por código, celular, DNI o nombre..."
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>
-          )}
+          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>}
         </div>
-
         <div className="flex gap-1.5 flex-wrap">
           {['all', 'pending', 'in_route', 'delivered', 'cancelled'].map(f => (
             <button key={f} onClick={() => setFilter(f)}
@@ -469,17 +493,11 @@ export default function OrdersPage() {
             <div key={order.id} className={`bg-white rounded-xl shadow-sm border p-4 ${order.status === 'cancelled' ? 'border-red-100 opacity-75' : 'border-gray-100'}`}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="font-bold text-gray-900 text-sm">{order.order_code}</span>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusLabel[order.status]?.color}`}>
-                  {statusLabel[order.status]?.label}
-                </span>
-                <span className="text-xs text-gray-400 ml-auto">
-                  {new Date(order.created_at).toLocaleDateString('es-PE')}
-                </span>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusLabel[order.status]?.color}`}>{statusLabel[order.status]?.label}</span>
+                <span className="text-xs text-gray-400 ml-auto">{new Date(order.created_at).toLocaleDateString('es-PE')}</span>
               </div>
-
               <p className="font-semibold text-gray-800 text-sm">{order.customer_name}</p>
               <p className="text-gray-500 text-xs">📱 {order.customer_phone}</p>
-
               {order.order_items && order.order_items.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1.5">
                   {order.order_items.map((item: any, i: number) => (
@@ -489,49 +507,30 @@ export default function OrdersPage() {
                   ))}
                 </div>
               )}
-
               <div className="mt-1.5">
-                {order.delivery_method === 'motorizado' ? (
-                  <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">🛵 Motorizado</span>
-                ) : (
-                  <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">
-                    📦 {order.agency_name || 'Agencia'} — {order.destination || 'Sin destino'}
-                  </span>
-                )}
+                {order.delivery_method === 'motorizado'
+                  ? <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">🛵 Motorizado</span>
+                  : <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">📦 {order.agency_name || 'Agencia'} — {order.destination || 'Sin destino'}</span>
+                }
               </div>
-
               <div className="flex gap-4 mt-2 text-xs">
                 <span className="text-gray-600">Total: <strong>S/ {Number(order.total_amount).toFixed(2)}</strong></span>
                 <span className="text-orange-600">Por cobrar: <strong>S/ {Number(order.pending_amount).toFixed(2)}</strong></span>
               </div>
-
               {order.status !== 'cancelled' && (
                 <div className="grid grid-cols-2 sm:flex gap-2 mt-3">
-                  <button onClick={() => enviarComprobante(order)}
-                    className="px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium touch-manipulation">
-                    📄💬 Comprobante
-                  </button>
-                  <button onClick={() => { const link = window.location.origin + '/track?code=' + order.order_code; navigator.clipboard.writeText(link).then(() => alert('Link copiado')) }}
-                    className="px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-medium touch-manipulation">
-                    🔗 Rastreo
-                  </button>
+                  <button onClick={() => enviarComprobante(order)} className="px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium touch-manipulation">📄💬 Comprobante</button>
+                  <button onClick={() => { const link = window.location.origin + '/track?code=' + order.order_code; navigator.clipboard.writeText(link).then(() => alert('Link copiado')) }} className="px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-medium touch-manipulation">🔗 Rastreo</button>
                   {order.status !== 'delivered' && (
-                    <button onClick={() => handleDeliver(order)}
-                      className="px-3 py-2 rounded-lg text-xs font-medium bg-green-600 text-white touch-manipulation">
-                      ✅ Entregado
-                    </button>
+                    <button onClick={() => handleDeliver(order)} className="px-3 py-2 rounded-lg text-xs font-medium bg-green-600 text-white touch-manipulation">✅ Entregado</button>
                   )}
-                  <select value={order.status} onChange={e => handleStatusChange(order, e.target.value)}
-                    className="px-2 py-2 rounded-lg text-xs border border-gray-200 focus:outline-none bg-white">
+                  <select value={order.status} onChange={e => handleStatusChange(order, e.target.value)} className="px-2 py-2 rounded-lg text-xs border border-gray-200 focus:outline-none bg-white">
                     <option value="pending">Pendiente</option>
                     <option value="in_route">En ruta</option>
                     <option value="delivered">Entregado</option>
                     <option value="cancelled">Cancelado</option>
                   </select>
-                  <button onClick={() => openEdit(order)}
-                    className="px-3 py-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium touch-manipulation">
-                    ✏️ Editar
-                  </button>
+                  <button onClick={() => openEdit(order)} className="px-3 py-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium touch-manipulation">✏️ Editar</button>
                 </div>
               )}
             </div>
@@ -547,47 +546,37 @@ export default function OrdersPage() {
               <h2 className="font-bold text-gray-900">Agregar pedido manual</h2>
               <button onClick={() => { setShowManual(false); resetManual() }} className="text-gray-400 text-2xl font-bold">×</button>
             </div>
-
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Nombre completo *</label>
                 <input type="text" value={manualData.name} onChange={e => setManualData(p => ({ ...p, name: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Juan Pérez" />
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Juan Pérez" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Celular *</label>
                   <input type="text" inputMode="numeric" value={manualData.phone}
                     onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 9) setManualData(p => ({ ...p, phone: v })) }}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="999999999" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="999999999" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">DNI / CE</label>
                   <input type="text" inputMode="numeric" value={manualData.dni}
                     onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 12) setManualData(p => ({ ...p, dni: v })) }}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="12345678" />
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="12345678" />
                 </div>
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Método de entrega</label>
                 <div className="flex gap-2">
                   <button onClick={() => setManualData(p => ({ ...p, delivery_method: 'motorizado', agency_name: '' }))}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium border ${manualData.delivery_method === 'motorizado' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
-                    🛵 Motorizado
-                  </button>
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium border ${manualData.delivery_method === 'motorizado' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>🛵 Motorizado</button>
                   {agencies.length > 0 && (
                     <button onClick={() => setManualData(p => ({ ...p, delivery_method: 'agencia' }))}
-                      className={`flex-1 py-2 rounded-xl text-sm font-medium border ${manualData.delivery_method === 'agencia' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
-                      📦 Agencia
-                    </button>
+                      className={`flex-1 py-2 rounded-xl text-sm font-medium border ${manualData.delivery_method === 'agencia' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>📦 Agencia</button>
                   )}
                 </div>
               </div>
-
               {manualData.delivery_method === 'agencia' && agencies.length > 0 && (
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Agencia</label>
@@ -598,34 +587,25 @@ export default function OrdersPage() {
                   </select>
                 </div>
               )}
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Dirección / Destino</label>
                 <input type="text" value={manualData.destination} onChange={e => setManualData(p => ({ ...p, destination: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Av. Principal 123" />
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Av. Principal 123" />
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Referencia</label>
                 <input type="text" value={manualData.reference} onChange={e => setManualData(p => ({ ...p, reference: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Casa azul, frente al parque" />
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Casa azul, frente al parque" />
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Total (S/) *</label>
                 <input type="number" value={manualData.total_amount} onChange={e => setManualData(p => ({ ...p, total_amount: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0.00" />
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00" />
               </div>
             </div>
-
             <div className="flex gap-3 p-5 border-t border-gray-100 sticky bottom-0 bg-white">
-              <button onClick={() => { setShowManual(false); resetManual() }}
-                className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium">Cancelar</button>
-              <button onClick={saveManualOrder} disabled={manualSaving}
-                className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">
+              <button onClick={() => { setShowManual(false); resetManual() }} className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium">Cancelar</button>
+              <button onClick={saveManualOrder} disabled={manualSaving} className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">
                 {manualSaving ? 'Guardando...' : 'Guardar pedido'}
               </button>
             </div>
@@ -637,7 +617,7 @@ export default function OrdersPage() {
       {editOrder && editData && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-screen overflow-y-auto">
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
               <div>
                 <h2 className="font-bold text-gray-900">Editar pedido</h2>
                 <p className="text-xs text-gray-500 font-mono">{editOrder.order_code}</p>
@@ -646,6 +626,8 @@ export default function OrdersPage() {
             </div>
 
             <div className="p-4 sm:p-5 space-y-5">
+
+              {/* DATOS DEL CLIENTE */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Datos del cliente</h3>
                 <div className="space-y-3">
@@ -669,6 +651,128 @@ export default function OrdersPage() {
                 </div>
               </div>
 
+              {/* ── PRODUCTOS DEL PEDIDO ── */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-700">Productos del pedido</h3>
+                  <button
+                    onClick={() => setShowProductSearch(!showProductSearch)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors">
+                    🔍 Buscar producto
+                  </button>
+                </div>
+
+                {/* Buscador de productos */}
+                {showProductSearch && (
+                  <div className="mb-3 border border-blue-200 rounded-xl overflow-hidden">
+                    <div className="p-3 bg-blue-50">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+                        <input
+                          type="text"
+                          value={productSearch}
+                          onChange={e => setProductSearch(e.target.value)}
+                          placeholder="Buscar por nombre o categoría..."
+                          autoFocus
+                          className="w-full pl-8 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        />
+                        {productSearch && (
+                          <button onClick={() => setProductSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="max-h-56 overflow-y-auto bg-white">
+                      {filteredProducts.length === 0 ? (
+                        <p className="text-center text-gray-400 text-sm py-6">No se encontraron productos</p>
+                      ) : (
+                        filteredProducts.map(product => (
+                          <div key={product.id} className="border-b border-gray-100 last:border-0">
+                            <div className="px-3 py-2 bg-gray-50 flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-semibold text-gray-800">{product.name}</p>
+                                {product.category && <p className="text-xs text-gray-400">{product.category} · S/ {Number(product.sale_price).toFixed(2)}</p>}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 px-3 py-2">
+                              {product.variants && product.variants.length > 0 ? (
+                                product.variants.map((v: any) => (
+                                  <button
+                                    key={v.id}
+                                    onClick={() => addItemToEdit(product, v)}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors">
+                                    + {v.color}
+                                  </button>
+                                ))
+                              ) : (
+                                <button
+                                  onClick={() => addItemToEdit(product, { id: product.id, color: 'Único' })}
+                                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors">
+                                  + Agregar
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="p-2 bg-gray-50 border-t border-gray-100 text-center">
+                      <button onClick={() => { setShowProductSearch(false); setProductSearch('') }}
+                        className="text-xs text-gray-500 font-medium hover:text-gray-700">Cerrar buscador ↑</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Items actuales */}
+                {editItems.length === 0 ? (
+                  <div className="text-center py-5 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    <p className="text-gray-400 text-sm">Sin productos. Usa "Buscar producto" para agregar.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {editItems.map((item, index) => (
+                      <div key={index} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{item.product_name}</p>
+                            <p className="text-xs text-gray-500">{item.color}</p>
+                          </div>
+                          <button onClick={() => updateEditItemQty(index, 0)}
+                            className="text-red-400 hover:text-red-600 text-xl leading-none w-6 h-6 flex items-center justify-center flex-shrink-0">×</button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {/* Cantidad */}
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => updateEditItemQty(index, item.quantity - 1)}
+                              className="w-7 h-7 rounded-full bg-white border border-gray-200 text-gray-600 font-bold text-sm flex items-center justify-center hover:bg-gray-100">−</button>
+                            <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
+                            <button onClick={() => updateEditItemQty(index, item.quantity + 1)}
+                              className="w-7 h-7 rounded-full bg-white border border-gray-200 text-gray-600 font-bold text-sm flex items-center justify-center hover:bg-gray-100">+</button>
+                          </div>
+                          {/* Precio unitario editable */}
+                          <div className="flex items-center gap-1 ml-2">
+                            <span className="text-xs text-gray-500">S/</span>
+                            <input
+                              type="number" step="0.01" value={item.unit_price}
+                              onChange={e => updateEditItemPrice(index, parseFloat(e.target.value) || 0)}
+                              className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                            />
+                          </div>
+                          <span className="text-sm font-bold text-gray-800 ml-auto">S/ {(item.unit_price * item.quantity).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {/* Total */}
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-200 mt-1">
+                      <span className="text-sm font-semibold text-gray-700">Total calculado</span>
+                      <span className="text-base font-bold text-gray-900">S/ {editTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ENTREGA */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Entrega</h3>
                 <div className="flex gap-2 mb-3">
@@ -693,7 +797,8 @@ export default function OrdersPage() {
                       {editSuggestions.length > 0 && (
                         <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1 max-h-40 overflow-y-auto">
                           {editSuggestions.map((s: any, i: number) => (
-                            <button key={i} onClick={() => selectEditSuggestion(s)} className="w-full text-left px-3 py-2.5 text-xs text-gray-700 hover:bg-blue-50 border-b border-gray-50 last:border-0">{s.display_name}</button>
+                            <button key={i} onClick={() => selectEditSuggestion(s)}
+                              className="w-full text-left px-3 py-2.5 text-xs text-gray-700 hover:bg-blue-50 border-b border-gray-50 last:border-0">{s.display_name}</button>
                           ))}
                         </div>
                       )}
@@ -704,10 +809,9 @@ export default function OrdersPage() {
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Ingresar coordenadas</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Coordenadas</label>
                       <input
-                        type="text"
-                        placeholder="(-12.0508110, -76.9717180)"
+                        type="text" placeholder="(-12.0508110, -76.9717180)"
                         defaultValue={editData.lat && editData.lng ? `(${editData.lat}, ${editData.lng})` : ''}
                         onChange={e => {
                           const match = e.target.value.match(/\(?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\)?/)
@@ -717,7 +821,7 @@ export default function OrdersPage() {
                       />
                       {editData.lat && editData.lng
                         ? <p className="text-xs text-green-600 mt-1">📍 Lat: {Number(editData.lat).toFixed(6)}, Lng: {Number(editData.lng).toFixed(6)}</p>
-                        : <p className="text-xs text-gray-400 mt-1">Pega las coordenadas en cualquier formato con paréntesis o sin ellos</p>
+                        : <p className="text-xs text-gray-400 mt-1">Pega las coordenadas en cualquier formato</p>
                       }
                     </div>
                   </div>
@@ -742,9 +846,11 @@ export default function OrdersPage() {
                 )}
               </div>
 
+              {/* MONTO PENDIENTE */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Monto pendiente (S/)</label>
-                <input type="number" step="0.01" value={editData.pending_amount} onChange={e => setEditData((p: any) => ({ ...p, pending_amount: e.target.value }))}
+                <input type="number" step="0.01" value={editData.pending_amount}
+                  onChange={e => setEditData((p: any) => ({ ...p, pending_amount: e.target.value }))}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
