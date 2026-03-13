@@ -118,67 +118,40 @@ export default function OrderForm() {
   const loadStore = async () => {
     try {
       const supabase = createClient()
-  
       const { data: storeData } = await supabase
         .from('stores')
         .select('*')
         .eq('store_prefix', prefix)
         .eq('status', 'active')
         .single()
-  
-      if (!storeData) {
-        setLoading(false)
-        return
-      }
-  
+
+      if (!storeData) { setLoading(false); return }
+
       if (storeData.form_active === false) {
-        setStore(storeData)
-        setFormDisabled(true)
-        setLoading(false)
-        return
+        setStore(storeData); setFormDisabled(true); setLoading(false); return
       }
-  
+
       setStore(storeData)
-  
+
       const [{ data: prods }, { data: agencyData }, { data: combosData }] =
         await Promise.all([
-          supabase
-            .from('products')
-            .select('*, product_variants(*)')
-            .eq('store_id', storeData.id)
-            .eq('is_active', true),
-  
-          supabase
-            .from('delivery_agencies')
-            .select('*')
-            .eq('store_id', storeData.id)
-            .eq('is_active', true),
-  
-          supabase
-            .from('combos')
-            .select('*')
-            .eq('store_id', storeData.id)
-            .eq('is_active', true)
-            .order('name'),
+          supabase.from('products').select('*, product_variants(*)').eq('store_id', storeData.id).eq('is_active', true),
+          supabase.from('delivery_agencies').select('*').eq('store_id', storeData.id).eq('is_active', true),
+          supabase.from('combos').select('*').eq('store_id', storeData.id).eq('is_active', true).order('name'),
         ])
-  
+
       setAgencies(agencyData || [])
       setProducts((prods || []).map((p: any) => ({ ...p, variants: p.product_variants || [] })))
-  
+
       const comboIds = (combosData || []).map((c: any) => c.id)
-      let mappedCombos: Combo[] = (combosData || []).map((c: any) => ({
-        ...c,
-        items: [],
-      }))
-  
+      let mappedCombos: Combo[] = (combosData || []).map((c: any) => ({ ...c, items: [] }))
+
       if (comboIds.length > 0) {
         const { data: comboItems } = await supabase
           .from('combo_items')
-          .select(
-            'combo_id, product_id, variant_id, quantity, products(name), product_variants(color)'
-          )
+          .select('combo_id, product_id, variant_id, quantity, products(name), product_variants(color)')
           .in('combo_id', comboIds)
-  
+
         mappedCombos = (combosData || []).map((c: any) => ({
           ...c,
           items: ((comboItems || []) as any[])
@@ -192,7 +165,7 @@ export default function OrderForm() {
             })),
         }))
       }
-  
+
       setCombos(mappedCombos)
     } catch (e) {
       console.error(e)
@@ -212,11 +185,19 @@ export default function OrderForm() {
   const filteredCombos = search.trim() === '' ? combos : combos.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
 
   const addToCart = (product: Product, variant: { id: string; color: string; stock: number }) => {
-    const existing = cart.find((c) => c.variant_id === variant.id)
+    const keyId = variant.id || product.id
+    const existing = cart.find((c) => (c.variant_id || c.product_id) === keyId && c.product_id === product.id)
     if (existing) {
-      setCart(cart.map((c) => c.variant_id === variant.id ? { ...c, quantity: c.quantity + 1 } : c))
+      setCart(cart.map((c) => ((c.variant_id || c.product_id) === keyId && c.product_id === product.id) ? { ...c, quantity: c.quantity + 1 } : c))
     } else {
-      setCart([...cart, { product_id: product.id, variant_id: variant.id, product_name: product.name, color: variant.color, quantity: 1, unit_price: product.sale_price }])
+      setCart([...cart, {
+        product_id: product.id,
+        variant_id: variant.id, // puede ser '' para productos sin variante
+        product_name: product.name,
+        color: variant.color,
+        quantity: 1,
+        unit_price: product.sale_price
+      }])
     }
   }
 
@@ -229,12 +210,12 @@ export default function OrderForm() {
     }
   }
 
-  const removeFromCart = (variantId: string) => setCart(cart.filter((c) => c.variant_id !== variantId))
+  const removeFromCart = (item: CartItem) => setCart(cart.filter((c) => !(c.product_id === item.product_id && c.variant_id === item.variant_id)))
   const removeComboFromCart = (comboId: string) => setComboCart(comboCart.filter(c => c.combo_id !== comboId))
 
-  const updateQty = (variantId: string, qty: number) => {
-    if (qty <= 0) { removeFromCart(variantId); return }
-    setCart(cart.map((c) => (c.variant_id === variantId ? { ...c, quantity: qty } : c)))
+  const updateQty = (item: CartItem, qty: number) => {
+    if (qty <= 0) { removeFromCart(item); return }
+    setCart(cart.map((c) => (c.product_id === item.product_id && c.variant_id === item.variant_id) ? { ...c, quantity: qty } : c))
   }
 
   const updateComboQty = (comboId: string, qty: number) => {
@@ -280,10 +261,22 @@ export default function OrderForm() {
         // Insertar items de productos normales
         if (cart.length > 0) {
           await supabase.from('order_items').insert(
-            cart.map((c) => ({ order_id: order.id, product_id: c.product_id, variant_id: c.variant_id, product_name: c.product_name, color: c.color, quantity: c.quantity, unit_price: c.unit_price, subtotal: c.unit_price * c.quantity }))
+            cart.map((c) => ({
+              order_id: order.id,
+              product_id: c.product_id,
+              variant_id: c.variant_id || null, // FIX: null para productos sin variante
+              product_name: c.product_name,
+              color: c.color,
+              quantity: c.quantity,
+              unit_price: c.unit_price,
+              subtotal: c.unit_price * c.quantity
+            }))
           )
           for (const item of cart) {
-            if (item.variant_id) await supabase.rpc('decrement_stock', { p_variant_id: item.variant_id, p_qty: item.quantity })
+            // FIX: solo descontar stock si tiene variant_id real
+            if (item.variant_id) {
+              await supabase.rpc('decrement_stock', { p_variant_id: item.variant_id, p_qty: item.quantity })
+            }
           }
         }
 
@@ -304,7 +297,6 @@ export default function OrderForm() {
               })
               if (ci.variant_id) await supabase.rpc('decrement_stock', { p_variant_id: ci.variant_id, p_qty: totalQty })
             }
-            // Insertar línea resumen del combo con precio
             await supabase.from('order_items').insert({
               order_id: order.id,
               product_id: comboItem.items[0]?.product_id || null,
@@ -407,7 +399,6 @@ export default function OrderForm() {
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm bg-white bg-opacity-95 text-gray-800 placeholder-gray-400 focus:outline-none border-0" />
               {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg leading-none">×</button>}
             </div>
-            {/* Tabs productos / combos */}
             {combos.length > 0 && (
               <div className="flex gap-2 pb-1">
                 <button onClick={() => setActiveTab('products')}
@@ -424,7 +415,7 @@ export default function OrderForm() {
         )}
       </div>
 
-      {/* FILTRO CATEGORÍA — solo en tab productos */}
+      {/* FILTRO CATEGORÍA */}
       {step === 1 && activeTab === 'products' && categories.length > 2 && (
         <div className="sticky z-9 bg-gray-50 border-b border-gray-200 px-4 py-2">
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -441,10 +432,9 @@ export default function OrderForm() {
 
       <div className="max-w-lg mx-auto px-4 py-5 pb-32">
 
-        {/* PASO 1 — PRODUCTOS Y COMBOS */}
+        {/* PASO 1 */}
         {step === 1 && (
           <div>
-            {/* TAB PRODUCTOS */}
             {activeTab === 'products' && (
               <div>
                 {filteredProducts.length === 0 ? (
@@ -467,7 +457,7 @@ export default function OrderForm() {
                         {product.variants.length > 0 ? (
                           <div className="flex flex-wrap gap-2">
                             {product.variants.map((v) => {
-                              const inCart = cart.find((c) => c.variant_id === v.id)
+                              const inCart = cart.find((c) => c.variant_id === v.id && c.product_id === product.id)
                               return (
                                 <button key={v.id} onClick={() => addToCart(product, v)}
                                   className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors touch-manipulation ${inCart ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 active:bg-gray-50'}`}>
@@ -477,9 +467,11 @@ export default function OrderForm() {
                             })}
                           </div>
                         ) : (
-                          <button onClick={() => addToCart(product, { id: product.id, color: 'Único', stock: 99 })}
+                          <button onClick={() => addToCart(product, { id: '', color: 'Único', stock: 99 })}
                             className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 active:bg-gray-50 touch-manipulation">
-                            + Agregar
+                            {cart.find(c => c.product_id === product.id && !c.variant_id)
+                              ? `✓ ${cart.find(c => c.product_id === product.id && !c.variant_id)?.quantity} en carrito`
+                              : '+ Agregar'}
                           </button>
                         )}
                       </div>
@@ -489,7 +481,6 @@ export default function OrderForm() {
               </div>
             )}
 
-            {/* TAB COMBOS */}
             {activeTab === 'combos' && (
               <div>
                 {filteredCombos.length === 0 ? (
@@ -548,7 +539,6 @@ export default function OrderForm() {
               </div>
             )}
 
-            {/* BARRA INFERIOR */}
             {totalItems > 0 && (
               <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
                 <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
@@ -567,7 +557,7 @@ export default function OrderForm() {
           </div>
         )}
 
-        {/* PASO 2 — DATOS */}
+        {/* PASO 2 */}
         {step === 2 && (
           <div>
             <h2 className="text-base font-bold text-gray-900 mb-3">Tus datos</h2>
@@ -604,7 +594,7 @@ export default function OrderForm() {
           </div>
         )}
 
-        {/* PASO 3 — ENTREGA */}
+        {/* PASO 3 */}
         {step === 3 && (
           <div>
             <h2 className="text-base font-bold text-gray-900 mb-3">Datos de entrega</h2>
@@ -709,13 +699,13 @@ export default function OrderForm() {
             {/* Resumen del pedido */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mt-4">
               <h3 className="font-bold text-gray-900 mb-3 text-sm">Resumen del pedido</h3>
-              {cart.map((item) => (
-                <div key={item.variant_id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              {cart.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => updateQty(item.variant_id, item.quantity - 1)} className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-base font-bold flex items-center justify-center touch-manipulation">−</button>
+                      <button onClick={() => updateQty(item, item.quantity - 1)} className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-base font-bold flex items-center justify-center touch-manipulation">−</button>
                       <span className="w-7 text-center text-sm font-semibold">{item.quantity}</span>
-                      <button onClick={() => updateQty(item.variant_id, item.quantity + 1)} className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-base font-bold flex items-center justify-center touch-manipulation">+</button>
+                      <button onClick={() => updateQty(item, item.quantity + 1)} className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-base font-bold flex items-center justify-center touch-manipulation">+</button>
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{item.product_name}</p>
