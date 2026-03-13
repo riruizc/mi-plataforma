@@ -13,10 +13,13 @@ export default function SettingsPage() {
   const [togglingForm, setTogglingForm] = useState(false)
   const [copied, setCopied] = useState(false)
   const [copiedContact, setCopiedContact] = useState(false)
+  const [copiedCatalog, setCopiedCatalog] = useState(false)
   const [savingContact, setSavingContact] = useState(false)
   const [successContact, setSuccessContact] = useState(false)
   const [catalogActive, setCatalogActive] = useState(false)
   const [togglingCatalog, setTogglingCatalog] = useState(false)
+  const [savingCoords, setSavingCoords] = useState(false)
+  const [successCoords, setSuccessCoords] = useState(false)
 
   const [formData, setFormData] = useState({
     name: '', phone: '', owner_name: '', theme_color: '#3b82f6',
@@ -94,13 +97,26 @@ export default function SettingsPage() {
       await supabase.from('stores').update({
         name: formData.name, phone: formData.phone, owner_name: formData.owner_name,
         theme_color: formData.theme_color,
-        origin_lat: formData.origin_lat ? parseFloat(formData.origin_lat) : null,
-        origin_lng: formData.origin_lng ? parseFloat(formData.origin_lng) : null,
       }).eq('id', store.id)
       setStore((prev: any) => ({ ...prev, ...formData }))
       setSuccess(true); setTimeout(() => setSuccess(false), 3000)
     } catch (e) { alert('Error al guardar') }
     finally { setSaving(false) }
+  }
+
+  const saveCoords = async () => {
+    if (!store) return
+    setSavingCoords(true); setSuccessCoords(false)
+    try {
+      const supabase = createClient()
+      await supabase.from('stores').update({
+        origin_lat: formData.origin_lat ? parseFloat(formData.origin_lat) : null,
+        origin_lng: formData.origin_lng ? parseFloat(formData.origin_lng) : null,
+      }).eq('id', store.id)
+      setStore((prev: any) => ({ ...prev, origin_lat: formData.origin_lat, origin_lng: formData.origin_lng }))
+      setSuccessCoords(true); setTimeout(() => setSuccessCoords(false), 3000)
+    } catch (e) { alert('Error al guardar coordenadas') }
+    finally { setSavingCoords(false) }
   }
 
   const saveContactSettings = async () => {
@@ -144,6 +160,7 @@ export default function SettingsPage() {
   const catalogLink = typeof window !== 'undefined' && store ? `${window.location.origin}/catalog/${store.store_prefix}` : ''
   const copyLink = () => { navigator.clipboard.writeText(formLink); setCopied(true); setTimeout(() => setCopied(false), 2000) }
   const copyContactLink = () => { navigator.clipboard.writeText(contactLink); setCopiedContact(true); setTimeout(() => setCopiedContact(false), 2000) }
+  const copyCatalogLink = () => { navigator.clipboard.writeText(catalogLink); setCopiedCatalog(true); setTimeout(() => setCopiedCatalog(false), 2000) }
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -209,6 +226,9 @@ export default function SettingsPage() {
               <>
                 <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-3 border border-gray-200">
                   <p className="text-xs text-gray-600 flex-1 truncate font-mono">{catalogLink}</p>
+                  <button onClick={copyCatalogLink} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white touch-manipulation">
+                    {copiedCatalog ? '✅ Copiado' : '📋 Copiar'}
+                  </button>
                 </div>
                 <button onClick={() => window.open(catalogLink, '_blank')}
                   className="w-full py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-700">
@@ -320,7 +340,7 @@ export default function SettingsPage() {
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <h2 className="font-semibold text-gray-900 mb-1">📍 Punto de salida del motorizado</h2>
             <p className="text-xs text-gray-400 mb-4">Desde aquí se calcula la ruta óptima.</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Latitud</label>
                 <input type="text" value={formData.origin_lat} onChange={e => setFormData(prev => ({ ...prev, origin_lat: e.target.value }))}
@@ -332,7 +352,18 @@ export default function SettingsPage() {
                   placeholder="Ej: -79.0286" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
-            {formData.origin_lat && formData.origin_lng && <p className="text-xs text-green-600 mt-2">📍 Coordenadas configuradas</p>}
+            {formData.origin_lat && formData.origin_lng && (
+              <p className="text-xs text-green-600 mb-3">📍 Coordenadas configuradas</p>
+            )}
+            {successCoords && (
+              <div className="mb-3 bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+                <p className="text-green-700 text-sm font-medium">✅ Coordenadas guardadas</p>
+              </div>
+            )}
+            <button onClick={saveCoords} disabled={savingCoords || (!formData.origin_lat && !formData.origin_lng)}
+              className="w-full py-2.5 bg-gray-800 text-white rounded-xl text-sm font-semibold disabled:opacity-40 touch-manipulation">
+              {savingCoords ? 'Guardando...' : '💾 Guardar coordenadas'}
+            </button>
           </div>
 
           {/* 5. Logo */}
