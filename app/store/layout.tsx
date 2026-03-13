@@ -21,6 +21,8 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
   })
 
   useEffect(() => {
+    let channelRef: any = null
+
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -47,7 +49,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         })
       }
 
-      const channel = supabase
+      channelRef = supabase
         .channel('new-orders')
         .on('postgres_changes', {
           event: 'INSERT', schema: 'public', table: 'orders',
@@ -61,10 +63,13 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
           }, ...prev].slice(0, 10))
         })
         .subscribe()
-
-      return () => { supabase.removeChannel(channel) }
     }
+
     init()
+
+    return () => {
+      if (channelRef) supabase.removeChannel(channelRef)
+    }
   }, [])
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
