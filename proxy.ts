@@ -32,7 +32,19 @@ export async function proxy(request: NextRequest) {
 
   // Si ya está logueado y trata de ir al login
   if (user && path === '/login') {
-    return NextResponse.redirect(new URL('/', request.url))
+    const { data: store } = await supabase
+      .from('stores')
+      .select('status')
+      .eq('email', user.email!)
+      .single()
+  
+    if (store?.status === 'admin') {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+    } else if (store?.status === 'active') {
+      return NextResponse.redirect(new URL('/store/dashboard', request.url))
+    } else {
+      return NextResponse.redirect(new URL('/pending', request.url))
+    }
   }
 
   return supabaseResponse
