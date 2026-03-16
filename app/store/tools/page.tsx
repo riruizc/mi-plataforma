@@ -5,18 +5,18 @@ import { createClient } from '@/lib/supabase'
 import jsPDF from 'jspdf'
 
 type Agency = {
-  id: string
-  agency_name: string
-  destinations: string[]
-  is_active: boolean
+  id: string; agency_name: string; destinations: string[]; is_active: boolean
+}
+
+type OrderItem = {
+  product_name: string; color: string; quantity: number
 }
 
 type Order = {
-  id: string
-  order_code: string
-  destination: string
+  id: string; order_code: string; destination: string
   pending_amount: number
   customers?: { name?: string; phone?: string; dni?: string }
+  order_items?: OrderItem[]
 }
 
 export default function ToolsPage() {
@@ -26,7 +26,6 @@ export default function ToolsPage() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'agencias' | 'etiquetas'>('agencias')
-
   const [newAgency, setNewAgency] = useState({ name: '', destinations: '' })
   const [saving, setSaving] = useState(false)
 
@@ -37,34 +36,22 @@ export default function ToolsPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-
-      const { data: store } = await supabase
-        .from('stores')
-        .select('id')
-        .eq('email', user.email)
-        .single()
+      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
       if (!store) return
       setStoreId(store.id)
 
-      const { data: agencyData } = await supabase
-        .from('delivery_agencies')
-        .select('*')
-        .eq('store_id', store.id)
-        .order('agency_name')
+      const { data: agencyData } = await supabase.from('delivery_agencies').select('*').eq('store_id', store.id).order('agency_name')
       setAgencies(agencyData || [])
 
       const { data: orderData } = await supabase
         .from('orders')
-        .select('*, customers(name, phone, dni)')
+        .select('*, customers(name, phone, dni), order_items(product_name, color, quantity)')
         .eq('store_id', store.id)
         .in('status', ['pending', 'in_route'])
         .order('created_at', { ascending: false })
       setOrders(orderData || [])
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
   }
 
   const agregarAgencia = async () => {
@@ -76,33 +63,20 @@ export default function ToolsPage() {
       const destinations = newAgency.destinations
         ? newAgency.destinations.split(',').map(d => d.trim()).filter(d => d)
         : []
-      const { data } = await supabase
-        .from('delivery_agencies')
+      const { data } = await supabase.from('delivery_agencies')
         .insert({ store_id: storeId, agency_name: newAgency.name.trim(), destinations, is_active: true })
-        .select()
-        .single()
-      if (data) {
-        setAgencies(prev => [...prev, data])
-        setNewAgency({ name: '', destinations: '' })
-      }
-    } catch (e) {
-      alert('Error al guardar la agencia')
-    } finally {
-      setSaving(false)
-    }
+        .select().single()
+      if (data) { setAgencies(prev => [...prev, data]); setNewAgency({ name: '', destinations: '' }) }
+    } catch (e) { alert('Error al guardar la agencia') }
+    finally { setSaving(false) }
   }
 
   const toggleAgencia = async (agency: Agency) => {
     try {
       const supabase = createClient()
-      await supabase
-        .from('delivery_agencies')
-        .update({ is_active: !agency.is_active })
-        .eq('id', agency.id)
+      await supabase.from('delivery_agencies').update({ is_active: !agency.is_active }).eq('id', agency.id)
       setAgencies(prev => prev.map(a => a.id === agency.id ? { ...a, is_active: !a.is_active } : a))
-    } catch (e) {
-      alert('Error al actualizar')
-    }
+    } catch (e) { alert('Error al actualizar') }
   }
 
   const eliminarAgencia = async (id: string) => {
@@ -111,9 +85,7 @@ export default function ToolsPage() {
       const supabase = createClient()
       await supabase.from('delivery_agencies').delete().eq('id', id)
       setAgencies(prev => prev.filter(a => a.id !== id))
-    } catch (e) {
-      alert('Error al eliminar')
-    }
+    } catch (e) { alert('Error al eliminar') }
   }
 
   const toggleOrderSelect = (id: string) => {
@@ -129,11 +101,11 @@ export default function ToolsPage() {
     const rows = 4
     const perPage = cols * rows
     const labelW = 90
-    const labelH = 65
+    const labelH = 68
     const marginX = 10
-    const marginY = 10
+    const marginY = 5
     const gapX = 10
-    const gapY = 5
+    const gapY = 4
 
     selected.forEach((order, index) => {
       if (index > 0 && index % perPage === 0) doc.addPage()
@@ -147,23 +119,54 @@ export default function ToolsPage() {
       doc.setLineWidth(0.3)
       doc.rect(x, y, labelW, labelH)
 
-      doc.setFontSize(10)
+      // Código de pedido
+      doc.setFontSize(11)
       doc.setFont('helvetica', 'bold')
       doc.text(order.order_code, x + 4, y + 8)
 
-      doc.setFontSize(8)
+      // Datos del cliente
+      doc.setFontSize(7.5)
       doc.setFont('helvetica', 'normal')
-      doc.text('Cliente: ' + (order.customers?.name || '-'), x + 4, y + 16)
-      doc.text('Celular: ' + (order.customers?.phone || '-'), x + 4, y + 23)
-      doc.text('DNI: ' + (order.customers?.dni || '-'), x + 4, y + 30)
+      doc.text('Cliente: ' + (order.customers?.name || '-'), x + 4, y + 15)
+      doc.text('Cel: ' + (order.customers?.phone || '-') + '   DNI: ' + (order.customers?.dni || '-'), x + 4, y + 21)
 
-      const dest = order.destination ? order.destination.substring(0, 40) : '-'
+      // Destino
+      const dest = order.destination ? order.destination.substring(0, 42) : '-'
       const destLines = doc.splitTextToSize('Destino: ' + dest, labelW - 8)
-      doc.text(destLines, x + 4, y + 37)
+      doc.text(destLines.slice(0, 2), x + 4, y + 27)
 
+      // Línea separadora
+      doc.setDrawColor(220, 220, 220)
+      doc.line(x + 4, y + 34, x + labelW - 4, y + 34)
+
+      // Productos
+      doc.setFontSize(7)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(10)
-      doc.text('Por cobrar: S/ ' + Number(order.pending_amount).toFixed(2), x + 4, y + 58)
+      doc.text('Productos:', x + 4, y + 39)
+      doc.setFont('helvetica', 'normal')
+
+      const items = order.order_items || []
+      let itemY = y + 44
+      const maxItems = 3
+
+      if (items.length === 0) {
+        doc.text('Sin productos registrados', x + 4, itemY)
+      } else {
+        items.slice(0, maxItems).forEach((item, i) => {
+          const colorStr = item.color && item.color !== 'Único' ? ` ${item.color}` : ''
+          const line = `• ${item.product_name}${colorStr} x${item.quantity}`
+          const truncated = line.length > 38 ? line.substring(0, 36) + '...' : line
+          doc.text(truncated, x + 4, itemY + i * 5)
+        })
+        if (items.length > maxItems) {
+          doc.text(`  + ${items.length - maxItems} producto(s) más`, x + 4, itemY + maxItems * 5)
+        }
+      }
+
+      // Por cobrar
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.text('Por cobrar: S/ ' + Number(order.pending_amount).toFixed(2), x + 4, y + 64)
     })
 
     doc.save('etiquetas.pdf')
@@ -183,16 +186,12 @@ export default function ToolsPage() {
       </div>
 
       <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setTab('agencias')}
-          className={'px-4 py-2 rounded-xl text-sm font-medium ' + (tab === 'agencias' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600')}
-        >
+        <button onClick={() => setTab('agencias')}
+          className={'px-4 py-2 rounded-xl text-sm font-medium ' + (tab === 'agencias' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600')}>
           🚚 Agencias
         </button>
-        <button
-          onClick={() => setTab('etiquetas')}
-          className={'px-4 py-2 rounded-xl text-sm font-medium ' + (tab === 'etiquetas' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600')}
-        >
+        <button onClick={() => setTab('etiquetas')}
+          className={'px-4 py-2 rounded-xl text-sm font-medium ' + (tab === 'etiquetas' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600')}>
           🏷️ Etiquetas PDF
         </button>
       </div>
@@ -204,32 +203,21 @@ export default function ToolsPage() {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la agencia *</label>
-                <input
-                  type="text"
-                  value={newAgency.name}
-                  onChange={e => setNewAgency(prev => ({ ...prev, name: e.target.value }))}
+                <input type="text" value={newAgency.name} onChange={e => setNewAgency(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ej: Shalom, Olva, Flores"
-                />
+                  placeholder="Ej: Shalom, Olva, Flores" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Destinos predefinidos <span className="text-gray-400">(opcional, separados por coma)</span>
                 </label>
-                <input
-                  type="text"
-                  value={newAgency.destinations}
-                  onChange={e => setNewAgency(prev => ({ ...prev, destinations: e.target.value }))}
+                <input type="text" value={newAgency.destinations} onChange={e => setNewAgency(prev => ({ ...prev, destinations: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ej: Moquegua, Arequipa, Tacna"
-                />
+                  placeholder="Ej: Moquegua, Arequipa, Tacna" />
                 <p className="text-xs text-gray-400 mt-1">Si lo dejas vacío, el cliente podrá escribir el destino libremente</p>
               </div>
-              <button
-                onClick={agregarAgencia}
-                disabled={saving}
-                className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold disabled:opacity-50"
-              >
+              <button onClick={agregarAgencia} disabled={saving}
+                className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold disabled:opacity-50">
                 {saving ? 'Guardando...' : '+ Agregar agencia'}
               </button>
             </div>
@@ -253,28 +241,18 @@ export default function ToolsPage() {
                           {agency.is_active ? 'Activa' : 'Inactiva'}
                         </span>
                       </div>
-                      {agency.destinations?.length > 0 && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Destinos: {agency.destinations.join(', ')}
-                        </p>
-                      )}
-                      {(!agency.destinations || agency.destinations.length === 0) && (
-                        <p className="text-xs text-gray-400 mt-1">Destino libre</p>
-                      )}
+                      {agency.destinations?.length > 0
+                        ? <p className="text-xs text-gray-500 mt-1">Destinos: {agency.destinations.join(', ')}</p>
+                        : <p className="text-xs text-gray-400 mt-1">Destino libre</p>
+                      }
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => toggleAgencia(agency)}
-                        className={'px-3 py-1.5 rounded-lg text-xs font-medium border ' + (agency.is_active ? 'border-gray-200 text-gray-600' : 'border-green-200 text-green-700')}
-                      >
+                      <button onClick={() => toggleAgencia(agency)}
+                        className={'px-3 py-1.5 rounded-lg text-xs font-medium border ' + (agency.is_active ? 'border-gray-200 text-gray-600' : 'border-green-200 text-green-700')}>
                         {agency.is_active ? 'Desactivar' : 'Activar'}
                       </button>
-                      <button
-                        onClick={() => eliminarAgencia(agency.id)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-600"
-                      >
-                        🗑️
-                      </button>
+                      <button onClick={() => eliminarAgencia(agency.id)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-600">🗑️</button>
                     </div>
                   </div>
                 ))}
@@ -290,29 +268,23 @@ export default function ToolsPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-semibold text-gray-900">Generar etiquetas</h2>
-                <p className="text-xs text-gray-500 mt-0.5">8 etiquetas por hoja A4</p>
+                <p className="text-xs text-gray-500 mt-0.5">8 etiquetas por hoja A4 — incluye productos del pedido</p>
               </div>
               {selectedOrders.length > 0 && (
-                <button
-                  onClick={generarEtiquetas}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold"
-                >
+                <button onClick={generarEtiquetas}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold">
                   📄 Generar PDF ({selectedOrders.length})
                 </button>
               )}
             </div>
 
             <div className="flex gap-2 mb-3">
-              <button
-                onClick={() => setSelectedOrders(orders.map(o => o.id))}
-                className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600"
-              >
+              <button onClick={() => setSelectedOrders(orders.map(o => o.id))}
+                className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600">
                 Seleccionar todos
               </button>
-              <button
-                onClick={() => setSelectedOrders([])}
-                className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600"
-              >
+              <button onClick={() => setSelectedOrders([])}
+                className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600">
                 Limpiar
               </button>
             </div>
@@ -325,17 +297,19 @@ export default function ToolsPage() {
             ) : (
               <div className="space-y-2 max-h-64 sm:max-h-96 overflow-y-auto">
                 {orders.map(order => (
-                  <div
-                    key={order.id}
-                    onClick={() => toggleOrderSelect(order.id)}
-                    className={'flex items-center justify-between p-3 rounded-xl border cursor-pointer ' + (selectedOrders.includes(order.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-300')}
-                  >
-                    <div>
+                  <div key={order.id} onClick={() => toggleOrderSelect(order.id)}
+                    className={'flex items-center justify-between p-3 rounded-xl border cursor-pointer ' + (selectedOrders.includes(order.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-300')}>
+                    <div className="flex-1 min-w-0">
                       <p className="font-mono font-bold text-sm text-gray-900">{order.order_code}</p>
                       <p className="text-xs text-gray-600">{order.customers?.name || '-'}</p>
-                      <p className="text-xs text-gray-400">{order.destination?.substring(0, 40)}</p>
+                      {order.order_items && order.order_items.length > 0 && (
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">
+                          {order.order_items.slice(0, 2).map(i => `${i.product_name} x${i.quantity}`).join(', ')}
+                          {order.order_items.length > 2 ? ` +${order.order_items.length - 2} más` : ''}
+                        </p>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-shrink-0">
                       <p className="text-sm font-bold text-orange-600">S/ {Number(order.pending_amount).toFixed(2)}</p>
                       <div className={'w-5 h-5 rounded-full border-2 ' + (selectedOrders.includes(order.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300')} />
                     </div>
