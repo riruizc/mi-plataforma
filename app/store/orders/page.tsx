@@ -1,3 +1,4 @@
+
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -240,7 +241,8 @@ export default function OrdersPage() {
       dni: order.customers?.dni || '', delivery_method: order.delivery_method || 'motorizado',
       destination: order.destination || '', reference: order.reference || '',
       lat: order.lat || '', lng: order.lng || '',
-      agency_name: order.agency_name || '', pending_amount: order.pending_amount || 0
+      agency_name: order.agency_name || '', pending_amount: order.pending_amount || 0,
+      total_amount: order.total_amount || 0
     })
     setEditItems(order.order_items || [])
     setEditSuggestions([])
@@ -369,7 +371,9 @@ export default function OrdersPage() {
       if (editOrder.customer_id) {
         await supabase.from('customers').update({ name: editData.name, phone: editData.phone, dni: editData.dni }).eq('id', editOrder.customer_id)
       }
-      const newTotal = editItems.length > 0 ? editTotal : editOrder.total_amount
+      const newTotal = editData.total_amount !== '' && editData.total_amount !== undefined
+        ? parseFloat(String(editData.total_amount))
+        : (editItems.length > 0 ? editTotal : editOrder.total_amount)
       await supabase.from('orders').update({
         delivery_method: editData.delivery_method,
         destination: editData.destination,
@@ -763,10 +767,22 @@ export default function OrdersPage() {
                         </div>
                       </div>
                     ))}
-                    {/* Total */}
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-200 mt-1">
-                      <span className="text-sm font-semibold text-gray-700">Total calculado</span>
-                      <span className="text-base font-bold text-gray-900">S/ {editTotal.toFixed(2)}</span>
+                    {/* Total editable */}
+                    <div className="pt-2 border-t border-gray-200 mt-1 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-500">Calculado de items</span>
+                        <span className="text-sm text-gray-500">S/ {editTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-semibold text-gray-700">Total del pedido (S/)</span>
+                        <input
+                          type="number" step="0.01"
+                          value={editData.total_amount}
+                          onChange={e => setEditData((p: any) => ({ ...p, total_amount: e.target.value }))}
+                          className="w-28 px-3 py-1.5 border border-gray-300 rounded-xl text-sm text-right font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400">Este monto se registra en Finanzas al marcar como entregado</p>
                     </div>
                   </div>
                 )}

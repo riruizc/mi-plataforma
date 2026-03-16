@@ -27,14 +27,9 @@ export default function SettingsPage() {
   })
 
   const [contactData, setContactData] = useState({
-    contact_active: false,
-    contact_bg_color: '#ffffff',
-    contact_logo_shape: 'circular',
-    contact_description: '',
-    contact_whatsapp_msg: '',
-    contact_facebook: '',
-    contact_tiktok: '',
-    contact_instagram: '',
+    contact_active: false, contact_bg_color: '#ffffff', contact_logo_shape: 'circular',
+    contact_description: '', contact_whatsapp_msg: '',
+    contact_facebook: '', contact_tiktok: '', contact_instagram: '',
   })
 
   const fileRef = useRef<any>(null)
@@ -183,9 +178,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h2 className="font-semibold text-gray-900">🔗 Link de tu formulario</h2>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {formActive ? 'Tus clientes pueden hacer pedidos' : 'El formulario está desactivado'}
-                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{formActive ? 'Tus clientes pueden hacer pedidos' : 'El formulario está desactivado'}</p>
               </div>
               <button onClick={toggleFormActive} disabled={togglingForm}
                 className={`relative w-12 h-6 rounded-full transition-colors touch-manipulation disabled:opacity-50 ${formActive ? 'bg-green-500' : 'bg-gray-300'}`}>
@@ -213,9 +206,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h2 className="font-semibold text-gray-900">🛍️ Catálogo público</h2>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {catalogActive ? 'Tus clientes pueden ver tu catálogo' : 'El catálogo está desactivado'}
-                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{catalogActive ? 'Tus clientes pueden ver tu catálogo' : 'El catálogo está desactivado'}</p>
               </div>
               <button onClick={toggleCatalogActive} disabled={togglingCatalog}
                 className={`relative w-12 h-6 rounded-full transition-colors disabled:opacity-50 ${catalogActive ? 'bg-green-500' : 'bg-gray-300'}`}>
@@ -254,7 +245,7 @@ export default function SettingsPage() {
             {contactData.contact_active && (
               <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-4 border border-gray-200">
                 <p className="text-xs text-gray-600 flex-1 truncate font-mono">{contactLink}</p>
-                <button onClick={copyContactLink} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600 text-white">
+                <button onClick={copyContactLink} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white">
                   {copiedContact ? '✅ Copiado' : '📋 Copiar'}
                 </button>
               </div>
@@ -326,7 +317,7 @@ export default function SettingsPage() {
             )}
             <div className="flex gap-2 mt-4">
               <button onClick={saveContactSettings} disabled={savingContact}
-                className="flex-1 py-3 bg-purple-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50">
+                className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50">
                 {savingContact ? 'Guardando...' : 'Guardar panel de contacto'}
               </button>
               {contactData.contact_active && (
@@ -352,16 +343,14 @@ export default function SettingsPage() {
                   placeholder="Ej: -79.0286" className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
-            {formData.origin_lat && formData.origin_lng && (
-              <p className="text-xs text-green-600 mb-3">📍 Coordenadas configuradas</p>
-            )}
+            {formData.origin_lat && formData.origin_lng && <p className="text-xs text-green-600 mb-3">📍 Coordenadas configuradas</p>}
             {successCoords && (
               <div className="mb-3 bg-green-50 border border-green-200 rounded-xl p-3 text-center">
                 <p className="text-green-700 text-sm font-medium">✅ Coordenadas guardadas</p>
               </div>
             )}
             <button onClick={saveCoords} disabled={savingCoords || (!formData.origin_lat && !formData.origin_lng)}
-              className="w-full py-2.5 bg-gray-800 text-white rounded-xl text-sm font-semibold disabled:opacity-40 touch-manipulation">
+              className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold disabled:opacity-40 touch-manipulation">
               {savingCoords ? 'Guardando...' : '💾 Guardar coordenadas'}
             </button>
           </div>

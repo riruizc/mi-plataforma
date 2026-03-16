@@ -452,7 +452,7 @@ export default function OrderForm() {
                             <h3 className="font-semibold text-gray-900 text-sm leading-snug">{product.name}</h3>
                             {product.category && <p className="text-xs text-gray-400 mt-0.5">{product.category}</p>}
                           </div>
-                          <span className="font-bold text-gray-900 text-sm flex-shrink-0">S/ {Number(product.sale_price).toFixed(2)}</span>
+                          
                         </div>
                         {product.variants.length > 0 ? (
                           <div className="flex flex-wrap gap-2">
@@ -511,7 +511,7 @@ export default function OrderForm() {
                                 </div>
                               )}
                             </div>
-                            <span className="font-bold text-gray-900 text-sm flex-shrink-0">S/ {Number(combo.price).toFixed(2)}</span>
+                            
                           </div>
                           {inCart ? (
                             <div className="flex items-center gap-3 mt-3">
@@ -523,7 +523,7 @@ export default function OrderForm() {
                                   className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 font-bold flex items-center justify-center touch-manipulation">+</button>
                               </div>
                               <button onClick={() => removeComboFromCart(combo.id)} className="text-xs text-red-400 font-medium">✕ Quitar</button>
-                              <span className="ml-auto text-sm font-bold text-blue-600">S/ {(combo.price * inCart.quantity).toFixed(2)}</span>
+                
                             </div>
                           ) : (
                             <button onClick={() => addComboToCart(combo)}
@@ -712,7 +712,7 @@ export default function OrderForm() {
                       <p className="text-xs text-gray-400">{item.color}</p>
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-gray-900 flex-shrink-0 ml-2">S/ {(item.unit_price * item.quantity).toFixed(2)}</span>
+                
                 </div>
               ))}
               {comboCart.map((item) => (
@@ -728,7 +728,7 @@ export default function OrderForm() {
                       <p className="text-xs text-gray-400">Combo</p>
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-gray-900 flex-shrink-0 ml-2">S/ {(item.unit_price * item.quantity).toFixed(2)}</span>
+                
                 </div>
               ))}
               <div className="flex justify-between pt-3">
