@@ -24,6 +24,65 @@ type ComboCartItem = {
   combo_id: string; combo_name: string; quantity: number; unit_price: number; items: ComboItem[]
 }
 
+function AgencyDestinationSearch({ destinations, value, onChange, themeColor }: {
+  destinations: string[]; value: string; onChange: (val: string) => void; themeColor: string
+}) {
+  const [query, setQuery] = useState(value || '')
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  const filtered = query.trim().length >= 2
+    ? destinations.filter(d => d.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
+    : []
+
+  const handleSelect = (dest: string) => {
+    setQuery(dest)
+    onChange(dest)
+    setShowSuggestions(false)
+  }
+
+  const handleChange = (val: string) => {
+    setQuery(val)
+    onChange(val)
+    setShowSuggestions(true)
+  }
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={query}
+        onChange={e => handleChange(e.target.value)}
+        onFocus={() => setShowSuggestions(true)}
+        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+        placeholder="Escribe tu destino..."
+        className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      {query && (
+        <button type="button" onClick={() => { setQuery(''); onChange(''); }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">×</button>
+      )}
+      {showSuggestions && filtered.length > 0 && (
+        <div className="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-52 overflow-y-auto">
+          {filtered.map((dest, i) => (
+            <button key={i} type="button" onMouseDown={() => handleSelect(dest)}
+              className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100 last:border-0 touch-manipulation">
+              📍 {dest}
+            </button>
+          ))}
+        </div>
+      )}
+      {showSuggestions && query.trim().length >= 2 && filtered.length === 0 && (
+        <div className="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow mt-1 px-4 py-3">
+          <p className="text-sm text-gray-400">No se encontraron destinos</p>
+        </div>
+      )}
+      {query.trim().length < 2 && !value && (
+        <p className="text-xs text-gray-400 mt-1">Escribe al menos 2 letras para buscar</p>
+      )}
+    </div>
+  )
+}
+
 function MapPicker({ lat, lng, onSelect, themeColor }: {
   lat: number | null; lng: number | null; onSelect: (lat: number, lng: number) => void; themeColor: string
 }) {
@@ -662,11 +721,12 @@ export default function OrderForm() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Destino <span className="text-red-500">*</span></label>
                       {agencies.find((a) => a.agency_name === delivery.agency_name)?.destinations?.length ? (
-                        <select value={delivery.destination} onChange={(e) => setDelivery((prev) => ({ ...prev, destination: e.target.value }))}
-                          className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          <option value="">Selecciona destino</option>
-                          {agencies.find((a) => a.agency_name === delivery.agency_name)?.destinations.map((d: string) => <option key={d} value={d}>{d}</option>)}
-                        </select>
+                        <AgencyDestinationSearch
+                          destinations={agencies.find((a) => a.agency_name === delivery.agency_name)?.destinations || []}
+                          value={delivery.destination}
+                          onChange={(val) => setDelivery((prev) => ({ ...prev, destination: val }))}
+                          themeColor={store?.theme_color || '#2563eb'}
+                        />
                       ) : (
                         <input type="text" value={delivery.destination} onChange={(e) => setDelivery((prev) => ({ ...prev, destination: e.target.value }))}
                           className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
