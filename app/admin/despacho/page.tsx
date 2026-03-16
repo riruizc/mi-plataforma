@@ -48,46 +48,28 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
 
 function kMeans(points: {lat:number;lng:number;id:string}[], k: number): number[] {
   if (!points.length || !k) return []
-
   k = Math.min(k, points.length)
-
   const centroids: {lat:number;lng:number}[] = [{ lat: points[0].lat, lng: points[0].lng }]
-
   for (let i = 1; i < k; i++) {
-    let maxD = -1
-    let far = points[0]
-
+    let maxD = -1, far = points[0]
     points.forEach(p => {
-      const minD = Math.min(...centroids.map(c => haversine(p.lat, p.lng, c.lat, c.lng)))
+      const minD = Math.min(...centroids.map(c => haversine(p.lat,p.lng,c.lat,c.lng)))
       if (minD > maxD) { maxD = minD; far = p }
     })
-
-    centroids.push({ lat: far.lat, lng: far.lng })
+    centroids.push({lat: far.lat, lng: far.lng})
   }
-
   let assignments = new Array(points.length).fill(0)
-
   for (let iter = 0; iter < 20; iter++) {
     assignments = points.map(p => {
       let minD = Infinity, best = 0
-      centroids.forEach((c,ci) => {
-        const d = haversine(p.lat,p.lng,c.lat,c.lng)
-        if (d < minD) { minD = d; best = ci }
-      })
+      centroids.forEach((c,ci) => { const d = haversine(p.lat,p.lng,c.lat,c.lng); if(d<minD){minD=d;best=ci} })
       return best
     })
-
     for (let ci = 0; ci < k; ci++) {
       const cp = points.filter((_,i) => assignments[i]===ci)
-      if (cp.length) {
-        centroids[ci] = {
-          lat: cp.reduce((s,p) => s + p.lat, 0) / cp.length,
-          lng: cp.reduce((s,p) => s + p.lng, 0) / cp.length
-        }
-      }
+      if (cp.length) centroids[ci] = { lat: cp.reduce((s,p)=>s+p.lat,0)/cp.length, lng: cp.reduce((s,p)=>s+p.lng,0)/cp.length }
     }
   }
-
   return assignments
 }
 
@@ -285,6 +267,14 @@ export default function DespachoPage() {
         if (!p.phase2_orders.length) continue
         const token = Math.random().toString(36).substring(2,15) + Math.random().toString(36).substring(2,15)
         const allOrderIds = p.phase2_orders.map(o => o.id)
+        const pickupStores = p.phase1_stores.map(s => ({
+          store_id: s.store_id,
+          store_name: s.store_name,
+          lat: s.store_lat,
+          lng: s.store_lng,
+          order_count: s.order_count,
+        }))
+
         const { data: route } = await supabase.from('global_routes').insert({
           date: new Date().toISOString().split('T')[0],
           store_ids_included: [...new Set(p.phase2_orders.map(o => o.store_id))],
@@ -294,6 +284,7 @@ export default function DespachoPage() {
           route_token: token,
           is_active: true,
           total_km: 0,
+          pickup_stores: pickupStores,
         }).select('route_token').single()
         if (route) {
           newLinks.push({
