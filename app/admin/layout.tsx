@@ -11,45 +11,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const supabase = createClient()
   const [menuOpen, setMenuOpen] = useState(false)
 
-  useEffect(() => { 
-    setMenuOpen(false) 
-  }, [pathname])
-  
+  useEffect(() => { setMenuOpen(false) }, [pathname])
+
   useEffect(() => {
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-  
-      if (!user) {
-        router.push('/login')
-        return
-      }
-  
-      const { data: store } = await supabase
-        .from('stores')
-        .select('status')
-        .eq('email', user.email!)
-        .single()
-  
-      if (store?.status !== 'admin') {
-        router.push('/store/dashboard')
-      }
+      if (!user) { router.push('/login'); return }
+      const { data: store } = await supabase.from('stores').select('status').eq('email', user.email!).single()
+      if (store?.status !== 'admin') router.push('/store/dashboard')
     }
-  
     checkAdmin()
   }, [])
-  
+
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
   const navItems = [
-    { label: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-    { label: 'Tiendas', href: '/admin/stores', icon: '🏪' },
-    { label: 'Solicitudes', href: '/admin/requests', icon: '📋' },
-    { label: 'Motorizados', href: '/admin/riders', icon: '🛵' },
-    { label: 'Mapa Global', href: '/admin/map', icon: '🗺️' },
-    { label: 'Mapa Tiendas', href: '/admin/stores-map', icon: '🏪' },
+    { label: 'Dashboard',      href: '/admin/dashboard',  icon: '📊' },
+    { label: 'Tiendas',        href: '/admin/stores',     icon: '🏪' },
+    { label: 'Solicitudes',    href: '/admin/requests',   icon: '📋' },
+    { label: 'Motorizados',    href: '/admin/riders',     icon: '🛵' },
+    { label: 'Centrales',      href: '/admin/centrales',  icon: '🏢' },
+    { label: 'Despacho Global',href: '/admin/despacho',   icon: '🚀' },
+    { label: 'Mapa Global',    href: '/admin/map',        icon: '🗺️' },
+    { label: 'Mapa Tiendas',   href: '/admin/stores-map', icon: '🏪' },
   ]
 
   const NavLinks = () => (
@@ -85,29 +72,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen flex bg-gray-100">
-
-      {/* Sidebar desktop */}
       <aside className="hidden lg:flex w-64 bg-gray-900 text-white flex-col fixed h-full z-30">
         <NavLinks />
       </aside>
-
-      {/* Overlay móvil */}
       {menuOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden"
-          onClick={() => setMenuOpen(false)} />
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden" onClick={() => setMenuOpen(false)} />
       )}
-
-      {/* Drawer móvil */}
       <aside className={`fixed top-0 left-0 h-full w-72 bg-gray-900 text-white flex flex-col z-[1000] transform transition-transform duration-300 lg:hidden ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <button onClick={() => setMenuOpen(false)}
-          className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">×</button>
+        <button onClick={() => setMenuOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">×</button>
         <NavLinks />
       </aside>
-
-      {/* Topbar móvil */}
       <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 text-white flex items-center justify-between px-4 z-30 shadow-lg">
-        <button onClick={() => setMenuOpen(true)}
-          className="p-2 rounded-lg hover:bg-gray-800 touch-manipulation">
+        <button onClick={() => setMenuOpen(true)} className="p-2 rounded-lg hover:bg-gray-800 touch-manipulation">
           <div className="space-y-1.5">
             <span className="block w-6 h-0.5 bg-white rounded" />
             <span className="block w-6 h-0.5 bg-white rounded" />
@@ -117,8 +93,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <h1 className="text-base font-bold">Panel Admin</h1>
         <div className="w-10" />
       </header>
-
-      {/* Contenido */}
       <main className="flex-1 lg:ml-64 pt-14 lg:pt-0">
         <div className="p-4 lg:p-8">{children}</div>
       </main>

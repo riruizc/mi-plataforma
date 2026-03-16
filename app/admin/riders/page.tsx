@@ -13,28 +13,39 @@ type Rider = {
   created_at: string
   origin_lat: number | null
   origin_lng: number | null
+  central_id: string | null
+}
+
+type Central = {
+  id: string
+  name: string
 }
 
 export default function RidersPage() {
   const [riders, setRiders] = useState<Rider[]>([])
+  const [centrales, setCentrales] = useState<Central[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingRider, setEditingRider] = useState<Rider | null>(null)
-  const [form, setForm] = useState({ name: '', phone: '', vehicle: '', notes: '', origin_lat: '', origin_lng: '' })
+  const [form, setForm] = useState({ name: '', phone: '', vehicle: '', notes: '', origin_lat: '', origin_lng: '', central_id: '' })
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => { loadRiders() }, [])
+  useEffect(() => { loadData() }, [])
 
-  const loadRiders = async () => {
+  const loadData = async () => {
     const supabase = createClient()
-    const { data } = await supabase.from('riders').select('*').order('created_at', { ascending: false })
-    setRiders(data || [])
+    const [{ data: ridersData }, { data: centralesData }] = await Promise.all([
+      supabase.from('riders').select('*').order('created_at', { ascending: false }),
+      supabase.from('centrales').select('id, name').eq('is_active', true).order('name'),
+    ])
+    setRiders(ridersData || [])
+    setCentrales(centralesData || [])
     setLoading(false)
   }
 
   const openNew = () => {
     setEditingRider(null)
-    setForm({ name: '', phone: '', vehicle: '', notes: '', origin_lat: '', origin_lng: '' })
+    setForm({ name: '', phone: '', vehicle: '', notes: '', origin_lat: '', origin_lng: '', central_id: '' })
     setShowForm(true)
   }
 
@@ -47,6 +58,7 @@ export default function RidersPage() {
       notes: rider.notes || '',
       origin_lat: rider.origin_lat?.toString() || '',
       origin_lng: rider.origin_lng?.toString() || '',
+      central_id: rider.central_id || '',
     })
     setShowForm(true)
   }
@@ -55,7 +67,6 @@ export default function RidersPage() {
     if (!form.name.trim()) { alert('El nombre es obligatorio'); return }
     setSaving(true)
     const supabase = createClient()
-
     const payload = {
       name: form.name,
       phone: form.phone,
@@ -63,32 +74,36 @@ export default function RidersPage() {
       notes: form.notes,
       origin_lat: form.origin_lat ? parseFloat(form.origin_lat) : null,
       origin_lng: form.origin_lng ? parseFloat(form.origin_lng) : null,
+      central_id: form.central_id || null,
     }
-
     if (editingRider) {
       await supabase.from('riders').update(payload).eq('id', editingRider.id)
     } else {
       await supabase.from('riders').insert({ ...payload, is_active: true })
     }
-
-    setForm({ name: '', phone: '', vehicle: '', notes: '', origin_lat: '', origin_lng: '' })
+    setForm({ name: '', phone: '', vehicle: '', notes: '', origin_lat: '', origin_lng: '', central_id: '' })
     setShowForm(false)
     setEditingRider(null)
-    loadRiders()
+    loadData()
     setSaving(false)
   }
 
   const toggleActive = async (rider: Rider) => {
     const supabase = createClient()
     await supabase.from('riders').update({ is_active: !rider.is_active }).eq('id', rider.id)
-    loadRiders()
+    loadData()
   }
 
   const handleDelete = async (riderId: string) => {
     if (!confirm('¿Seguro que quieres eliminar este motorizado?')) return
     const supabase = createClient()
     await supabase.from('riders').delete().eq('id', riderId)
-    loadRiders()
+    loadData()
+  }
+
+  const getCentralName = (central_id: string | null) => {
+    if (!central_id) return null
+    return centrales.find(c => c.id === central_id)?.name || null
   }
 
   if (loading) return (
@@ -132,9 +147,24 @@ export default function RidersPage() {
             ))}
           </div>
 
+          {/* Central assignment */}
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-gray-700 mb-1">🏢 Central asignado</label>
+            <select value={form.central_id} onChange={e => setForm(p => ({ ...p, central_id: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Sin central asignado</option>
+              {centrales.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {centrales.length === 0 && (
+              <p className="text-xs text-orange-400 mt-1">No hay centrales creados. <a href="/admin/centrales" className="text-blue-500 underline">Crear uno →</a></p>
+            )}
+          </div>
+
           {/* Punto de salida */}
           <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
-            <p className="text-xs font-semibold text-gray-700 mb-1">📍 Punto de salida del motorizado</p>
+            <p className="text-xs font-semibold text-gray-700 mb-1">📍 Punto de salida (casa del motorizado)</p>
             <p className="text-xs text-gray-400 mb-3">
               Desde aquí se calcula la ruta. Obtén las coordenadas desde{' '}
               <a href="https://www.google.com/maps" target="_blank" rel="noreferrer" className="text-blue-500 underline">
@@ -196,10 +226,15 @@ export default function RidersPage() {
               </div>
               {rider.phone && <p className="text-xs text-gray-500 mb-1">📱 {rider.phone}</p>}
               {rider.notes && <p className="text-xs text-gray-400 mb-1">{rider.notes}</p>}
-              {rider.origin_lat && rider.origin_lng ? (
-                <p className="text-xs text-green-600 mb-2">📍 Punto de salida configurado</p>
+              {getCentralName(rider.central_id) ? (
+                <p className="text-xs text-blue-600 mb-1">🏢 {getCentralName(rider.central_id)}</p>
               ) : (
-                <p className="text-xs text-orange-400 mb-2">⚠️ Sin punto de salida</p>
+                <p className="text-xs text-gray-400 mb-1">🏢 Sin central asignado</p>
+              )}
+              {rider.origin_lat && rider.origin_lng ? (
+                <p className="text-xs text-green-600 mb-2">📍 Casa configurada</p>
+              ) : (
+                <p className="text-xs text-orange-400 mb-2">⚠️ Sin coordenadas de casa</p>
               )}
               <div className="flex gap-2 mt-2">
                 <button onClick={() => openEdit(rider)}
