@@ -1,20 +1,57 @@
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function DELETE(request: Request) {
   try {
-    const { storeId, email } = await request.json()
+    // 1. VERIFICAR que quien llama es el admin autenticado
+    const cookieStore = await cookies()
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          },
+        },
+      }
+    )
 
-    if (!storeId || !email) {
-      return NextResponse.json({ error: 'Missing storeId or email' }, { status: 400 })
+    const { data: { user } } = await supabaseAuth.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
+    // 2. VERIFICAR que el usuario es admin
     const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // 1. Borrar order_items de los pedidos de la tienda
+    const { data: store } = await adminSupabase
+      .from('stores')
+      .select('status')
+      .eq('email', user.email!)
+      .single()
+
+    if (!store || store.status !== 'admin') {
+      return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
+    }
+
+    // 3. Ahora sí proceder con el borrado
+    const { storeId, email } = await request.json()
+
+    if (!storeId || !email) {
+      return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
+    }
+
+    // 4. Borrar order_items de los pedidos de la tienda
     const { data: orders } = await adminSupabase
       .from('orders')
       .select('id')
@@ -25,10 +62,10 @@ export async function DELETE(request: Request) {
       await adminSupabase.from('order_items').delete().in('order_id', orderIds)
     }
 
-    // 2. Borrar orders
+    // 5. Borrar orders
     await adminSupabase.from('orders').delete().eq('store_id', storeId)
 
-    // 3. Borrar combo_items de los combos de la tienda
+    // 6. Borrar combo_items
     const { data: combosToDelete } = await adminSupabase
       .from('combos')
       .select('id')
@@ -39,10 +76,10 @@ export async function DELETE(request: Request) {
       await adminSupabase.from('combo_items').delete().in('combo_id', comboIds)
     }
 
-    // 4. Borrar combos
+    // 7. Borrar combos
     await adminSupabase.from('combos').delete().eq('store_id', storeId)
 
-    // 5. Borrar product_variants
+    // 8. Borrar product_variants
     const { data: products } = await adminSupabase
       .from('products')
       .select('id')
@@ -53,37 +90,37 @@ export async function DELETE(request: Request) {
       await adminSupabase.from('product_variants').delete().in('product_id', productIds)
     }
 
-    // 6. Borrar products
+    // 9. Borrar products
     await adminSupabase.from('products').delete().eq('store_id', storeId)
 
-    // 7. Borrar customers
+    // 10. Borrar customers
     await adminSupabase.from('customers').delete().eq('store_id', storeId)
 
-    // 8. Borrar routes
+    // 11. Borrar routes
     await adminSupabase.from('routes').delete().eq('store_id', storeId)
 
-    // 9. Borrar delivery_agencies
+    // 12. Borrar delivery_agencies
     await adminSupabase.from('delivery_agencies').delete().eq('store_id', storeId)
 
-    // 10. Borrar finance_transactions
+    // 13. Borrar finance_transactions
     await adminSupabase.from('finance_transactions').delete().eq('store_id', storeId)
 
-    // 11. Borrar finances
+    // 14. Borrar finances
     await adminSupabase.from('finances').delete().eq('store_id', storeId)
 
-    // 12. Borrar goals
+    // 15. Borrar goals
     await adminSupabase.from('goals').delete().eq('store_id', storeId)
 
-    // 13. Borrar quotes
+    // 16. Borrar quotes
     await adminSupabase.from('quotes').delete().eq('store_id', storeId)
 
-    // 14. Borrar suppliers
+    // 17. Borrar suppliers
     await adminSupabase.from('suppliers').delete().eq('store_id', storeId)
 
-    // 15. Borrar store_features
+    // 18. Borrar store_features
     await adminSupabase.from('store_features').delete().eq('store_id', storeId)
 
-    // 16. Borrar logo del Storage (intentamos las extensiones más comunes)
+    // 19. Borrar logo del Storage
     await adminSupabase.storage.from('logos').remove([
       `store-${storeId}.png`,
       `store-${storeId}.jpg`,
@@ -91,10 +128,10 @@ export async function DELETE(request: Request) {
       `store-${storeId}.webp`,
     ])
 
-    // 17. Borrar la tienda
+    // 20. Borrar la tienda
     await adminSupabase.from('stores').delete().eq('id', storeId)
 
-    // 18. Borrar usuario de Auth
+    // 21. Borrar usuario de Auth
     const { data: users } = await adminSupabase.auth.admin.listUsers()
     const authUser = users?.users?.find((u: any) => u.email === email.toLowerCase())
     if (authUser) {
