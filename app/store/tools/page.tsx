@@ -14,7 +14,7 @@ type OrderItem = {
 
 type Order = {
   id: string; order_code: string; destination: string
-  pending_amount: number
+  pending_amount: number; delivery_method: string; agency_name?: string
   customers?: { name?: string; phone?: string; dni?: string }
   order_items?: OrderItem[]
 }
@@ -164,6 +164,14 @@ export default function ToolsPage() {
       }
 
       // Por cobrar
+      // Método de entrega
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7.5)
+      const deliveryText = order.delivery_method === 'motorizado'
+        ? '🛵 Motorizado'
+        : '📦 ' + (order.agency_name || 'Agencia')
+      doc.text(deliveryText, x + 4, y + 57)
+
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
       doc.text('Por cobrar: S/ ' + Number(order.pending_amount).toFixed(2), x + 4, y + 64)
