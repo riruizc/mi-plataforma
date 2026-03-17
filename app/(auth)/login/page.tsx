@@ -69,119 +69,142 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen bg-white flex flex-col">
 
-      {/* IZQUIERDA — Formulario */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-white px-8 py-12">
-        <div className="w-full max-w-md">
-
-          {/* Modal Olvidé contraseña */}
-          {showForgot && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-              <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-                {forgotSent ? (
-                  <div className="text-center">
-                    <p className="text-4xl mb-3">📧</p>
-                    <h3 className="font-bold text-gray-900 text-lg mb-2">Correo enviado</h3>
-                    <p className="text-gray-500 text-sm mb-4">
-                      Revisa tu bandeja de entrada y sigue el link para restablecer tu contraseña.
-                    </p>
-                    <button onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail('') }}
-                      className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm">
-                      Cerrar
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <h3 className="font-bold text-gray-900 text-lg mb-1">¿Olvidaste tu contraseña?</h3>
-                    <p className="text-gray-500 text-sm mb-4">
-                      Ingresa tu correo y te enviaremos un link para restablecerla.
-                    </p>
-                    <form onSubmit={handleForgotPassword} className="space-y-3">
-                      <input
-                        type="email"
-                        value={forgotEmail}
-                        onChange={e => setForgotEmail(e.target.value)}
-                        required
-                        placeholder="tu@email.com"
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button type="submit" disabled={forgotLoading}
-                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50">
-                        {forgotLoading ? 'Enviando...' : 'Enviar link'}
-                      </button>
-                      <button type="button" onClick={() => { setShowForgot(false); setForgotEmail('') }}
-                        className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm">
-                        Cancelar
-                      </button>
-                    </form>
-                  </>
-                )}
+      {/* Modal Olvidé contraseña — lógica idéntica, solo estilos nuevos */}
+      {showForgot && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            {forgotSent ? (
+              <div className="text-center">
+                <p className="text-4xl mb-3">📧</p>
+                <h3 className="font-bold text-gray-900 text-lg mb-2">Correo enviado</h3>
+                <p className="text-gray-500 text-sm mb-4">
+                  Revisa tu bandeja de entrada y sigue el link para restablecer tu contraseña.
+                </p>
+                <button
+                  onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail('') }}
+                  className="w-full py-3 bg-[#0d3fa6] text-white rounded-xl font-semibold text-sm"
+                >
+                  Cerrar
+                </button>
               </div>
+            ) : (
+              <>
+                <h3 className="font-bold text-gray-900 text-lg mb-1">¿Olvidaste tu contraseña?</h3>
+                <p className="text-gray-500 text-sm mb-4">
+                  Ingresa tu correo y te enviaremos un link para restablecerla.
+                </p>
+                <form onSubmit={handleForgotPassword} className="space-y-3">
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={e => setForgotEmail(e.target.value)}
+                    required
+                    placeholder="tu@email.com"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#0d3fa6]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full py-3 bg-[#0d3fa6] text-white rounded-xl font-semibold text-sm disabled:opacity-50"
+                  >
+                    {forgotLoading ? 'Enviando...' : 'Enviar link'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgot(false); setForgotEmail('') }}
+                    className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm"
+                  >
+                    Cancelar
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Header azul con logo */}
+      <div className="bg-[#0d3fa6] px-6 pt-10 pb-7 flex flex-col items-center">
+        <img
+          src="/logo.png"
+          alt="PedidosPE"
+          className="w-20 h-20 object-contain mb-3"
+        />
+        <div className="text-white text-xl font-bold leading-tight">
+          Pedidos<span className="text-[#f57c00]">PE</span>
+          <span className="text-white/40 text-sm font-normal">.com</span>
+        </div>
+        <p className="text-white/55 text-xs mt-1">Plataforma de gestión y delivery</p>
+      </div>
+
+      {/* Formulario */}
+      <div className="flex-1 w-full max-w-md mx-auto px-6 pt-8 pb-12">
+        <h1 className="text-xl font-semibold text-gray-900 mb-1">Bienvenido de vuelta</h1>
+        <p className="text-sm text-gray-500 mb-7">Ingresa a tu panel de administración</p>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              Correo electrónico
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="tu@email.com"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0d3fa6] focus:border-transparent focus:bg-white transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0d3fa6] focus:border-transparent focus:bg-white transition-colors"
+            />
+          </div>
+
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={() => setShowForgot(true)}
+              className="text-xs text-[#0d3fa6] hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+              {error}
             </div>
           )}
 
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Bienvenido</h1>
-            <p className="text-gray-500 mt-2">Ingresa a tu panel de gestión</p>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#f57c00] hover:bg-[#e06900] text-white font-semibold py-3.5 rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Ingresando...' : 'Ingresar'}
+          </button>
+        </form>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="tu@email.com" />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="••••••••" />
-            </div>
-
-            <div className="text-right">
-              <button type="button" onClick={() => setShowForgot(true)}
-                className="text-sm text-blue-600 hover:underline">
-                ¿Olvidaste tu contraseña?
-              </button>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <button type="submit" disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? 'Ingresando...' : 'Ingresar'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-gray-500 text-sm">
-              ¿No tienes cuenta?{' '}
-              <a href="/register" className="text-blue-600 hover:underline font-medium">Registra tu tienda</a>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* DERECHA */}
-      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-blue-600 to-blue-800 items-center justify-center px-12">
-        <div className="text-white max-w-lg">
-          <h2 className="text-4xl font-bold mb-6">Gestiona tu negocio desde un solo lugar</h2>
-          <p className="text-blue-100 text-lg mb-8">Controla tus pedidos, inventario y entregas en tiempo real. La plataforma todo-en-uno para tu tienda.</p>
-          <div className="space-y-4">
-            {['Gestión de pedidos en tiempo real', 'Control de inventario automático', 'Rutas optimizadas para delivery', 'Seguimiento de pedidos para tus clientes'].map((item, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm font-bold">✓</div>
-                <span className="text-blue-100">{item}</span>
-              </div>
-            ))}
-          </div>
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500">
+            ¿No tienes cuenta?{' '}
+            <a href="/register" className="text-[#0d3fa6] hover:underline font-medium">
+              Registra tu tienda
+            </a>
+          </p>
         </div>
       </div>
 
