@@ -516,9 +516,14 @@ export default function SettingsPage() {
                 <p className="text-green-700 text-sm font-medium">✅ Cambios guardados correctamente</p>
               </div>
             )}
+            {success && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+                <p className="text-green-700 text-sm font-medium">✅ Colores guardados correctamente</p>
+              </div>
+            )}
             <button onClick={saveSettings} disabled={saving}
               className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50 touch-manipulation">
-              {saving ? 'Guardando...' : 'Guardar cambios'}
+              {saving ? '⏳ Guardando...' : '💾 Guardar cambios'}
             </button>
           </div>
         </div>

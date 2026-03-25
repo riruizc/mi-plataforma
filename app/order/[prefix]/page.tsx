@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 
 type Store = {
   id: string; name: string; store_prefix: string; theme_color: string
+  button_color?: string; text_color?: string
   logo_url: string; uses_agency_delivery: boolean; order_counter: number; form_active: boolean
 }
 type Product = {
@@ -56,7 +57,7 @@ function AgencyDestinationSearch({ destinations, value, onChange, themeColor }: 
         onFocus={() => setShowSuggestions(true)}
         onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
         placeholder="Escribe tu destino..."
-        className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
       />
       {query && (
         <button type="button" onClick={() => { setQuery(''); onChange(''); }}
@@ -180,7 +181,7 @@ export default function OrderForm() {
       const supabase = createClient()
       const { data: storeData } = await supabase
         .from('stores')
-        .select('*')
+        .select('*, button_color, text_color')
         .eq('store_prefix', prefix)
         .eq('status', 'active')
         .single()
@@ -378,80 +379,90 @@ export default function OrderForm() {
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-gray-500 text-sm">Cargando tienda...</p>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-white/10 border-t-white/60 rounded-full animate-spin" />
+        <p className="text-white/30 text-sm">Cargando tienda...</p>
       </div>
     </div>
   )
 
   if (!store) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0a0a0a' }}>
       <div className="text-center">
-        <p className="text-5xl mb-4">🔍</p>
-        <p className="text-gray-700 font-semibold text-lg">Tienda no encontrada</p>
-        <p className="text-gray-500 text-sm mt-1">Verifica el enlace e intenta de nuevo</p>
+        <p className="text-white/20 text-5xl mb-4">🔍</p>
+        <p className="text-white font-bold text-lg">Tienda no encontrada</p>
+        <p className="text-white/40 text-sm mt-1">Verifica el enlace e intenta de nuevo</p>
       </div>
     </div>
   )
 
   if (formDisabled) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0a0a0a' }}>
+      <div className="rounded-2xl p-8 max-w-sm w-full text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
         {store.logo_url && <img src={store.logo_url} alt="Logo" className="w-16 h-16 rounded-2xl object-cover mx-auto mb-4" />}
         <p className="text-4xl mb-3">🚫</p>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">{store.name}</h2>
-        <p className="text-gray-500 text-sm">No estamos recibiendo pedidos en este momento.</p>
-        <p className="text-gray-400 text-xs mt-2">Intenta más tarde o contacta directamente a la tienda.</p>
+        <h2 className="text-xl font-bold text-white mb-2">{store.name}</h2>
+        <p className="text-white/40 text-sm">No estamos recibiendo pedidos en este momento.</p>
+        <p className="text-white/25 text-xs mt-2">Intenta más tarde o contacta directamente a la tienda.</p>
       </div>
     </div>
   )
 
+  const color = store?.theme_color || '#3b82f6'
+  const btnColor = (store as any)?.button_color || color
+  const txtColor = (store as any)?.text_color || '#ffffff'
+
   if (step === 4) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8 max-w-sm w-full text-center">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0a0a0a', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
+      <div className="rounded-3xl p-8 max-w-sm w-full text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)' }}>
           <span className="text-3xl">✅</span>
         </div>
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">¡Pedido recibido!</h2>
-        <p className="text-gray-500 text-sm mb-4">Tu código de pedido es:</p>
-        <div className="bg-gray-100 rounded-xl px-4 py-4 mb-4">
-          <span className="text-xl sm:text-2xl font-bold text-gray-900 tracking-wide">{orderCode}</span>
+        <h2 className="text-xl font-bold text-white mb-2">¡Pedido recibido!</h2>
+        <p className="text-white/40 text-sm mb-4">Tu código de pedido es:</p>
+        <div className="rounded-2xl px-4 py-4 mb-4" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <span className="text-xl font-bold tracking-widest font-mono" style={{ color: btnColor }}>{orderCode}</span>
         </div>
-        <p className="text-gray-400 text-xs mb-6">Guarda este código para rastrear tu pedido.</p>
+        <p className="text-white/25 text-xs mb-6">Guarda este código para rastrear tu pedido</p>
         <a href={`/track?code=${orderCode}`}
-          className="w-full py-4 rounded-xl text-white font-bold block text-center text-base touch-manipulation"
-          style={{ backgroundColor: store.theme_color || '#2563eb' }}>
-          🔍 Rastrear mi pedido
+          className="w-full py-4 rounded-2xl font-bold block text-center text-base touch-manipulation"
+          style={{ background: btnColor, color: txtColor }}>
+          Rastrear mi pedido →
         </a>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: '#0a0a0a', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
       {/* HEADER */}
-      <div className="sticky top-0 z-10 shadow-sm" style={{ backgroundColor: store.theme_color || '#2563eb' }}>
-        <div className="flex items-center justify-center gap-2 pt-3 pb-2 px-4">
-          {store.logo_url && <img src={store.logo_url} alt="Logo" className="w-8 h-8 rounded-full object-cover border-2 border-white border-opacity-60 flex-shrink-0" />}
-          <h1 className="text-white font-bold text-base truncate">{store.name}</h1>
-        </div>
-        <div className="px-4 pb-3 flex items-center justify-center gap-1">
-          {['Productos', 'Tus datos', 'Entrega'].map((s, i) => (
-            <div key={s} className="flex items-center gap-1">
-              <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${step >= i + 1 ? 'bg-white' : 'bg-white bg-opacity-30'}`}
-                style={{ color: step >= i + 1 ? store.theme_color || '#2563eb' : 'white' }}>
-                {step > i + 1 ? '✓' : i + 1}
-              </div>
-              <span className={`text-white text-xs font-medium ${step === i + 1 ? 'opacity-100' : 'opacity-60'}`}>{s}</span>
-              {i < 2 && <span className="text-white opacity-40 text-xs mx-0.5">›</span>}
+      <div className="sticky top-0 z-10" style={{ background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="max-w-lg mx-auto px-4 pt-3 pb-2">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              {store.logo_url && <img src={store.logo_url} alt="Logo" className="w-8 h-8 rounded-xl object-cover flex-shrink-0" style={{ border: `1.5px solid ${color}40` }} />}
+              <h1 className="text-white font-bold text-sm truncate">{store.name}</h1>
             </div>
-          ))}
+          </div>
+          <div className="flex items-center justify-center gap-1 pb-3">
+            {['Productos', 'Tus datos', 'Entrega'].map((s, i) => (
+              <div key={s} className="flex items-center gap-1">
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
+                  style={{ background: step >= i + 1 ? btnColor : 'rgba(255,255,255,0.1)', color: step >= i + 1 ? txtColor : 'rgba(255,255,255,0.3)' }}>
+                  {step > i + 1 ? '✓' : i + 1}
+                </div>
+                <span className="text-xs font-medium" style={{ color: step === i + 1 ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.3)' }}>{s}</span>
+                {i < 2 && <span className="text-white/20 text-xs mx-0.5">›</span>}
+              </div>
+            ))}
+          </div>
         </div>
 
         {step === 1 && (
-          <div className="px-4 pb-2">
+          <div className="sticky z-9 px-4 pb-2" style={{ background: 'rgba(10,10,10,0.9)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="relative mb-2">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base">🔍</span>
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -477,12 +488,12 @@ export default function OrderForm() {
 
       {/* FILTRO CATEGORÍA */}
       {step === 1 && activeTab === 'products' && categories.length > 2 && (
-        <div className="sticky z-9 bg-gray-50 border-b border-gray-200 px-4 py-2">
+        <div className="sticky z-9 px-4 py-2" style={{ background: "rgba(10,10,10,0.9)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {categories.map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors touch-manipulation ${activeCategory === cat ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200'}`}
-                style={activeCategory === cat ? { backgroundColor: store?.theme_color || '#2563eb' } : {}}>
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all touch-manipulation ${activeCategory === cat ? "text-white border-transparent" : "border-white/10 text-white/40"}`}
+                style={activeCategory === cat ? { backgroundColor: btnColor } : {}}>
                 {cat}
               </button>
             ))}
@@ -490,7 +501,7 @@ export default function OrderForm() {
         </div>
       )}
 
-      <div className="max-w-lg mx-auto px-4 py-5 pb-32">
+      <div className="max-w-lg mx-auto px-4 py-5 pb-32" style={{ color: "white" }}>
 
         {/* PASO 1 */}
         {step === 1 && (
@@ -506,14 +517,14 @@ export default function OrderForm() {
                 ) : (
                   <div className="space-y-3">
                     {filteredProducts.map((product) => (
-                      <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                      <div key={product.id} className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                         <div className="flex items-start gap-3 mb-3">
                           {product.image_url && (
                             <img src={product.image_url} alt={product.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-gray-100" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 text-sm leading-snug">{product.name}</h3>
-                            {product.category && <p className="text-xs text-gray-400 mt-0.5">{product.category}</p>}
+                            <h3 className="font-semibold text-white text-sm leading-snug">{product.name}</h3>
+                            {product.category && <p className="text-xs text-white/30 mt-0.5">{product.category}</p>}
                           </div>
                         </div>
                         {product.variants.length > 0 ? (
@@ -522,7 +533,8 @@ export default function OrderForm() {
                               const inCart = cart.find((c) => c.variant_id === v.id && c.product_id === product.id)
                               return (
                                 <button key={v.id} onClick={() => addToCart(product, v)}
-                                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors touch-manipulation ${inCart ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 active:bg-gray-50'}`}>
+                                  className="px-3 py-2 rounded-lg text-sm font-medium border transition-all touch-manipulation"
+                                style={inCart ? { background: btnColor, color: txtColor, borderColor: btnColor } : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.1)' }}>
                                   {v.color} {inCart ? `✓ ${inCart.quantity}` : ''}
                                 </button>
                               )
@@ -530,7 +542,7 @@ export default function OrderForm() {
                           </div>
                         ) : (
                           <button onClick={() => addToCart(product, { id: '', color: 'Único', stock: 99 })}
-                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 active:bg-gray-50 touch-manipulation">
+                            className="px-4 py-2 rounded-lg text-sm font-medium touch-manipulation" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>
                             {cart.find(c => c.product_id === product.id && !c.variant_id)
                               ? `✓ ${cart.find(c => c.product_id === product.id && !c.variant_id)?.quantity} en carrito`
                               : '+ Agregar'}
@@ -555,14 +567,14 @@ export default function OrderForm() {
                     {filteredCombos.map(combo => {
                       const inCart = comboCart.find(c => c.combo_id === combo.id)
                       return (
-                        <div key={combo.id} className={`bg-white rounded-xl shadow-sm border-2 p-4 transition-all ${inCart ? 'border-blue-500' : 'border-gray-100'}`}>
+                        <div key={combo.id} className={`rounded-2xl p-4 transition-all`}>
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1 min-w-0 pr-3">
                               <div className="flex items-center gap-2">
                                 <span className="text-lg">🎁</span>
-                                <h3 className="font-semibold text-gray-900 text-sm leading-snug">{combo.name}</h3>
+                                <h3 className="font-semibold text-white text-sm leading-snug">{combo.name}</h3>
                               </div>
-                              {combo.description && <p className="text-xs text-gray-400 mt-0.5 ml-7">{combo.description}</p>}
+                              {combo.description && <p className="text-xs text-white/30 mt-0.5 ml-7">{combo.description}</p>}
                               {combo.items.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2 ml-7">
                                   {combo.items.map((ci, i) => (
@@ -579,17 +591,17 @@ export default function OrderForm() {
                             <div className="flex items-center gap-3 mt-3">
                               <div className="flex items-center gap-2">
                                 <button onClick={() => updateComboQty(combo.id, inCart.quantity - 1)}
-                                  className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 font-bold flex items-center justify-center touch-manipulation">−</button>
+                                  className="w-7 h-7 rounded-full flex items-center justify-center font-bold touch-manipulation" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>−</button>
                                 <span className="w-6 text-center text-sm font-semibold">{inCart.quantity}</span>
                                 <button onClick={() => updateComboQty(combo.id, inCart.quantity + 1)}
-                                  className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 font-bold flex items-center justify-center touch-manipulation">+</button>
+                                  className="w-7 h-7 rounded-full flex items-center justify-center font-bold touch-manipulation" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>+</button>
                               </div>
-                              <button onClick={() => removeComboFromCart(combo.id)} className="text-xs text-red-400 font-medium">✕ Quitar</button>
+                              <button onClick={() => removeComboFromCart(combo.id)} className="text-xs font-medium" style={{ color: "rgba(239,68,68,0.7)" }}>✕ Quitar</button>
                 
                             </div>
                           ) : (
                             <button onClick={() => addComboToCart(combo)}
-                              className="mt-2 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 active:bg-gray-50 touch-manipulation">
+                              className="mt-2 px-4 py-2 rounded-lg text-sm font-medium touch-manipulation" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>
                               + Agregar combo
                             </button>
                           )}
@@ -602,15 +614,15 @@ export default function OrderForm() {
             )}
 
             {totalItems > 0 && (
-              <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+              <div className="fixed bottom-0 left-0 right-0" style={{ background: "rgba(10,10,10,0.95)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                 <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-500">{totalItems} item{totalItems !== 1 ? 's' : ''}</p>
-                    <p className="font-bold text-gray-900 text-base">S/ {total.toFixed(2)}</p>
+                    <p className="text-xs text-white/40">{totalItems} item{totalItems !== 1 ? 's' : ''}</p>
+                    <p className="font-bold text-white text-base">S/ {total.toFixed(2)}</p>
                   </div>
                   <button onClick={() => setStep(2)}
                     className="px-6 py-3 rounded-xl text-white font-bold text-sm flex-shrink-0 touch-manipulation active:opacity-80"
-                    style={{ backgroundColor: store.theme_color || '#2563eb' }}>
+                    style={{ backgroundColor: btnColor }}>
                     Continuar →
                   </button>
                 </div>
@@ -622,34 +634,34 @@ export default function OrderForm() {
         {/* PASO 2 */}
         {step === 2 && (
           <div>
-            <h2 className="text-base font-bold text-gray-900 mb-3">Tus datos</h2>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
+            <h2 className="text-base font-bold text-white mb-3">Tus datos</h2>
+            <div className="rounded-2xl p-4 space-y-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">DNI / CE <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <label className="block text-sm font-medium text-white/60 mb-1">DNI / CE <span className="text-gray-400 font-normal">(opcional)</span></label>
                 <input type="text" inputMode="numeric" value={customer.dni}
                   onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 12) setCustomer({ ...customer, dni: val }) }}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
                   placeholder="DNI (8 dígitos) o CE (hasta 12)" maxLength={12} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-white/60 mb-1">Nombre completo <span className="text-red-500">*</span></label>
                 <input type="text" autoCapitalize="words" value={customer.name}
                   onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Juan Pérez" />
+                  className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }} placeholder="Juan Pérez" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Celular <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-white/60 mb-1">Celular <span className="text-red-500">*</span></label>
                 <input type="text" inputMode="numeric" value={customer.phone}
                   onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 9) setCustomer({ ...customer, phone: val }) }}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
                   placeholder="999 999 999" maxLength={9} />
               </div>
             </div>
             <div className="flex gap-3 mt-4">
-              <button onClick={() => setStep(1)} className="flex-1 py-3 rounded-xl font-semibold border border-gray-200 text-gray-700 touch-manipulation">← Atrás</button>
+              <button onClick={() => setStep(1)} className="flex-1 py-3 rounded-xl font-semibold touch-manipulation" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>← Atrás</button>
               <button onClick={() => { if (!customer.name || !customer.phone) { alert('Nombre y celular son obligatorios'); return } setStep(3) }}
                 className="flex-1 py-3 rounded-xl text-white font-bold touch-manipulation active:opacity-80"
-                style={{ backgroundColor: store.theme_color || '#2563eb' }}>
+                style={{ backgroundColor: btnColor }}>
                 Continuar →
               </button>
             </div>
@@ -659,18 +671,20 @@ export default function OrderForm() {
         {/* PASO 3 */}
         {step === 3 && (
           <div>
-            <h2 className="text-base font-bold text-gray-900 mb-3">Datos de entrega</h2>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 space-y-4">
+            <h2 className="text-base font-bold text-white mb-3">Datos de entrega</h2>
+            <div className="rounded-2xl p-4 space-y-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Método de entrega</label>
+                <label className="block text-sm font-medium text-white/60 mb-2">Método de entrega</label>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setDelivery((prev) => ({ ...prev, method: 'motorizado', agency_name: '', destination: '', lat: '', lng: '' }))}
-                    className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-colors touch-manipulation ${delivery.method === 'motorizado' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                    className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all touch-manipulation`}
+                    style={delivery.method === 'motorizado' ? { borderColor: btnColor, background: btnColor + '15', color: 'rgba(255,255,255,0.9)' } : { borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)' }}>
                     🛵 Motorizado
                   </button>
                   {agencies.length > 0 && (
                     <button type="button" onClick={() => setDelivery((prev) => ({ ...prev, method: 'agencia', lat: '', lng: '' }))}
-                      className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-colors touch-manipulation ${delivery.method === 'agencia' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                      className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all touch-manipulation`}
+                    style={delivery.method === 'agencia' ? { borderColor: btnColor, background: btnColor + '15', color: 'rgba(255,255,255,0.9)' } : { borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)' }}>
                       📦 Agencia
                     </button>
                   )}
@@ -679,7 +693,7 @@ export default function OrderForm() {
 
               {delivery.method === 'motorizado' ? (
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Dirección <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-white/60 mb-1">Dirección <span className="text-red-500">*</span></label>
                   <input type="text" autoComplete="street-address" value={delivery.destination}
                     onChange={(e) => {
                       const value = e.target.value
@@ -696,7 +710,7 @@ export default function OrderForm() {
                         } catch { setAddressSuggestions([]) }
                       }, 500)
                     }}
-                    className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
                     placeholder="Av. Principal 123" />
                   {addressSuggestions.length > 0 && (
                     <div className="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-52 overflow-y-auto">
@@ -713,26 +727,26 @@ export default function OrderForm() {
               ) : (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Agencia <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-white/60 mb-1">Agencia <span className="text-red-500">*</span></label>
                     <select value={delivery.agency_name || ''} onChange={(e) => setDelivery((prev) => ({ ...prev, agency_name: e.target.value, destination: '' }))}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
                       <option value="">Selecciona una agencia</option>
                       {agencies.map((a) => <option key={a.id} value={a.agency_name}>{a.agency_name}</option>)}
                     </select>
                   </div>
                   {delivery.agency_name && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Destino <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-medium text-white/60 mb-1">Destino <span className="text-red-500">*</span></label>
                       {agencies.find((a) => a.agency_name === delivery.agency_name)?.destinations?.length ? (
                         <AgencyDestinationSearch
                           destinations={agencies.find((a) => a.agency_name === delivery.agency_name)?.destinations || []}
                           value={delivery.destination}
                           onChange={(val) => setDelivery((prev) => ({ ...prev, destination: val }))}
-                          themeColor={store?.theme_color || '#2563eb'}
+                          themeColor={btnColor}
                         />
                       ) : (
                         <input type="text" value={delivery.destination} onChange={(e) => setDelivery((prev) => ({ ...prev, destination: e.target.value }))}
-                          className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
                           placeholder="Ciudad o distrito de destino" />
                       )}
                     </div>
@@ -741,54 +755,54 @@ export default function OrderForm() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Referencia <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <label className="block text-sm font-medium text-white/60 mb-1">Referencia <span className="text-gray-400 font-normal">(opcional)</span></label>
                 <input type="text" value={delivery.reference} onChange={(e) => setDelivery({ ...delivery, reference: e.target.value })}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
                   placeholder="Casa azul, frente al parque" />
               </div>
 
               {delivery.method === 'motorizado' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación en mapa <span className="text-gray-400 font-normal">(opcional)</span></label>
-                  <p className="text-xs text-gray-400 mb-2">Toca el mapa para marcar tu ubicación exacta</p>
+                  <label className="block text-sm font-medium text-white/60 mb-1">Ubicación en mapa <span className="text-gray-400 font-normal">(opcional)</span></label>
+                  <p className="text-xs text-white/30 mb-2">Toca el mapa para marcar tu ubicación exacta</p>
                   <MapPicker lat={delivery.lat ? parseFloat(delivery.lat) : null} lng={delivery.lng ? parseFloat(delivery.lng) : null}
                     onSelect={(lat, lng) => setDelivery((prev) => ({ ...prev, lat: String(lat), lng: String(lng) }))}
-                    themeColor={store?.theme_color || '#2563eb'} />
-                  {delivery.lat && delivery.lng && <p className="text-xs text-green-600 mt-2 font-medium">✅ Ubicación marcada</p>}
+                    themeColor={btnColor} />
+                  {delivery.lat && delivery.lng && <p className="text-xs mt-2 font-medium" style={{ color: "#10b981" }}>✅ Ubicación marcada</p>}
                 </div>
               )}
             </div>
 
             {/* Resumen del pedido */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mt-4">
-              <h3 className="font-bold text-gray-900 mb-3 text-sm">Resumen del pedido</h3>
+              <h3 className="font-bold text-white mb-3 text-sm">Resumen del pedido</h3>
               {cart.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div key={idx} className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => updateQty(item, item.quantity - 1)} className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-base font-bold flex items-center justify-center touch-manipulation">−</button>
+                      <button onClick={() => updateQty(item, item.quantity - 1)} className="w-7 h-7 rounded-full flex items-center justify-center text-base font-bold touch-manipulation" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>−</button>
                       <span className="w-7 text-center text-sm font-semibold">{item.quantity}</span>
-                      <button onClick={() => updateQty(item, item.quantity + 1)} className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-base font-bold flex items-center justify-center touch-manipulation">+</button>
+                      <button onClick={() => updateQty(item, item.quantity + 1)} className="w-7 h-7 rounded-full flex items-center justify-center text-base font-bold touch-manipulation" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>+</button>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{item.product_name}</p>
-                      <p className="text-xs text-gray-400">{item.color}</p>
+                      <p className="text-sm font-medium text-white/80 truncate">{item.product_name}</p>
+                      <p className="text-xs text-white/30">{item.color}</p>
                     </div>
                   </div>
                 
                 </div>
               ))}
               {comboCart.map((item) => (
-                <div key={item.combo_id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div key={item.combo_id} className="flex items-center justify-between py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <button onClick={() => updateComboQty(item.combo_id, item.quantity - 1)} className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-base font-bold flex items-center justify-center touch-manipulation">−</button>
+                      <button onClick={() => updateComboQty(item.combo_id, item.quantity - 1)} className="w-7 h-7 rounded-full flex items-center justify-center text-base font-bold touch-manipulation" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>−</button>
                       <span className="w-7 text-center text-sm font-semibold">{item.quantity}</span>
-                      <button onClick={() => updateComboQty(item.combo_id, item.quantity + 1)} className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-base font-bold flex items-center justify-center touch-manipulation">+</button>
+                      <button onClick={() => updateComboQty(item.combo_id, item.quantity + 1)} className="w-7 h-7 rounded-full flex items-center justify-center text-base font-bold touch-manipulation" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>+</button>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">🎁 {item.combo_name}</p>
-                      <p className="text-xs text-gray-400">Combo</p>
+                      <p className="text-sm font-medium text-white/80 truncate">🎁 {item.combo_name}</p>
+                      <p className="text-xs text-white/30">Combo</p>
                     </div>
                   </div>
                 
@@ -796,15 +810,15 @@ export default function OrderForm() {
               ))}
               <div className="flex justify-between pt-3">
                 <span className="font-bold text-gray-900">Total</span>
-                <span className="font-bold text-gray-900 text-base">S/ {total.toFixed(2)}</span>
+                <span className="font-bold text-white text-base">S/ {total.toFixed(2)}</span>
               </div>
             </div>
 
             <div className="flex gap-3 mt-4 pb-8">
-              <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-xl font-semibold border border-gray-200 text-gray-700 touch-manipulation">← Atrás</button>
+              <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-xl font-semibold touch-manipulation" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>← Atrás</button>
               <button onClick={handleSubmit} disabled={submitting}
                 className="flex-1 py-4 rounded-xl text-white font-bold disabled:opacity-50 touch-manipulation active:opacity-80"
-                style={{ backgroundColor: store?.theme_color || '#2563eb' }}>
+                style={{ backgroundColor: btnColor }}>
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
