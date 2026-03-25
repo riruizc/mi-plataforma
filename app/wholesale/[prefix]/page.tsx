@@ -297,7 +297,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                                   className="variant-btn px-2.5 py-1.5 rounded-lg text-xs font-medium"
                                   style={inCart
                                     ? { background: btnColor, color: txtColor, border: 'none' }
-                                    : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    : { background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb' }}>
                                   {inCart ? `✓ ${v.color} ×${inCart.qty}` : v.color}
                                 </button>
                               )

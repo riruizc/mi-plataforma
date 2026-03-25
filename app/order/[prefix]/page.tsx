@@ -448,7 +448,7 @@ export default function OrderForm() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
               {store.logo_url && <img src={store.logo_url} alt="Logo" className="w-8 h-8 rounded-xl object-cover flex-shrink-0" style={{ border: `1.5px solid ${color}40` }} />}
-              <h1 className="font-bold text-sm truncate" style={{ color: primaryText }}>{store.name}</h1>
+              <h1 className="font-bold text-sm truncate text-white">{store.name}</h1>
             </div>
           </div>
           <div className="flex items-center justify-center gap-1 pb-3">
