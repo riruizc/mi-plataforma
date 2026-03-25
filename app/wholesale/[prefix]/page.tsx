@@ -202,7 +202,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
           {/* Section tabs */}
           <div className="flex gap-2">
             {[
-              { key: 'units', label: `📦 Por unidad${wholesaleProducts.length > 0 ? ` (${wholesaleProducts.length})` : ''}` },
+              { key: 'units', label: `🛒 Escogido${cart.filter(c=>c.type==='unit').length > 0 ? ` (${cart.filter(c=>c.type==='unit').length})` : ''}` },
               { key: 'packages', label: `🎁 Paquetes${packages.length > 0 ? ` (${packages.length})` : ''}` },
               { key: 'clearance', label: `🔥 Remates${clearanceItems.length > 0 ? ` (${clearanceItems.length})` : ''}` },
             ].map(s => (
@@ -222,14 +222,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
           <div className="bg-white rounded-2xl border-2 p-4 mb-4" style={{ borderColor: color + '40' }}>
             <p className="text-sm font-bold text-gray-800 mb-2">💡 Descuentos por volumen</p>
             <p className="text-xs text-gray-500 mb-3">Selecciona al menos <strong>{minUnits} productos</strong> para ver el precio total</p>
-            <div className="flex flex-wrap gap-2">
-              {ranges.map((r, i) => (
-                <div key={i} className="flex items-center gap-1 bg-gray-50 rounded-lg px-3 py-1.5">
-                  <span className="text-xs text-gray-600">{r.min_units}{r.max_units ? `-${r.max_units}` : '+'} pzas</span>
-                  <span className="text-xs font-bold text-green-600">{r.discount_pct}% OFF</span>
-                </div>
-              ))}
-            </div>
+
             {totalUnits > 0 && (
               <div className={`mt-3 rounded-xl px-3 py-2 text-center ${priceVisible ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
                 {priceVisible
@@ -264,7 +257,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                         }
                         <div className="p-3">
                           <p className="font-semibold text-gray-900 text-sm leading-tight mb-1">{product.product_name}</p>
-                          <p className="text-xs text-gray-400 mb-2">Precio base: S/ {Number(product.base_price).toFixed(2)}</p>
+
                           <div className="flex flex-wrap gap-1.5">
                             {product.variants.map(v => {
                               const cartKey = `unit_${product.product_id}_${v.id}`
@@ -441,7 +434,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                 {cart.map(c => (
                   <div key={c.key} className="flex justify-between text-xs text-gray-700">
                     <span>{c.qty}x {c.product_name}{c.color && c.color !== 'Único' ? ` (${c.color})` : ''}</span>
-                    {(c.type === 'package' || c.type === 'clearance' || priceVisible) && (
+                    {(c.type === 'package' || c.type === 'clearance') && (
                       <span className="font-medium">S/ {(c.base_price * c.qty).toFixed(2)}</span>
                     )}
                   </div>
@@ -449,7 +442,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
               </div>
               {priceVisible || pkgTotal > 0 || clearTotal > 0 ? (
                 <div className="border-t border-gray-100 mt-2 pt-2 space-y-0.5">
-                  {priceVisible && discount > 0 && <div className="flex justify-between text-xs text-green-600"><span>Descuento {discount}%</span><span>-S/ {(unitTotal * discount / 100).toFixed(2)}</span></div>}
+
                   <div className="flex justify-between">
                     <span className="text-sm font-bold text-gray-800">Total</span>
                     <span className="text-sm font-bold" style={{ color }}>S/ {grandTotal.toFixed(2)}</span>
