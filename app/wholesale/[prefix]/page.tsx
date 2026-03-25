@@ -69,19 +69,13 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
     setLoading(false)
   }
 
-  const color = store?.theme_color || '#1a1a2e'
-  const btnColor = store?.button_color || '#3b82f6'
+  const color = store?.theme_color || '#3b82f6'
+  const btnColor = store?.button_color || color
   const txtColor = store?.text_color || '#ffffff'
-  const isDarkBg = (() => {
-    const hex = color.replace('#','')
-    if (hex.length < 6) return true
-    const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16)
-    return (r*299+g*587+b*114)/1000 < 128
-  })()
-  const cardBg = isDarkBg ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'
-  const cardBorder = isDarkBg ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.1)'
-  const primaryText = isDarkBg ? '#ffffff' : '#111827'
-  const secondaryText = isDarkBg ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)'
+  const cardBg = '#ffffff'
+  const cardBorder = '#e5e7eb'
+  const primaryText = '#111827'
+  const secondaryText = '#6b7280'
   const totalUnits = cart.filter(c => c.type === 'unit').reduce((s, c) => s + c.qty, 0)
   const totalItems = cart.reduce((s, c) => s + c.qty, 0)
 
@@ -146,7 +140,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
     <div className="min-h-screen flex items-center justify-center" style={{ background: btnColor, color: txtColor }}>
       <div className="flex flex-col items-center gap-4">
         <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: color, borderTopColor: 'transparent' }} />
-        <p className="text-sm" style={{ color: secondaryText }}>Cargando catálogo...</p>
+        <p className="text-sm text-gray-400">Cargando catálogo...</p>
       </div>
     </div>
   )
@@ -160,7 +154,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
   )
 
   return (
-    <div className="min-h-screen" style={{ background: color, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="min-h-screen" style={{ background: '#f9fafb', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
         .product-card { transition: transform 0.2s ease; }
@@ -173,18 +167,18 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
       `}</style>
 
       {/* HEADER */}
-      <div className="sticky top-0 z-30" style={{ background: color + 'ee', backdropFilter: 'blur(20px)', borderBottom: isDarkBg ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)' }}>
+      <div className="sticky top-0 z-30" style={{ backgroundColor: color }}>
         <div className="max-w-lg mx-auto px-4 pt-4 pb-3">
           {/* Store info */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               {store?.logo_url
-                ? <img src={store.logo_url} alt={store.name} className="w-9 h-9 rounded-xl object-cover" style={{ border: `1.5px solid ${btnColor}40` }} />
-                : <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold" style={{ background: btnColor + '20', color: btnColor, border: `1.5px solid ${btnColor}40` }}>{store?.name?.[0]}</div>
+                ? <img src={store.logo_url} alt={store.name} className="w-9 h-9 rounded-xl object-cover" style={{ border: '2px solid rgba(255,255,255,0.4)' }} />
+                : <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold" style={{ background: 'rgba(255,255,255,0.25)', color: 'white', border: '2px solid rgba(255,255,255,0.4)' }}>{store?.name?.[0]}</div>
               }
               <div>
-                <p className="font-semibold text-sm leading-tight" style={{ color: primaryText }}>{store?.name}</p>
-                <p className="text-xs font-medium" style={{ color: btnColor }}>Catálogo Mayorista</p>
+                <p className="font-semibold text-sm leading-tight text-white">{store?.name}</p>
+                <p className="text-xs font-medium text-white/70">Catálogo Mayorista</p>
               </div>
             </div>
             {totalItems > 0 && (
@@ -201,15 +195,15 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
 
           {/* Search */}
           <div className="relative mb-3">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar productos..."
               className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm focus:outline-none"
-              style={{ color: primaryText, background: isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', border: `1px solid ${cardBorder}` }} />
-            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 text-lg">×</button>}
+              style={{ color: '#111827', background: 'rgba(255,255,255,0.95)' }} />
+            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 text-lg">×</button>}
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 p-1 rounded-xl" style={{ background: isDarkBg ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+          <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.2)' }}>
             {[
               { key: 'units', icon: '◈', label: 'Productos' },
               { key: 'packages', icon: '⬡', label: 'Paquetes' },
@@ -219,7 +213,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                 className="section-tab flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5"
                 style={activeSection === s.key
                   ? { background: color, color: '#fff' }
-                  : { background: 'transparent', color: 'rgba(255,255,255,0.4)' }}>
+                  : { background: 'transparent', color: 'rgba(255,255,255,0.75)' }}>
                 <span>{s.icon}</span>
                 {s.label}
               </button>
@@ -232,9 +226,9 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
 
         {/* Discount progress banner */}
         {activeSection === 'units' && totalUnits > 0 && (
-          <div className="mb-5 rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
+          <div className="mb-5 rounded-2xl p-4" className="bg-white border border-gray-100 shadow-sm rounded-2xl">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium" style={{ color: secondaryText }}>{totalUnits} productos seleccionados</span>
+              <span className="text-xs font-medium text-gray-500">{totalUnits} productos seleccionados</span>
               {priceVisible && discount > 0 && (
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: btnColor + '25', color: btnColor }}>−{discount}% aplicado</span>
               )}
@@ -245,10 +239,10 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                   <span style={{ color: secondaryText }}>Progreso al precio mayorista</span>
                   <span className="font-semibold" style={{ color: btnColor }}>{totalUnits}/{minUnits}</span>
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
                   <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, totalUnits/minUnits*100)}%`, background: btnColor }} />
                 </div>
-                <p className="text-xs mt-2" style={{ color: secondaryText }}>Agrega {minUnits - totalUnits} más para ver el precio total</p>
+                <p className="text-xs mt-2 text-gray-400">Agrega {minUnits - totalUnits} más para ver el precio total</p>
               </div>
             ) : (() => {
                 const next = getNextDiscount(totalUnits)
@@ -258,7 +252,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                       <span style={{ color: secondaryText }}>Próximo descuento: {next.pct}%</span>
                       <span className="font-semibold" style={{ color: btnColor }}>{next.needed} más</span>
                     </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
                       <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, 100 - (next.needed / (next.needed + totalUnits) * 100))}%`, background: btnColor }} />
                     </div>
                   </div>
@@ -273,8 +267,8 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
           <div>
             {filteredProducts.length === 0 ? (
               <div className="text-center py-20">
-                <p className="text-4xl mb-3" style={{ color: secondaryText }}>◈</p>
-                <p className="text-sm" style={{ color: secondaryText }}>Sin productos disponibles</p>
+                <p className="text-4xl mb-3 text-gray-300">◈</p>
+                <p className="text-sm text-gray-400">Sin productos disponibles</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
@@ -283,11 +277,11 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                   if (hasVariants) {
                     return (
                       <div key={product.product_id} className="product-card rounded-2xl overflow-hidden"
-                        style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
+                        className="bg-white border border-gray-100 shadow-sm rounded-2xl">
                         <div className="relative h-32 overflow-hidden">
                           {product.image_url
                             ? <img src={product.image_url} alt={product.product_name} className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center text-4xl font-bold" style={{ background: `linear-gradient(135deg, ${color}15, ${color}05)` }}>
+                            : <div className="w-full h-full flex items-center justify-center text-4xl font-bold" style={{ background: `linear-gradient(135deg, ${color}20, ${color}08)` }}>
                                 <span style={{ color: color + '60' }}>{product.product_name[0]}</span>
                               </div>
                           }
@@ -318,11 +312,11 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                     const inCart = cart.find(c => c.key === cartKey)
                     return (
                       <div key={product.product_id} className="product-card rounded-2xl overflow-hidden"
-                        style={{ background: inCart ? btnColor + '15' : cardBg, border: `1px solid ${inCart ? btnColor + '50' : cardBorder}` }}>
+                        style={{ background: inCart ? btnColor + '12' : '#ffffff', border: `1px solid ${inCart ? btnColor + '60' : '#e5e7eb'}` }}>
                         <div className="relative h-32 overflow-hidden">
                           {product.image_url
                             ? <img src={product.image_url} alt={product.product_name} className="w-full h-full object-cover" />
-                            : <div className="w-full h-full flex items-center justify-center text-4xl font-bold" style={{ background: `linear-gradient(135deg, ${color}15, ${color}05)` }}>
+                            : <div className="w-full h-full flex items-center justify-center text-4xl font-bold" style={{ background: `linear-gradient(135deg, ${color}20, ${color}08)` }}>
                                 <span style={{ color: color + '60' }}>{product.product_name[0]}</span>
                               </div>
                           }
@@ -334,11 +328,11 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                           {inCart ? (
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <button onClick={() => changeQty(cartKey, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', color: primaryText }}>−</button>
+                                <button onClick={() => changeQty(cartKey, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: '#f3f4f6', color: '#374151' }}>−</button>
                                 <span className="font-bold text-sm w-5 text-center" style={{ color: primaryText }}>{inCart.qty}</span>
                                 <button onClick={() => changeQty(cartKey, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: btnColor, color: txtColor }}>+</button>
                               </div>
-                              <button onClick={() => removeFromCart(cartKey)} className="text-white/30 text-xs">✕</button>
+                              <button onClick={() => removeFromCart(cartKey)} className="text-gray-400 text-xs">✕</button>
                             </div>
                           ) : (
                             <button onClick={() => addToCart({ key: cartKey, type: 'unit', product_id: product.product_id, variant_id: null, product_name: product.product_name, color: 'Único', base_price: product.base_price })}
@@ -361,15 +355,15 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
           <div className="space-y-4">
             {filteredPackages.length === 0 ? (
               <div className="text-center py-20">
-                <p className="text-4xl mb-3" style={{ color: secondaryText }}>⬡</p>
-                <p className="text-sm" style={{ color: secondaryText }}>Sin paquetes disponibles</p>
+                <p className="text-4xl mb-3 text-gray-300">⬡</p>
+                <p className="text-sm text-gray-400">Sin paquetes disponibles</p>
               </div>
             ) : filteredPackages.map(pkg => {
               const cartKey = `pkg_${pkg.id}`
               const inCart = cart.find(c => c.key === cartKey)
               return (
                 <div key={pkg.id} className="product-card rounded-2xl overflow-hidden"
-                  style={{ background: inCart ? color + '10' : 'rgba(255,255,255,0.04)', border: `1px solid ${inCart ? color + '40' : 'rgba(255,255,255,0.08)'}` }}>
+                  style={{ background: inCart ? btnColor + '08' : '#ffffff', border: `1px solid ${inCart ? btnColor + '40' : '#e5e7eb'}` }}>
                   {pkg.image_url
                     ? <div className="relative h-48 overflow-hidden">
                         <img src={pkg.image_url} alt={pkg.name} className="w-full h-full object-cover" />
@@ -396,7 +390,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                     {pkg.items.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mb-3">
                         {pkg.items.map((item, i) => (
-                          <span key={i} className="text-xs px-2 py-1 rounded-lg" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)' }}>
+                          <span key={i} className="text-xs px-2 py-1 rounded-lg" style={{ background: '#f3f4f6', color: '#6b7280' }}>
                             {item.quantity}× {item.product_name}{item.color && item.color !== 'Único' ? ` (${item.color})` : ''}
                           </span>
                         ))}
@@ -406,11 +400,11 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                     {inCart ? (
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => changeQty(cartKey, -1)} className="w-8 h-8 rounded-xl flex items-center justify-center font-bold" style={{ background: isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', color: primaryText }}>−</button>
+                          <button onClick={() => changeQty(cartKey, -1)} className="w-8 h-8 rounded-xl flex items-center justify-center font-bold" style={{ background: '#f3f4f6', color: '#374151' }}>−</button>
                           <span className="font-bold text-sm w-6 text-center" style={{ color: primaryText }}>{inCart.qty}</span>
                           <button onClick={() => changeQty(cartKey, 1)} className="w-8 h-8 rounded-xl flex items-center justify-center font-bold" style={{ background: btnColor, color: txtColor }}>+</button>
                         </div>
-                        <button onClick={() => removeFromCart(cartKey)} className="text-white/30 text-sm">✕ Quitar</button>
+                        <button onClick={() => removeFromCart(cartKey)} className="text-gray-400 text-sm">✕ Quitar</button>
                       </div>
                     ) : (
                       <button onClick={() => addToCart({ key: cartKey, type: 'package', package_id: pkg.id, product_name: pkg.name, base_price: pkg.price })}
@@ -434,8 +428,8 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
             </div>
             {filteredClearance.length === 0 ? (
               <div className="text-center py-20">
-                <p className="text-4xl mb-3" style={{ color: secondaryText }}>◉</p>
-                <p className="text-sm" style={{ color: secondaryText }}>Sin productos en remate</p>
+                <p className="text-4xl mb-3 text-gray-300">◉</p>
+                <p className="text-sm text-gray-400">Sin productos en remate</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
@@ -444,7 +438,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                   const inCart = cart.find(c => c.key === cartKey)
                   return (
                     <div key={i} className="product-card rounded-2xl overflow-hidden"
-                      style={{ background: inCart ? 'rgba(249,115,22,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${inCart ? 'rgba(249,115,22,0.4)' : 'rgba(255,255,255,0.08)'}` }}>
+                      style={{ background: inCart ? 'rgba(249,115,22,0.08)' : '#ffffff', border: `1px solid ${inCart ? 'rgba(249,115,22,0.4)' : '#e5e7eb'}` }}>
                       <div className="relative h-32 overflow-hidden">
                         {item.image_url
                           ? <img src={item.image_url} alt={item.product_name} className="w-full h-full object-cover" />
@@ -457,16 +451,16 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                         <p className="absolute bottom-2 left-2.5 right-2.5 text-white font-semibold text-xs leading-tight">{item.product_name}</p>
                       </div>
                       <div className="p-3">
-                        {item.color !== 'Único' && <p className="text-white/40 text-xs mb-1">{item.color}</p>}
+                        {item.color !== 'Único' && <p className="text-gray-400 text-xs mb-1">{item.color}</p>}
                         <p className="text-orange-400 font-bold text-base mb-2">S/ {Number(item.clearance_price).toFixed(2)}</p>
                         {inCart ? (
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
-                              <button onClick={() => changeQty(cartKey, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>−</button>
+                              <button onClick={() => changeQty(cartKey, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: '#e5e7eb' }}>−</button>
                               <span className="font-bold text-sm w-5 text-center" style={{ color: primaryText }}>{inCart.qty}</span>
                               <button onClick={() => changeQty(cartKey, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: '#f97316', color: '#fff' }}>+</button>
                             </div>
-                            <button onClick={() => removeFromCart(cartKey)} className="text-white/30 text-xs">✕</button>
+                            <button onClick={() => removeFromCart(cartKey)} className="text-gray-400 text-xs">✕</button>
                           </div>
                         ) : (
                           <button onClick={() => addToCart({ key: cartKey, type: 'clearance', product_id: item.product_id, variant_id: item.variant_id, product_name: item.product_name, color: item.color, base_price: item.clearance_price })}
@@ -498,7 +492,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
             </div>
             {priceVisible || pkgTotal > 0 || clearTotal > 0
               ? <span>S/ {grandTotal.toFixed(2)}</span>
-              : <span className="text-xs" style={{ color: isDarkBg ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)' }}>Ver selección →</span>
+              : <span className="text-xs" style={{ color: txtColor, opacity: 0.75 }}>Ver selección →</span>
             }
           </button>
         </div>
@@ -507,50 +501,50 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
       {/* CART MODAL */}
       {showCart && (
         <div className="fixed inset-0 z-50 flex items-end">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowCart(false)} />
-          <div className="cart-slide relative w-full max-w-lg mx-auto rounded-t-3xl overflow-hidden" style={{ background: color, border: `1px solid ${cardBorder}`, maxHeight: '85vh' }}>
-            <div className="flex items-center justify-between px-5 py-4 sticky top-0" style={{ background: color + 'cc', borderBottom: `1px solid ${cardBorder}` }}>
-              <p className="font-bold" style={{ color: primaryText }}>Tu selección</p>
-              <button onClick={() => setShowCart(false)} className="text-2xl leading-none" style={{ color: secondaryText }}>×</button>
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowCart(false)} />
+          <div className="cart-slide relative w-full max-w-lg mx-auto rounded-t-3xl overflow-hidden" style={{ background: '#ffffff', border: '1px solid #e5e7eb', maxHeight: '85vh' }}>
+            <div className="flex items-center justify-between px-5 py-4 sticky top-0" style={{ background: '#ffffff', borderBottom: '1px solid #f3f4f6' }}>
+              <p className="font-bold text-gray-900">Tu selección</p>
+              <button onClick={() => setShowCart(false)} className="text-2xl leading-none text-gray-400">×</button>
             </div>
 
             <div className="overflow-y-auto px-5 py-3 space-y-2" style={{ maxHeight: '50vh' }}>
               {cart.map(c => (
-                <div key={c.key} className="flex items-center justify-between py-2.5" style={{ borderBottom: `1px solid ${cardBorder}` }}>
+                <div key={c.key} className="flex items-center justify-between py-2.5" style={{ borderBottom: '1px solid #f3f4f6' }}>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: primaryText }}>{c.product_name}{c.color && c.color !== 'Único' ? ` · ${c.color}` : ''}</p>
+                    <p className="text-sm font-medium truncate text-gray-900">{c.product_name}{c.color && c.color !== 'Único' ? ` · ${c.color}` : ''}</p>
                     {(c.type === 'package' || c.type === 'clearance') && (
                       <p className="text-xs" style={{ color: c.type === 'clearance' ? '#f97316' : btnColor }}>S/ {(c.base_price * c.qty).toFixed(2)}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-3">
-                    <button onClick={() => changeQty(c.key, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>−</button>
+                    <button onClick={() => changeQty(c.key, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: '#e5e7eb' }}>−</button>
                     <span className="text-sm font-bold w-5 text-center" style={{ color: primaryText }}>{c.qty}</span>
-                    <button onClick={() => changeQty(c.key, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', color: primaryText }}>+</button>
+                    <button onClick={() => changeQty(c.key, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: '#f3f4f6', color: '#374151' }}>+</button>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="px-5 py-4 sticky bottom-0" style={{ background: color + 'cc', borderTop: `1px solid ${cardBorder}` }}>
+            <div className="px-5 py-4 sticky bottom-0" style={{ background: '#f9fafb', borderTop: '1px solid #f3f4f6' }}>
               {priceVisible || pkgTotal > 0 || clearTotal > 0 ? (
                 <div className="mb-4 space-y-1.5">
                   {priceVisible && totalUnits > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span style={{ color: secondaryText }}>{totalUnits} productos</span>
+                      <span className="text-gray-400">{totalUnits} productos</span>
                       <span style={{ color: secondaryText }}>S/ {unitTotal.toFixed(2)}</span>
                     </div>
                   )}
-                  {pkgTotal > 0 && <div className="flex justify-between text-sm"><span style={{ color: secondaryText }}>Paquetes</span><span style={{ color: secondaryText }}>S/ {pkgTotal.toFixed(2)}</span></div>}
-                  {clearTotal > 0 && <div className="flex justify-between text-sm"><span style={{ color: secondaryText }}>Remates</span><span style={{ color: secondaryText }}>S/ {clearTotal.toFixed(2)}</span></div>}
-                  <div className="flex justify-between text-base font-bold pt-1.5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                    <span style={{ color: primaryText }}>Total</span>
+                  {pkgTotal > 0 && <div className="flex justify-between text-sm"><span className="text-gray-400">Paquetes</span><span style={{ color: secondaryText }}>S/ {pkgTotal.toFixed(2)}</span></div>}
+                  {clearTotal > 0 && <div className="flex justify-between text-sm"><span className="text-gray-400">Remates</span><span style={{ color: secondaryText }}>S/ {clearTotal.toFixed(2)}</span></div>}
+                  <div className="flex justify-between text-base font-bold pt-1.5" style={{ borderTop: '1px solid #f3f4f6' }}>
+                    <span className="text-gray-900">Total</span>
                     <span style={{ color: btnColor }}>S/ {grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
               ) : totalUnits > 0 && (
-                <div className="mb-4 p-3 rounded-xl text-center" style={{ background: isDarkBg ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
-                  <p className="text-xs" style={{ color: secondaryText }}>{minUnits - totalUnits} productos más para ver el precio</p>
+                <div className="mb-4 p-3 rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                  <p className="text-xs text-gray-400">{minUnits - totalUnits} productos más para ver el precio</p>
                 </div>
               )}
               <button onClick={sendWhatsApp}
@@ -561,7 +555,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                 </svg>
                 Enviar pedido por WhatsApp
               </button>
-              <button onClick={() => { setCart([]); setShowCart(false) }} className="w-full mt-2 py-2 text-xs" style={{ color: secondaryText }}>Limpiar todo</button>
+              <button onClick={() => { setCart([]); setShowCart(false) }} className="w-full mt-2 py-2 text-xs text-gray-400">Limpiar todo</button>
             </div>
           </div>
         </div>

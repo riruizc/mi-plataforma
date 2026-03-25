@@ -57,7 +57,7 @@ function AgencyDestinationSearch({ destinations, value, onChange, themeColor }: 
         onFocus={() => setShowSuggestions(true)}
         onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
         placeholder="Escribe tu destino..."
-        className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+        className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
       />
       {query && (
         <button type="button" onClick={() => { setQuery(''); onChange(''); }}
@@ -409,30 +409,24 @@ export default function OrderForm() {
     </div>
   )
 
-  const color = store?.theme_color || '#1a1a2e'
-  const btnColor = (store as any)?.button_color || '#3b82f6'
+  const color = store?.theme_color || '#3b82f6'
+  const btnColor = (store as any)?.button_color || color
   const txtColor = (store as any)?.text_color || '#ffffff'
-  const isDarkBg = (() => {
-    const hex = color.replace('#', '')
-    if (hex.length < 6) return true
-    const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16)
-    return (r*299+g*587+b*114)/1000 < 128
-  })()
-  const cardBg = isDarkBg ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'
-  const cardBorder = isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
-  const primaryText = isDarkBg ? '#ffffff' : '#111827'
-  const secondaryText = isDarkBg ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)'
+  const cardBg = '#ffffff'
+  const cardBorder = '#e5e7eb'
+  const primaryText = '#111827'
+  const secondaryText = '#6b7280'
 
   if (step === 4) return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: color, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#f9fafb', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
-      <div className="rounded-3xl p-8 max-w-sm w-full text-center" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
+      <div className="rounded-3xl p-8 max-w-sm w-full text-center" className="bg-white rounded-2xl shadow-sm">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)' }}>
           <span className="text-3xl">✅</span>
         </div>
         <h2 className="text-xl font-bold mb-2" style={{ color: primaryText }}>¡Pedido recibido!</h2>
         <p className="text-sm mb-4" style={{ color: secondaryText }}>Tu código de pedido es:</p>
-        <div className="rounded-2xl px-4 py-4 mb-4" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="rounded-2xl px-4 py-4 mb-4" className="bg-gray-100 rounded-2xl px-4 py-4 mb-4">
           <span className="text-xl font-bold tracking-widest font-mono" style={{ color: btnColor }}>{orderCode}</span>
         </div>
         <p className="text-xs mb-6" style={{ color: secondaryText }}>Guarda este código para rastrear tu pedido</p>
@@ -446,10 +440,10 @@ export default function OrderForm() {
   )
 
   return (
-    <div className="min-h-screen" style={{ background: color, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="min-h-screen" style={{ background: '#f9fafb', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
       {/* HEADER */}
-      <div className="sticky top-0 z-10" style={{ background: color + 'ee', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+      <div className="sticky top-0 z-10" style={{ backgroundColor: color }}>
         <div className="max-w-lg mx-auto px-4 pt-3 pb-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2.5">
@@ -461,33 +455,35 @@ export default function OrderForm() {
             {['Productos', 'Tus datos', 'Entrega'].map((s, i) => (
               <div key={s} className="flex items-center gap-1">
                 <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
-                  style={{ background: step >= i + 1 ? btnColor : 'rgba(255,255,255,0.1)', color: step >= i + 1 ? txtColor : 'rgba(255,255,255,0.3)' }}>
+                  style={{ background: step >= i + 1 ? btnColor : 'rgba(255,255,255,0.3)', color: step >= i + 1 ? txtColor : secondaryText }}>
                   {step > i + 1 ? '✓' : i + 1}
                 </div>
-                <span className="text-xs font-medium" style={{ color: step === i + 1 ? (isDarkBg ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.8)') : (isDarkBg ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)') }}>{s}</span>
-                {i < 2 && <span className="text-white/20 text-xs mx-0.5">›</span>}
+                <span className="text-xs font-medium" style={{ color: step === i + 1 ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.6)' }}>{s}</span>
+                {i < 2 && <span className="text-xs mx-0.5" style={{ color: secondaryText }}>›</span>}
               </div>
             ))}
           </div>
         </div>
 
         {step === 1 && (
-          <div className="sticky z-9 px-4 pb-2" style={{ background: color + 'dd', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="sticky z-9 px-4 pb-2" style={{ backgroundColor: color }}>
             <div className="relative mb-2">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base">🔍</span>
               <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar producto o combo..."
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm bg-white bg-opacity-95 text-gray-800 placeholder-gray-400 focus:outline-none border-0" />
-              {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg leading-none">×</button>}
+              {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-lg leading-none" style={{ color: secondaryText }}>×</button>}
             </div>
             {combos.length > 0 && (
               <div className="flex gap-2 pb-1">
                 <button onClick={() => setActiveTab('products')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${activeTab === 'products' ? 'bg-white text-gray-800' : 'bg-white/20 text-white'}`}>
+                  className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                  style={activeTab === 'products' ? { background: 'rgba(255,255,255,0.95)', color: '#1f2937' } : { background: 'rgba(255,255,255,0.15)', color: primaryText }}>
                   📦 Productos ({products.length})
                 </button>
                 <button onClick={() => setActiveTab('combos')}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${activeTab === 'combos' ? 'bg-white text-gray-800' : 'bg-white/20 text-white'}`}>
+                  className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                  style={activeTab === 'combos' ? { background: 'rgba(255,255,255,0.95)', color: '#1f2937' } : { background: 'rgba(255,255,255,0.15)', color: primaryText }}>
                   🎁 Combos ({combos.length})
                 </button>
               </div>
@@ -498,12 +494,12 @@ export default function OrderForm() {
 
       {/* FILTRO CATEGORÍA */}
       {step === 1 && activeTab === 'products' && categories.length > 2 && (
-        <div className="sticky z-9 px-4 py-2" style={{ background: "rgba(10,10,10,0.9)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="sticky z-9 px-4 py-2" className="bg-white border-b border-gray-200">
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {categories.map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all touch-manipulation ${activeCategory === cat ? "text-white border-transparent" : "border-white/10 text-white/40"}`}
-                style={activeCategory === cat ? { backgroundColor: btnColor } : {}}>
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all touch-manipulation ${activeCategory === cat ? "border-transparent" : ""}`}
+                style={activeCategory === cat ? { backgroundColor: btnColor, color: txtColor } : { borderColor: cardBorder, color: secondaryText }}>
                 {cat}
               </button>
             ))}
@@ -624,15 +620,15 @@ export default function OrderForm() {
             )}
 
             {totalItems > 0 && (
-              <div className="fixed bottom-0 left-0 right-0" style={{ background: color + "ee", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+              <div className="fixed bottom-0 left-0 right-0" className="bg-white border-t border-gray-200 shadow-lg">
                 <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs" style={{ color: secondaryText }}>{totalItems} item{totalItems !== 1 ? 's' : ''}</p>
                     <p className="font-bold text-base" style={{ color: primaryText }}>S/ {total.toFixed(2)}</p>
                   </div>
                   <button onClick={() => setStep(2)}
-                    className="px-6 py-3 rounded-xl text-white font-bold text-sm flex-shrink-0 touch-manipulation active:opacity-80"
-                    style={{ backgroundColor: btnColor }}>
+                    className="px-6 py-3 rounded-xl font-bold text-sm flex-shrink-0 touch-manipulation active:opacity-80"
+                    style={{ backgroundColor: btnColor, color: txtColor }}>
                     Continuar →
                   </button>
                 </div>
@@ -650,28 +646,28 @@ export default function OrderForm() {
                 <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>DNI / CE <span className="text-gray-400 font-normal">(opcional)</span></label>
                 <input type="text" inputMode="numeric" value={customer.dni}
                   onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 12) setCustomer({ ...customer, dni: val }) }}
-                  className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
                   placeholder="DNI (8 dígitos) o CE (hasta 12)" maxLength={12} />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Nombre completo <span className="text-red-500">*</span></label>
                 <input type="text" autoCapitalize="words" value={customer.name}
                   onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-                  className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }} placeholder="Juan Pérez" />
+                  className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }} placeholder="Juan Pérez" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Celular <span className="text-red-500">*</span></label>
                 <input type="text" inputMode="numeric" value={customer.phone}
                   onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 9) setCustomer({ ...customer, phone: val }) }}
-                  className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
                   placeholder="999 999 999" maxLength={9} />
               </div>
             </div>
             <div className="flex gap-3 mt-4">
               <button onClick={() => setStep(1)} className="flex-1 py-3 rounded-xl font-semibold touch-manipulation" style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: secondaryText }}>← Atrás</button>
               <button onClick={() => { if (!customer.name || !customer.phone) { alert('Nombre y celular son obligatorios'); return } setStep(3) }}
-                className="flex-1 py-3 rounded-xl text-white font-bold touch-manipulation active:opacity-80"
-                style={{ backgroundColor: btnColor }}>
+                className="flex-1 py-3 rounded-xl font-bold touch-manipulation active:opacity-80"
+                style={{ backgroundColor: btnColor, color: txtColor }}>
                 Continuar →
               </button>
             </div>
@@ -688,13 +684,13 @@ export default function OrderForm() {
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setDelivery((prev) => ({ ...prev, method: 'motorizado', agency_name: '', destination: '', lat: '', lng: '' }))}
                     className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all touch-manipulation`}
-                    style={delivery.method === 'motorizado' ? { borderColor: btnColor, background: btnColor + '15', color: 'rgba(255,255,255,0.9)' } : { borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)' }}>
+                    style={delivery.method === 'motorizado' ? { borderColor: btnColor, background: btnColor + '15', color: primaryText } : { borderColor: cardBorder, color: secondaryText }}>
                     🛵 Motorizado
                   </button>
                   {agencies.length > 0 && (
                     <button type="button" onClick={() => setDelivery((prev) => ({ ...prev, method: 'agencia', lat: '', lng: '' }))}
                       className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all touch-manipulation`}
-                    style={delivery.method === 'agencia' ? { borderColor: btnColor, background: btnColor + '15', color: 'rgba(255,255,255,0.9)' } : { borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)' }}>
+                    style={delivery.method === 'agencia' ? { borderColor: btnColor, background: btnColor + '15', color: primaryText } : { borderColor: cardBorder, color: secondaryText }}>
                       📦 Agencia
                     </button>
                   )}
@@ -720,7 +716,7 @@ export default function OrderForm() {
                         } catch { setAddressSuggestions([]) }
                       }, 500)
                     }}
-                    className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                    className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
                     placeholder="Av. Principal 123" />
                   {addressSuggestions.length > 0 && (
                     <div className="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-52 overflow-y-auto">
@@ -739,7 +735,7 @@ export default function OrderForm() {
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Agencia <span className="text-red-500">*</span></label>
                     <select value={delivery.agency_name || ''} onChange={(e) => setDelivery((prev) => ({ ...prev, agency_name: e.target.value, destination: '' }))}
-                      className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}>
                       <option value="">Selecciona una agencia</option>
                       {agencies.map((a) => <option key={a.id} value={a.agency_name}>{a.agency_name}</option>)}
                     </select>
@@ -756,7 +752,7 @@ export default function OrderForm() {
                         />
                       ) : (
                         <input type="text" value={delivery.destination} onChange={(e) => setDelivery((prev) => ({ ...prev, destination: e.target.value }))}
-                          className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                          className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
                           placeholder="Ciudad o distrito de destino" />
                       )}
                     </div>
@@ -767,14 +763,14 @@ export default function OrderForm() {
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Referencia <span className="text-gray-400 font-normal">(opcional)</span></label>
                 <input type="text" value={delivery.reference} onChange={(e) => setDelivery({ ...delivery, reference: e.target.value })}
-                  className="w-full px-3 py-3 rounded-xl text-base text-white placeholder-white/30 focus:outline-none focus:ring-1" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
                   placeholder="Casa azul, frente al parque" />
               </div>
 
               {delivery.method === 'motorizado' && (
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Ubicación en mapa <span className="text-gray-400 font-normal">(opcional)</span></label>
-                  <p className="text-xs text-white/30 mb-2">Toca el mapa para marcar tu ubicación exacta</p>
+                  <p className="text-xs text-gray-400 mb-2">Toca el mapa para marcar tu ubicación exacta</p>
                   <MapPicker lat={delivery.lat ? parseFloat(delivery.lat) : null} lng={delivery.lng ? parseFloat(delivery.lng) : null}
                     onSelect={(lat, lng) => setDelivery((prev) => ({ ...prev, lat: String(lat), lng: String(lng) }))}
                     themeColor={btnColor} />
@@ -827,8 +823,8 @@ export default function OrderForm() {
             <div className="flex gap-3 mt-4 pb-8">
               <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-xl font-semibold touch-manipulation" style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: secondaryText }}>← Atrás</button>
               <button onClick={handleSubmit} disabled={submitting}
-                className="flex-1 py-4 rounded-xl text-white font-bold disabled:opacity-50 touch-manipulation active:opacity-80"
-                style={{ backgroundColor: btnColor }}>
+                className="flex-1 py-4 rounded-xl font-bold disabled:opacity-50 touch-manipulation active:opacity-80"
+                style={{ backgroundColor: btnColor, color: txtColor }}>
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
