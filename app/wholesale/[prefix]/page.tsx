@@ -226,7 +226,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
 
         {/* Discount progress banner */}
         {activeSection === 'units' && totalUnits > 0 && (
-          <div className="mb-5 rounded-2xl p-4" className="bg-white border border-gray-100 shadow-sm rounded-2xl">
+          <div className="bg-white border border-gray-100 shadow-sm rounded-2xl mb-5 p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-medium text-gray-500">{totalUnits} productos seleccionados</span>
               {priceVisible && discount > 0 && (
@@ -276,8 +276,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                   const hasVariants = product.variants.length > 0
                   if (hasVariants) {
                     return (
-                      <div key={product.product_id} className="product-card rounded-2xl overflow-hidden"
-                        className="bg-white border border-gray-100 shadow-sm rounded-2xl">
+                      <div key={product.product_id} className="product-card bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
                         <div className="relative h-32 overflow-hidden">
                           {product.image_url
                             ? <img src={product.image_url} alt={product.product_name} className="w-full h-full object-cover" />
