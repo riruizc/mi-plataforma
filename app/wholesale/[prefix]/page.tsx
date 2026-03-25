@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
 type Store = { id: string; name: string; phone: string; theme_color: string; logo_url: string; store_prefix: string }
-type WholesaleProduct = { product_id: string; base_price: number; product_name: string; variants: { id: string; color: string }[] }
+type WholesaleProduct = { product_id: string; base_price: number; product_name: string; image_url?: string | null; variants: { id: string; color: string }[] }
 type DiscountRange = { min_units: number; max_units: number | null; discount_pct: number }
 type Package = { id: string; name: string; description: string; price: number; image_url: string; items: { product_name: string; color: string; quantity: number }[] }
 type ClearanceItem = { product_id: string; variant_id: string | null; clearance_price: number; product_name: string; color: string }
@@ -41,9 +41,9 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
     const [{ data: wConfig }, { data: wRanges }, { data: wProds }, { data: wPkgs }, { data: wClear }] = await Promise.all([
       supabase.from('wholesale_config').select('*').eq('store_id', storeData.id).single(),
       supabase.from('wholesale_discount_ranges').select('*').eq('store_id', storeData.id).order('sort_order'),
-      supabase.from('wholesale_products').select('*, products(name, product_variants(id, color))').eq('store_id', storeData.id).eq('is_active', true),
+      supabase.from('wholesale_products').select('*, products(name, image_url, product_variants(id, color))').eq('store_id', storeData.id).eq('is_active', true),
       supabase.from('wholesale_packages').select('*').eq('store_id', storeData.id).eq('is_active', true).order('created_at'),
-      supabase.from('wholesale_clearance').select('*, products(name), product_variants(color)').eq('store_id', storeData.id).eq('is_active', true),
+      supabase.from('wholesale_clearance').select('*, products(name, image_url), product_variants(color)').eq('store_id', storeData.id).eq('is_active', true),
     ])
 
     if (wConfig) setMinUnits(wConfig.min_units || 12)
@@ -51,6 +51,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
     setWholesaleProducts((wProds || []).map((wp: any) => ({
       product_id: wp.product_id, base_price: wp.base_price,
       product_name: wp.products?.name || '',
+      image_url: wp.products?.image_url || null,
       variants: wp.products?.product_variants || []
     })))
 
@@ -65,7 +66,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
     })))
 
     setClearanceItems((wClear || []).map((c: any) => ({
-      ...c, product_name: c.products?.name || '', color: c.product_variants?.color || 'Único'
+      ...c, product_name: c.products?.name || '', color: c.product_variants?.color || 'Único', image_url: c.products?.image_url || null
     })))
 
     setLoading(false)
@@ -255,9 +256,12 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                   if (hasVariants) {
                     return (
                       <div key={product.product_id} className="bg-white rounded-2xl overflow-hidden border-2 border-gray-100">
-                        <div className="h-20 flex items-center justify-center text-3xl font-bold" style={{ backgroundColor: color + '18' }}>
-                          <span style={{ color }}>{product.product_name[0]?.toUpperCase()}</span>
-                        </div>
+                        {product.image_url
+                          ? <img src={product.image_url} alt={product.product_name} className="w-full h-20 object-cover" />
+                          : <div className="h-20 flex items-center justify-center text-3xl font-bold" style={{ backgroundColor: color + '18' }}>
+                              <span style={{ color }}>{product.product_name[0]?.toUpperCase()}</span>
+                            </div>
+                        }
                         <div className="p-3">
                           <p className="font-semibold text-gray-900 text-sm leading-tight mb-1">{product.product_name}</p>
                           <p className="text-xs text-gray-400 mb-2">Precio base: S/ {Number(product.base_price).toFixed(2)}</p>
@@ -388,9 +392,12 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                   const isSelected = !!inCart
                   return (
                     <div key={i} className="bg-white rounded-2xl overflow-hidden border-2 transition-all" style={{ borderColor: isSelected ? '#F97316' : '#f3f4f6' }}>
-                      <div className="h-24 flex items-center justify-center text-3xl font-bold" style={{ backgroundColor: isSelected ? '#F97316' : '#FED7AA' }}>
-                        <span style={{ color: isSelected ? 'white' : '#C2410C' }}>{item.product_name[0]?.toUpperCase()}</span>
-                      </div>
+                      {(item as any).image_url
+                        ? <img src={(item as any).image_url} alt={item.product_name} className="w-full h-24 object-cover" />
+                        : <div className="h-24 flex items-center justify-center text-3xl font-bold" style={{ backgroundColor: isSelected ? '#F97316' : '#FED7AA' }}>
+                            <span style={{ color: isSelected ? 'white' : '#C2410C' }}>{item.product_name[0]?.toUpperCase()}</span>
+                          </div>
+                      }
                       <div className="p-3">
                         <p className="font-semibold text-gray-900 text-sm leading-tight">{item.product_name}</p>
                         {item.color !== 'Único' && <p className="text-xs text-gray-400">{item.color}</p>}
