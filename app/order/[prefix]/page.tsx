@@ -10,6 +10,7 @@ type Store = {
 }
 type Product = {
   id: string; name: string; category: string; sale_price: number
+  image_url?: string | null
   variants: { id: string; color: string; stock: number }[]
 }
 type ComboItem = { product_id: string; variant_id: string | null; quantity: number; product_name: string; color: string | null }
@@ -506,12 +507,14 @@ export default function OrderForm() {
                   <div className="space-y-3">
                     {filteredProducts.map((product) => (
                       <div key={product.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1 min-w-0 pr-3">
+                        <div className="flex items-start gap-3 mb-3">
+                          {product.image_url && (
+                            <img src={product.image_url} alt={product.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-gray-100" />
+                          )}
+                          <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-gray-900 text-sm leading-snug">{product.name}</h3>
                             {product.category && <p className="text-xs text-gray-400 mt-0.5">{product.category}</p>}
                           </div>
-                          
                         </div>
                         {product.variants.length > 0 ? (
                           <div className="flex flex-wrap gap-2">

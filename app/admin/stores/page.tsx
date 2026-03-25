@@ -8,30 +8,31 @@ type Features = {
   settings: boolean; orders: boolean; customers: boolean; quotes: boolean;
   suppliers: boolean; finances: boolean; goals: boolean;
   inventory: boolean; combos: boolean; routes: boolean; summary: boolean;
-  tools: boolean; comprobante: boolean;
+  tools: boolean; comprobante: boolean; wholesale: boolean;
 }
 
 const FEATURE_LABELS: { key: keyof Features; label: string; icon: string; desc: string }[] = [
-  { key: 'settings',    label: 'Ajustes',          icon: '⚙️',  desc: 'Configuración de la tienda, formulario y contacto' },
+  { key: 'settings',    label: 'Ajustes',          icon: '⚙️',  desc: 'Configuración de la tienda' },
   { key: 'orders',      label: 'Pedidos',           icon: '📦',  desc: 'Gestión y seguimiento de pedidos' },
-  { key: 'customers',   label: 'Clientes',          icon: '👥',  desc: 'Base de datos de clientes con historial' },
+  { key: 'customers',   label: 'Clientes',          icon: '👥',  desc: 'Base de datos de clientes' },
   { key: 'quotes',      label: 'Cotizaciones',      icon: '📄',  desc: 'Crear y gestionar cotizaciones' },
   { key: 'suppliers',   label: 'Proveedores',       icon: '🚚',  desc: 'Directorio de proveedores' },
   { key: 'finances',    label: 'Finanzas',          icon: '💰',  desc: 'Capital, ingresos y egresos' },
-  { key: 'goals',       label: 'Metas',             icon: '🎯',  desc: 'Seguimiento de objetivos de venta' },
+  { key: 'goals',       label: 'Metas',             icon: '🎯',  desc: 'Seguimiento de objetivos' },
   { key: 'inventory',   label: 'Inventario',        icon: '🗃️',  desc: 'Stock, variantes y código de barras' },
-  { key: 'combos',      label: 'Combos',            icon: '🎁',  desc: 'Paquetes de productos con precio especial' },
-  { key: 'routes',      label: 'Rutas',             icon: '🗺️',  desc: 'Planificación de rutas de delivery' },
-  { key: 'summary',     label: 'Resumen',           icon: '📈',  desc: 'Reportes de ventas por período' },
-  { key: 'tools',       label: 'Herramientas',      icon: '🔧',  desc: 'Etiquetas y lector de código de barras' },
-  { key: 'comprobante', label: 'Comprobante PDF',   icon: '🧾',  desc: 'Genera y envía PDF de pedidos por WhatsApp' },
+  { key: 'combos',      label: 'Combos',            icon: '🎁',  desc: 'Paquetes de productos' },
+  { key: 'wholesale',   label: 'Mayorista',         icon: '🏭',  desc: 'Catálogo mayorista con descuentos' },
+  { key: 'routes',      label: 'Rutas',             icon: '🗺️',  desc: 'Planificación de rutas' },
+  { key: 'summary',     label: 'Resumen',           icon: '📈',  desc: 'Reportes de ventas' },
+  { key: 'tools',       label: 'Herramientas',      icon: '🔧',  desc: 'Etiquetas y lector de barras' },
+  { key: 'comprobante', label: 'Comprobante PDF',   icon: '🧾',  desc: 'Genera PDF de pedidos' },
 ]
 
 const DEFAULT_FEATURES: Features = {
   settings: true, orders: true, customers: true, quotes: true,
   suppliers: true, finances: true, goals: true,
   inventory: true, combos: true, routes: true, summary: true,
-  tools: true, comprobante: true,
+  tools: true, comprobante: true, wholesale: false,
 }
 
 export default function StoresPage() {
@@ -41,6 +42,7 @@ export default function StoresPage() {
 
   const [featuresStore, setFeaturesStore] = useState<Store | null>(null)
   const [features, setFeatures] = useState<Features>(DEFAULT_FEATURES)
+  const [limits, setLimits] = useState({ max_products: 50, max_images: 30 })
   const [savingFeatures, setSavingFeatures] = useState(false)
   const [savedOk, setSavedOk] = useState(false)
 
@@ -69,7 +71,7 @@ export default function StoresPage() {
   }
 
   const deleteStore = async (store: Store) => {
-    if (!confirm(`⚠️ ¿Estás seguro de eliminar "${store.name}"?\n\nEsto borrará TODOS sus pedidos, productos, clientes y rutas. Esta acción no se puede deshacer.`)) return
+    if (!confirm(`⚠️ ¿Estás seguro de eliminar "${store.name}"?\n\nEsto borrará TODOS sus datos. Esta acción no se puede deshacer.`)) return
     setDeleting(store.id)
     try {
       const res = await fetch('/api/admin/delete-store', {
@@ -106,6 +108,11 @@ export default function StoresPage() {
         summary:     data.summary     ?? true,
         tools:       data.labels      ?? true,
         comprobante: data.comprobante ?? true,
+        wholesale:   data.wholesale   ?? false,
+      })
+      setLimits({
+        max_products: data.max_products ?? 50,
+        max_images: data.max_images ?? 30,
       })
     } else {
       const supabase2 = createClient()
@@ -114,9 +121,11 @@ export default function StoresPage() {
         settings: true, orders: true, customers: true, quotes: true,
         suppliers: true, finances: true, goals: true,
         inventory: true, routes: true, summary: true,
-        labels: true, comprobante: true, combos: true,
+        labels: true, comprobante: true, combos: true, wholesale: false,
+        max_products: 50, max_images: 30,
       })
       setFeatures(DEFAULT_FEATURES)
+      setLimits({ max_products: 50, max_images: 30 })
     }
   }
 
@@ -126,31 +135,30 @@ export default function StoresPage() {
     setSavedOk(false)
     const supabase = createClient()
     const { error } = await supabase.from('store_features').upsert({
-      store_id:    featuresStore.id,
-      settings:    features.settings,
-      orders:      features.orders,
-      customers:   features.customers,
-      quotes:      features.quotes,
-      suppliers:   features.suppliers,
-      finances:    features.finances,
-      goals:       features.goals,
-      inventory:   features.inventory,
-      combos:      features.combos,
-      routes:      features.routes,
-      summary:     features.summary,
-      labels:      features.tools,
-      comprobante: features.comprobante,
+      store_id:     featuresStore.id,
+      settings:     features.settings,
+      orders:       features.orders,
+      customers:    features.customers,
+      quotes:       features.quotes,
+      suppliers:    features.suppliers,
+      finances:     features.finances,
+      goals:        features.goals,
+      inventory:    features.inventory,
+      combos:       features.combos,
+      routes:       features.routes,
+      summary:      features.summary,
+      labels:       features.tools,
+      comprobante:  features.comprobante,
+      wholesale:    features.wholesale,
+      max_products: limits.max_products,
+      max_images:   limits.max_images,
     }, { onConflict: 'store_id' })
-
     setSavingFeatures(false)
     if (error) {
       alert('Error al guardar: ' + error.message)
     } else {
       setSavedOk(true)
-      setTimeout(() => {
-        setSavedOk(false)
-        setFeaturesStore(null)
-      }, 1200)
+      setTimeout(() => { setSavedOk(false); setFeaturesStore(null) }, 1200)
     }
   }
 
@@ -167,29 +175,55 @@ export default function StoresPage() {
         <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl max-h-[90vh] flex flex-col">
             <div className="mb-4">
-              <h3 className="font-bold text-gray-900 text-lg">⚙️ Módulos activos</h3>
+              <h3 className="font-bold text-gray-900 text-lg">⚙️ Módulos y límites</h3>
               <p className="text-gray-500 text-sm mt-0.5">{featuresStore.name}</p>
-              <p className="text-xs text-gray-400 mt-1">Dashboard siempre visible. El resto puedes activarlo o desactivarlo.</p>
             </div>
 
-            <div className="overflow-y-auto flex-1 -mx-1 px-1">
-              {FEATURE_LABELS.map(({ key, label, icon, desc }) => (
-                <div key={key} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                  <div className="flex items-start gap-3 flex-1 min-w-0 pr-3">
-                    <span className="text-lg mt-0.5">{icon}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-800">{label}</p>
-                      <p className="text-xs text-gray-400 leading-tight">{desc}</p>
-                    </div>
+            <div className="overflow-y-auto flex-1 -mx-1 px-1 space-y-4">
+              {/* Límites */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm font-bold text-amber-800 mb-3">📊 Límites del plan</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-amber-700 mb-1">
+                      Máx. productos en inventario <span className="text-gray-400 font-normal">(0 = ilimitado)</span>
+                    </label>
+                    <input type="number" min={0} value={limits.max_products}
+                      onChange={e => setLimits(p => ({ ...p, max_products: parseInt(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
                   </div>
-                  <button
-                    onClick={() => setFeatures(prev => ({ ...prev, [key]: !prev[key] }))}
-                    className={`flex-shrink-0 relative w-12 h-6 rounded-full transition-colors duration-200 ${features[key] ? 'bg-green-500' : 'bg-gray-300'}`}
-                  >
-                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${features[key] ? 'translate-x-6' : 'translate-x-0.5'}`} />
-                  </button>
+                  <div>
+                    <label className="block text-xs font-medium text-amber-700 mb-1">
+                      Máx. imágenes en total <span className="text-gray-400 font-normal">(0 = ilimitado)</span>
+                    </label>
+                    <input type="number" min={0} value={limits.max_images}
+                      onChange={e => setLimits(p => ({ ...p, max_images: parseInt(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                    <p className="text-xs text-amber-600 mt-1">Se distribuyen entre productos, paquetes y combos</p>
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Módulos */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2 px-1">Módulos activos</p>
+                {FEATURE_LABELS.map(({ key, label, icon, desc }) => (
+                  <div key={key} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                    <div className="flex items-start gap-3 flex-1 min-w-0 pr-3">
+                      <span className="text-lg mt-0.5">{icon}</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800">{label}</p>
+                        <p className="text-xs text-gray-400 leading-tight">{desc}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setFeatures(prev => ({ ...prev, [key]: !prev[key] }))}
+                      className={`flex-shrink-0 relative w-12 h-6 rounded-full transition-colors duration-200 ${features[key] ? 'bg-green-500' : 'bg-gray-300'}`}>
+                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${features[key] ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {savedOk && (
@@ -197,7 +231,6 @@ export default function StoresPage() {
                 <p className="text-green-700 text-sm font-medium">✅ Cambios guardados</p>
               </div>
             )}
-
             <div className="flex gap-3 mt-4">
               <button onClick={saveFeatures} disabled={savingFeatures}
                 className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50">
@@ -237,7 +270,6 @@ export default function StoresPage() {
                 <p>👤 {store.owner_name} · ✉️ {store.email}</p>
                 <p>📅 Vence: {store.expires_at ? new Date(store.expires_at).toLocaleDateString('es-PE') : 'Sin fecha'}</p>
               </div>
-
               <div className="grid grid-cols-2 sm:flex gap-2">
                 <button onClick={() => toggleStatus(store)}
                   className={`py-2 rounded-lg text-xs font-medium touch-manipulation ${store.status === 'active' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>

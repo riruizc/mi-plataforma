@@ -12,7 +12,7 @@ type Store = {
 
 type Product = {
   id: string; name: string; category: string; sale_price: number
-  is_active: boolean; variants: Variant[]
+  is_active: boolean; image_url?: string | null; variants: Variant[]
 }
 
 type ComboItem = { product_name: string; quantity: number }
@@ -63,10 +63,10 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
     const [{ data: prods }, { data: combosData }] = await Promise.all([
       supabase
         .from('products')
-        .select('id, name, category, sale_price, is_active, product_variants(id, color, stock)')
+        .select('id, name, category, sale_price, is_active, image_url, product_variants(id, color, stock)')
         .eq('store_id', storeData.id)
-        .eq('show_in_catalog', true) 
         .eq('is_active', true)
+        .eq('show_in_catalog', true)
         .order('category')
         .order('name'),
       supabase
@@ -100,9 +100,6 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
     setLoading(false)
   }
 
-  // Para producto con variante: key = "product_VARIANTID"
-  // Para producto sin variante: key = "product_PRODUCTID"
-  // Para combo: key = "combo_COMBOID"
   const getKey = (type: string, id: string) => `${type}_${id}`
 
   const toggleVariant = (product: Product, variant: Variant) => {
@@ -248,13 +245,15 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                           const hasVariants = product.variants && product.variants.length > 0
 
                           if (hasVariants) {
-                            // Producto con variantes — mostrar botones por variante
                             return (
                               <div key={product.id} className="bg-white rounded-2xl overflow-hidden border-2 border-gray-100 transition-all">
-                                <div className="h-20 flex items-center justify-center text-white text-3xl font-bold"
-                                  style={{ backgroundColor: color + '22' }}>
-                                  <span style={{ color }}>{initial}</span>
-                                </div>
+                                {product.image_url
+                                  ? <img src={product.image_url} alt={product.name} className="w-full h-20 object-cover" />
+                                  : <div className="h-20 flex items-center justify-center text-3xl font-bold"
+                                      style={{ backgroundColor: color + '22' }}>
+                                      <span style={{ color }}>{initial}</span>
+                                    </div>
+                                }
                                 <div className="p-3">
                                   <p className="font-semibold text-gray-900 text-sm leading-tight mb-2">{product.name}</p>
                                   <div className="flex flex-wrap gap-1.5">
@@ -274,7 +273,6 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                                       )
                                     })}
                                   </div>
-                                  {/* Controles de cantidad para variantes seleccionadas */}
                                   {product.variants.some(v => selected.find(s => s.id === getKey('product', v.id))) && (
                                     <div className="mt-2 space-y-1">
                                       {product.variants
@@ -303,7 +301,6 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                               </div>
                             )
                           } else {
-                            // Producto sin variantes
                             const key = getKey('product', product.id)
                             const isSelected = !!selected.find(s => s.id === key)
                             const selectedItem = selected.find(s => s.id === key)
@@ -312,10 +309,13 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                               <div key={product.id}
                                 className="bg-white rounded-2xl overflow-hidden border-2 transition-all"
                                 style={{ borderColor: isSelected ? color : '#f3f4f6' }}>
-                                <div className="h-24 flex items-center justify-center text-white text-3xl font-bold"
-                                  style={{ backgroundColor: isSelected ? color : color + '22' }}>
-                                  <span style={{ color: isSelected ? 'white' : color }}>{initial}</span>
-                                </div>
+                                {product.image_url
+                                  ? <img src={product.image_url} alt={product.name} className="w-full h-24 object-cover" />
+                                  : <div className="h-24 flex items-center justify-center text-3xl font-bold"
+                                      style={{ backgroundColor: isSelected ? color : color + '22' }}>
+                                      <span style={{ color: isSelected ? 'white' : color }}>{initial}</span>
+                                    </div>
+                                }
                                 <div className="p-3">
                                   <p className="font-semibold text-gray-900 text-sm leading-tight">{product.name}</p>
                                   <p className="text-xs font-bold mt-1" style={{ color }}>
