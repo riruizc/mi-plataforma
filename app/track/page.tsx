@@ -40,16 +40,26 @@ function TrackPageContent() {
     return { label: status, icon: '◌', color: '#6b7280', text: '' }
   }
 
-  const themeColor = order?.stores?.theme_color || '#3b82f6'
-  const btnColor = order?.stores?.button_color || themeColor
+  const themeColor = order?.stores?.theme_color || '#1a1a2e'
+  const btnColor = order?.stores?.button_color || '#3b82f6'
   const txtColor = order?.stores?.text_color || '#ffffff'
+  const isDarkBg = (() => {
+    const hex = themeColor.replace('#','')
+    if (hex.length < 6) return true
+    const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16)
+    return (r*299+g*587+b*114)/1000 < 128
+  })()
+  const cardBg = isDarkBg ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)'
+  const cardBorder = isDarkBg ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.1)'
+  const primaryText = isDarkBg ? '#ffffff' : '#111827'
+  const secondaryText = isDarkBg ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)'
 
   return (
-    <div className="min-h-screen" style={{ background: '#0a0a0a', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className="min-h-screen" style={{ background: themeColor, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
 
       {/* Header */}
-      <div className="sticky top-0 z-20" style={{ background: 'rgba(10,10,10,0.95)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="sticky top-0 z-20" style={{ background: themeColor + 'ee', backdropFilter: 'blur(20px)', borderBottom: isDarkBg ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)' }}>
         <div className="max-w-lg mx-auto px-4 py-4">
           {order?.stores ? (
             <div className="flex items-center gap-3">
@@ -58,8 +68,8 @@ function TrackPageContent() {
                 : <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: themeColor + '20', color: themeColor }}>{order.stores.name?.[0]}</div>
               }
               <div>
-                <p className="text-white font-semibold text-sm">{order.stores.name}</p>
-                <p className="text-xs" style={{ color: themeColor }}>Rastreo de pedido</p>
+                <p className="font-semibold text-sm" style={{ color: primaryText }}>{order.stores.name}</p>
+                <p className="text-xs" style={{ color: btnColor }}>Rastreo de pedido</p>
               </div>
             </div>
           ) : (
@@ -74,15 +84,15 @@ function TrackPageContent() {
       <div className="max-w-lg mx-auto px-4 py-5 space-y-4">
 
         {/* Search box */}
-        <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <label className="block text-xs font-medium text-white/50 mb-2 uppercase tracking-wider">Código de pedido</label>
+        <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
+          <label className="block text-xs font-medium mb-2 uppercase tracking-wider" style={{ color: secondaryText }}>Código de pedido</label>
           <div className="flex gap-2">
             <input type="text" value={code}
               onChange={e => setCode(e.target.value.toUpperCase())}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder="Ej: RUIZ-2026-001"
-              className="flex-1 px-4 py-3 rounded-xl text-base font-mono text-white placeholder-white/20 focus:outline-none uppercase"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+              className="flex-1 px-4 py-3 rounded-xl text-base font-mono focus:outline-none uppercase"
+              style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: primaryText }}
               autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
             <button onClick={() => handleSearch()} disabled={loading}
               className="px-5 py-3 rounded-xl font-bold text-sm flex-shrink-0 disabled:opacity-40 touch-manipulation"
@@ -107,10 +117,10 @@ function TrackPageContent() {
           return (
             <div className="space-y-3">
               {/* Status card */}
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span className="text-white/40 text-xs uppercase tracking-wider">Código</span>
-                  <span className="font-mono font-bold text-white text-sm tracking-widest">{order.order_code}</span>
+              <div className="rounded-2xl overflow-hidden" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
+                <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${cardBorder}` }}>
+                  <span className="text-xs uppercase tracking-wider" style={{ color: secondaryText }}>Código</span>
+                  <span className="font-mono font-bold text-sm tracking-widest" style={{ color: primaryText }}>{order.order_code}</span>
                 </div>
 
                 <div className="p-5">
@@ -135,12 +145,12 @@ function TrackPageContent() {
                         <div key={i} className="flex items-center flex-1 last:flex-none">
                           <div className="flex flex-col items-center">
                             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all"
-                              style={{ background: i <= currentIndex ? themeColor : 'rgba(255,255,255,0.08)', color: i <= currentIndex ? '#fff' : 'rgba(255,255,255,0.3)', border: active ? `2px solid ${themeColor}` : 'none' }}>
+                              style={{ background: i <= currentIndex ? btnColor : (isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'), color: i <= currentIndex ? '#fff' : 'rgba(255,255,255,0.3)', border: active ? `2px solid ${btnColor}` : 'none' }}>
                               {done ? '✓' : i + 1}
                             </div>
-                            <p className="text-xs mt-1.5 font-medium text-center whitespace-nowrap" style={{ color: i <= currentIndex ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.25)' }}>{label}</p>
+                            <p className="text-xs mt-1.5 font-medium text-center whitespace-nowrap" style={{ color: i <= currentIndex ? primaryText : secondaryText }}>{label}</p>
                           </div>
-                          {i < 2 && <div className="flex-1 h-0.5 mx-2 mb-4 rounded-full" style={{ background: i < currentIndex ? themeColor : 'rgba(255,255,255,0.08)' }} />}
+                          {i < 2 && <div className="flex-1 h-0.5 mx-2 mb-4 rounded-full" style={{ background: i < currentIndex ? btnColor : (isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)') }} />}
                         </div>
                       )
                     })}
@@ -149,34 +159,34 @@ function TrackPageContent() {
               </div>
 
               {/* Products */}
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-white font-semibold text-sm">Productos</p>
+              <div className="rounded-2xl overflow-hidden" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
+                <div className="px-4 py-3" style={{ borderBottom: `1px solid ${cardBorder}` }}>
+                  <p className="font-semibold text-sm" style={{ color: primaryText }}>Productos</p>
                 </div>
                 <div className="p-4 space-y-0">
                   {order.order_items?.map((item: any) => (
                     <div key={item.id} className="flex justify-between items-start py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                       <div className="flex-1 min-w-0 pr-3">
-                        <p className="text-sm font-medium text-white/80">{item.product_name}</p>
-                        <p className="text-xs text-white/30 mt-0.5">
+                        <p className="text-sm font-medium" style={{ color: primaryText }}>{item.product_name}</p>
+                        <p className="text-xs mt-0.5" style={{ color: secondaryText }}>
                           {item.color && item.color !== 'Único' ? item.color + ' · ' : ''}
                           {item.quantity} unidad{item.quantity !== 1 ? 'es' : ''}
                         </p>
                       </div>
-                      <p className="text-sm font-bold flex-shrink-0" style={{ color: themeColor }}>S/ {Number(item.subtotal).toFixed(2)}</p>
+                      <p className="text-sm font-bold flex-shrink-0" style={{ color: btnColor }}>S/ {Number(item.subtotal).toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
-                <div className="px-4 py-3 flex justify-between items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
-                  <span className="text-white font-bold text-sm">Total</span>
-                  <span className="font-bold text-base" style={{ color: themeColor }}>S/ {Number(order.total_amount).toFixed(2)}</span>
+                <div className="px-4 py-3 flex justify-between items-center" style={{ borderTop: `1px solid ${cardBorder}`, background: isDarkBg ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }}>
+                  <span className="font-bold text-sm" style={{ color: primaryText }}>Total</span>
+                  <span className="font-bold text-base" style={{ color: btnColor }}>S/ {Number(order.total_amount).toFixed(2)}</span>
                 </div>
               </div>
 
               {/* Delivery info */}
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-white font-semibold text-sm">Entrega</p>
+              <div className="rounded-2xl overflow-hidden" style={{ background: cardBg, border: `1px solid ${cardBorder}` }}>
+                <div className="px-4 py-3" style={{ borderBottom: `1px solid ${cardBorder}` }}>
+                  <p className="font-semibold text-sm" style={{ color: primaryText }}>Entrega</p>
                 </div>
                 <div className="p-4 space-y-3">
                   {[
@@ -186,11 +196,11 @@ function TrackPageContent() {
                     order.reference && { label: 'Referencia', value: order.reference },
                   ].filter(Boolean).map((row: any, i) => (
                     <div key={i} className="flex justify-between items-start gap-4">
-                      <span className="text-xs text-white/30 flex-shrink-0 mt-0.5">{row.label}</span>
-                      <span className="text-sm text-white/70 text-right font-medium">{row.value}</span>
+                      <span className="text-xs flex-shrink-0 mt-0.5" style={{ color: secondaryText }}>{row.label}</span>
+                      <span className="text-sm text-right font-medium" style={{ color: primaryText }}>{row.value}</span>
                     </div>
                   ))}
-                  <div className="flex justify-between items-center pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex justify-between items-center pt-2" style={{ borderTop: `1px solid ${cardBorder}` }}>
                     <span className="text-xs text-white/30">Por cobrar</span>
                     <span className="text-base font-bold text-amber-400">S/ {Number(order.pending_amount).toFixed(2)}</span>
                   </div>
@@ -199,7 +209,7 @@ function TrackPageContent() {
 
               <button onClick={() => { setOrder(null); setCode(''); setError('') }}
                 className="w-full py-3 rounded-xl text-sm font-semibold touch-manipulation"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)' }}>
+                style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: secondaryText }}>
                 Buscar otro pedido
               </button>
             </div>
@@ -213,7 +223,7 @@ function TrackPageContent() {
 export default function TrackPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#1a1a2e' }}>
         <div className="w-8 h-8 border-2 border-white/10 border-t-white/60 rounded-full animate-spin" />
       </div>
     }>
