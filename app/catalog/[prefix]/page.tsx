@@ -7,6 +7,7 @@ type Variant = { id: string; color: string; stock: number }
 
 type Store = {
   id: string; name: string; phone: string; theme_color: string
+  button_color?: string; text_color?: string
   logo_url: string; store_prefix: string; contact_whatsapp_msg: string
 }
 
@@ -50,7 +51,7 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
 
     const { data: storeData } = await supabase
       .from('stores')
-      .select('id, name, phone, theme_color, logo_url, store_prefix, contact_whatsapp_msg, catalog_active')
+      .select('id, name, phone, theme_color, button_color, text_color, logo_url, store_prefix, contact_whatsapp_msg, catalog_active')
       .eq('store_prefix', prefix.toUpperCase())
       .single()
 
@@ -152,6 +153,8 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
   }
 
   const color = store?.theme_color || '#3b82f6'
+  const btnColor = store?.button_color || color
+  const txtColor = store?.text_color || '#ffffff'
   const totalSelected = selected.reduce((sum, s) => sum + s.qty, 0)
   const totalPrice = selected.reduce((sum, s) => sum + s.price * s.qty, 0)
 
@@ -265,7 +268,7 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                                           onClick={() => toggleVariant(product, v)}
                                           className="px-2 py-1 rounded-lg text-xs font-medium border transition-colors touch-manipulation"
                                           style={sel
-                                            ? { backgroundColor: color, color: 'white', borderColor: color }
+                                            ? { backgroundColor: btnColor, color: txtColor, borderColor: btnColor }
                                             : { backgroundColor: 'white', color: '#374151', borderColor: '#e5e7eb' }
                                           }>
                                           {sel ? `✓ ${v.color} (${sel.qty})` : v.color}
@@ -286,11 +289,11 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                                               <div className="flex items-center gap-1.5">
                                                 <button onClick={() => changeQty(key, -1)}
                                                   className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                                                  style={{ backgroundColor: color }}>−</button>
+                                                  style={{ backgroundColor: btnColor, color: txtColor }}>−</button>
                                                 <span className="text-xs font-bold w-4 text-center">{sel.qty}</span>
                                                 <button onClick={() => changeQty(key, 1)}
                                                   className="w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                                                  style={{ backgroundColor: color }}>+</button>
+                                                  style={{ backgroundColor: btnColor, color: txtColor }}>+</button>
                                               </div>
                                             </div>
                                           )
@@ -308,17 +311,17 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                             return (
                               <div key={product.id}
                                 className="bg-white rounded-2xl overflow-hidden border-2 transition-all"
-                                style={{ borderColor: isSelected ? color : '#f3f4f6' }}>
+                                style={{ borderColor: isSelected ? btnColor : '#f3f4f6' }}>
                                 {product.image_url
                                   ? <img src={product.image_url} alt={product.name} className="w-full h-24 object-cover" />
                                   : <div className="h-24 flex items-center justify-center text-3xl font-bold"
-                                      style={{ backgroundColor: isSelected ? color : color + '22' }}>
-                                      <span style={{ color: isSelected ? 'white' : color }}>{initial}</span>
+                                      style={{ backgroundColor: isSelected ? btnColor : btnColor + '22' }}>
+                                      <span style={{ color: isSelected ? txtColor : btnColor }}>{initial}</span>
                                     </div>
                                 }
                                 <div className="p-3">
                                   <p className="font-semibold text-gray-900 text-sm leading-tight">{product.name}</p>
-                                  <p className="text-xs font-bold mt-1" style={{ color }}>
+                                  <p className="text-xs font-bold mt-1" style={{ color: btnColor }}>
                                     S/ {product.sale_price.toFixed(2)}
                                   </p>
                                   {isSelected ? (
@@ -326,18 +329,18 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                                       <div className="flex items-center gap-2">
                                         <button onClick={() => changeQty(key, -1)}
                                           className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                                          style={{ backgroundColor: color }}>−</button>
+                                          style={{ backgroundColor: btnColor, color: txtColor }}>−</button>
                                         <span className="text-sm font-bold text-gray-800">{selectedItem?.qty}</span>
                                         <button onClick={() => changeQty(key, 1)}
                                           className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                                          style={{ backgroundColor: color }}>+</button>
+                                          style={{ backgroundColor: btnColor, color: txtColor }}>+</button>
                                       </div>
                                       <button onClick={() => toggleProductNoVariant(product)} className="text-xs text-red-400 font-medium">✕</button>
                                     </div>
                                   ) : (
                                     <button onClick={() => toggleProductNoVariant(product)}
                                       className="w-full mt-2 py-1.5 rounded-lg text-xs font-semibold text-white transition-opacity"
-                                      style={{ backgroundColor: color }}>
+                                      style={{ backgroundColor: btnColor, color: txtColor }}>
                                       + Agregar
                                     </button>
                                   )}
@@ -371,17 +374,17 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                   return (
                     <div key={combo.id}
                       className="bg-white rounded-2xl border-2 overflow-hidden transition-all"
-                      style={{ borderColor: isSelected ? color : '#f3f4f6' }}>
+                      style={{ borderColor: isSelected ? btnColor : '#f3f4f6' }}>
                       <div className="flex items-start gap-3 p-4">
                         <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                          style={{ backgroundColor: color + '18' }}>🎁</div>
+                          style={{ backgroundColor: btnColor + '18' }}>🎁</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <p className="font-bold text-gray-900 text-sm">{combo.name}</p>
                               {combo.description && <p className="text-xs text-gray-500 mt-0.5">{combo.description}</p>}
                             </div>
-                            <p className="font-bold text-sm flex-shrink-0" style={{ color }}>
+                            <p className="font-bold text-sm flex-shrink-0" style={{ color: btnColor }}>
                               S/ {combo.price.toFixed(2)}
                             </p>
                           </div>
@@ -399,11 +402,11 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                               <div className="flex items-center gap-2">
                                 <button onClick={() => changeQty(key, -1)}
                                   className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold"
-                                  style={{ backgroundColor: color }}>−</button>
+                                  style={{ backgroundColor: btnColor, color: txtColor }}>−</button>
                                 <span className="text-sm font-bold text-gray-800">{selectedItem?.qty}</span>
                                 <button onClick={() => changeQty(key, 1)}
                                   className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold"
-                                  style={{ backgroundColor: color }}>+</button>
+                                  style={{ backgroundColor: btnColor, color: txtColor }}>+</button>
                               </div>
                               <button onClick={() => toggleCombo(combo)} className="text-xs text-red-400 font-medium">✕ Quitar</button>
                             </div>
@@ -445,7 +448,7 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
               </div>
               <div className="border-t border-gray-100 mt-2 pt-2 flex justify-between">
                 <span className="text-sm font-bold text-gray-800">Total</span>
-                <span className="text-sm font-bold" style={{ color }}>S/ {totalPrice.toFixed(2)}</span>
+                <span className="text-sm font-bold" style={{ color: btnColor }}>S/ {totalPrice.toFixed(2)}</span>
               </div>
             </div>
             <button onClick={sendWhatsApp}

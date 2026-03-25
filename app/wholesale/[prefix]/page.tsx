@@ -189,7 +189,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
             </div>
             {totalItems > 0 && (
               <button onClick={() => setShowCart(true)}
-                className="relative flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-white"
+                className="relative flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold"
                 style={{ background: btnColor, color: txtColor }}>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -242,20 +242,20 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
             {!priceVisible ? (
               <div>
                 <div className="flex justify-between text-xs mb-1.5">
-                  <span className="text-white/40">Progreso al precio mayorista</span>
+                  <span style={{ color: secondaryText }}>Progreso al precio mayorista</span>
                   <span className="font-semibold" style={{ color: btnColor }}>{totalUnits}/{minUnits}</span>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
                   <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, totalUnits/minUnits*100)}%`, background: btnColor }} />
                 </div>
-                <p className="text-xs text-white/40 mt-2">Agrega {minUnits - totalUnits} más para ver el precio total</p>
+                <p className="text-xs mt-2" style={{ color: secondaryText }}>Agrega {minUnits - totalUnits} más para ver el precio total</p>
               </div>
             ) : (() => {
                 const next = getNextDiscount(totalUnits)
                 return next ? (
                   <div>
                     <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-white/40">Próximo descuento: {next.pct}%</span>
+                      <span style={{ color: secondaryText }}>Próximo descuento: {next.pct}%</span>
                       <span className="font-semibold" style={{ color: btnColor }}>{next.needed} más</span>
                     </div>
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
@@ -303,7 +303,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                                 <button key={v.id} onClick={() => inCart ? changeQty(cartKey, 1) : addToCart({ key: cartKey, type: 'unit', product_id: product.product_id, variant_id: v.id, product_name: product.product_name, color: v.color, base_price: product.base_price })}
                                   className="variant-btn px-2.5 py-1.5 rounded-lg text-xs font-medium"
                                   style={inCart
-                                    ? { background: color, color: '#fff', border: 'none' }
+                                    ? { background: btnColor, color: txtColor, border: 'none' }
                                     : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.1)' }}>
                                   {inCart ? `✓ ${v.color} ×${inCart.qty}` : v.color}
                                 </button>
@@ -335,14 +335,14 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <button onClick={() => changeQty(cartKey, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', color: primaryText }}>−</button>
-                                <span className="text-white font-bold text-sm w-5 text-center">{inCart.qty}</span>
-                                <button onClick={() => changeQty(cartKey, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: btnColor, color: txtColor }}>+</button>
+                                <span className="font-bold text-sm w-5 text-center" style={{ color: primaryText }}>{inCart.qty}</span>
+                                <button onClick={() => changeQty(cartKey, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: btnColor, color: txtColor }}>+</button>
                               </div>
                               <button onClick={() => removeFromCart(cartKey)} className="text-white/30 text-xs">✕</button>
                             </div>
                           ) : (
                             <button onClick={() => addToCart({ key: cartKey, type: 'unit', product_id: product.product_id, variant_id: null, product_name: product.product_name, color: 'Único', base_price: product.base_price })}
-                              className="w-full py-2 rounded-xl text-xs font-bold text-white" style={{ background: btnColor + '20', border: `1px solid ${btnColor}40`, color: btnColor }}>
+                              className="w-full py-2 rounded-xl text-xs font-bold" style={{ background: btnColor + '20', border: `1px solid ${btnColor}40`, color: btnColor }}>
                               + Agregar
                             </button>
                           )}
@@ -385,8 +385,8 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                     : <div className="p-4">
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="text-white font-bold text-base">{pkg.name}</p>
-                            {pkg.description && <p className="text-white/40 text-xs mt-0.5">{pkg.description}</p>}
+                            <p className="font-bold text-base" style={{ color: primaryText }}>{pkg.name}</p>
+                            {pkg.description && <p className="text-xs mt-0.5" style={{ color: secondaryText }}>{pkg.description}</p>}
                           </div>
                           <span className="text-base font-bold ml-3 flex-shrink-0" style={{ color: btnColor }}>S/ {Number(pkg.price).toFixed(2)}</span>
                         </div>
@@ -407,14 +407,14 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                           <button onClick={() => changeQty(cartKey, -1)} className="w-8 h-8 rounded-xl flex items-center justify-center font-bold" style={{ background: isDarkBg ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)', color: primaryText }}>−</button>
-                          <span className="text-white font-bold text-sm w-6 text-center">{inCart.qty}</span>
-                          <button onClick={() => changeQty(cartKey, 1)} className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white" style={{ background: btnColor, color: txtColor }}>+</button>
+                          <span className="font-bold text-sm w-6 text-center" style={{ color: primaryText }}>{inCart.qty}</span>
+                          <button onClick={() => changeQty(cartKey, 1)} className="w-8 h-8 rounded-xl flex items-center justify-center font-bold" style={{ background: btnColor, color: txtColor }}>+</button>
                         </div>
                         <button onClick={() => removeFromCart(cartKey)} className="text-white/30 text-sm">✕ Quitar</button>
                       </div>
                     ) : (
                       <button onClick={() => addToCart({ key: cartKey, type: 'package', package_id: pkg.id, product_name: pkg.name, base_price: pkg.price })}
-                        className="w-full py-3 rounded-xl text-sm font-bold text-white" style={{ background: btnColor, color: txtColor }}>
+                        className="w-full py-3 rounded-xl text-sm font-bold" style={{ background: btnColor, color: txtColor }}>
                         + Agregar paquete
                       </button>
                     )}
@@ -463,8 +463,8 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-1.5">
                               <button onClick={() => changeQty(cartKey, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>−</button>
-                              <span className="text-white font-bold text-sm w-5 text-center">{inCart.qty}</span>
-                              <button onClick={() => changeQty(cartKey, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: '#f97316' }}>+</button>
+                              <span className="font-bold text-sm w-5 text-center" style={{ color: primaryText }}>{inCart.qty}</span>
+                              <button onClick={() => changeQty(cartKey, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: '#f97316', color: '#fff' }}>+</button>
                             </div>
                             <button onClick={() => removeFromCart(cartKey)} className="text-white/30 text-xs">✕</button>
                           </div>
@@ -511,21 +511,21 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
           <div className="cart-slide relative w-full max-w-lg mx-auto rounded-t-3xl overflow-hidden" style={{ background: color, border: `1px solid ${cardBorder}`, maxHeight: '85vh' }}>
             <div className="flex items-center justify-between px-5 py-4 sticky top-0" style={{ background: color + 'cc', borderBottom: `1px solid ${cardBorder}` }}>
               <p className="font-bold" style={{ color: primaryText }}>Tu selección</p>
-              <button onClick={() => setShowCart(false)} className="text-white/40 text-2xl leading-none">×</button>
+              <button onClick={() => setShowCart(false)} className="text-2xl leading-none" style={{ color: secondaryText }}>×</button>
             </div>
 
             <div className="overflow-y-auto px-5 py-3 space-y-2" style={{ maxHeight: '50vh' }}>
               {cart.map(c => (
                 <div key={c.key} className="flex items-center justify-between py-2.5" style={{ borderBottom: `1px solid ${cardBorder}` }}>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{c.product_name}{c.color && c.color !== 'Único' ? ` · ${c.color}` : ''}</p>
+                    <p className="text-sm font-medium truncate" style={{ color: primaryText }}>{c.product_name}{c.color && c.color !== 'Único' ? ` · ${c.color}` : ''}</p>
                     {(c.type === 'package' || c.type === 'clearance') && (
-                      <p className="text-xs" style={{ color: c.type === 'clearance' ? '#f97316' : color }}>S/ {(c.base_price * c.qty).toFixed(2)}</p>
+                      <p className="text-xs" style={{ color: c.type === 'clearance' ? '#f97316' : btnColor }}>S/ {(c.base_price * c.qty).toFixed(2)}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2 ml-3">
                     <button onClick={() => changeQty(c.key, -1)} className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>−</button>
-                    <span className="text-white text-sm font-bold w-5 text-center">{c.qty}</span>
+                    <span className="text-sm font-bold w-5 text-center" style={{ color: primaryText }}>{c.qty}</span>
                     <button onClick={() => changeQty(c.key, 1)} className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: isDarkBg ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', color: primaryText }}>+</button>
                   </div>
                 </div>
@@ -537,14 +537,14 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
                 <div className="mb-4 space-y-1.5">
                   {priceVisible && totalUnits > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-white/40">{totalUnits} productos</span>
-                      <span className="text-white/40">S/ {unitTotal.toFixed(2)}</span>
+                      <span style={{ color: secondaryText }}>{totalUnits} productos</span>
+                      <span style={{ color: secondaryText }}>S/ {unitTotal.toFixed(2)}</span>
                     </div>
                   )}
-                  {pkgTotal > 0 && <div className="flex justify-between text-sm"><span className="text-white/40">Paquetes</span><span className="text-white/40">S/ {pkgTotal.toFixed(2)}</span></div>}
-                  {clearTotal > 0 && <div className="flex justify-between text-sm"><span className="text-white/40">Remates</span><span className="text-white/40">S/ {clearTotal.toFixed(2)}</span></div>}
+                  {pkgTotal > 0 && <div className="flex justify-between text-sm"><span style={{ color: secondaryText }}>Paquetes</span><span style={{ color: secondaryText }}>S/ {pkgTotal.toFixed(2)}</span></div>}
+                  {clearTotal > 0 && <div className="flex justify-between text-sm"><span style={{ color: secondaryText }}>Remates</span><span style={{ color: secondaryText }}>S/ {clearTotal.toFixed(2)}</span></div>}
                   <div className="flex justify-between text-base font-bold pt-1.5" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                    <span className="text-white">Total</span>
+                    <span style={{ color: primaryText }}>Total</span>
                     <span style={{ color: btnColor }}>S/ {grandTotal.toFixed(2)}</span>
                   </div>
                 </div>
