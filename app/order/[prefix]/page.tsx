@@ -420,13 +420,13 @@ export default function OrderForm() {
   if (step === 4) return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#f9fafb', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
-      <div className="rounded-3xl p-8 max-w-sm w-full text-center" className="bg-white rounded-2xl shadow-sm">
+      <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-sm">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)' }}>
           <span className="text-3xl">✅</span>
         </div>
         <h2 className="text-xl font-bold mb-2" style={{ color: primaryText }}>¡Pedido recibido!</h2>
         <p className="text-sm mb-4" style={{ color: secondaryText }}>Tu código de pedido es:</p>
-        <div className="rounded-2xl px-4 py-4 mb-4" className="bg-gray-100 rounded-2xl px-4 py-4 mb-4">
+        <div className="bg-gray-100 rounded-2xl px-4 py-4 mb-4">
           <span className="text-xl font-bold tracking-widest font-mono" style={{ color: btnColor }}>{orderCode}</span>
         </div>
         <p className="text-xs mb-6" style={{ color: secondaryText }}>Guarda este código para rastrear tu pedido</p>
@@ -494,7 +494,7 @@ export default function OrderForm() {
 
       {/* FILTRO CATEGORÍA */}
       {step === 1 && activeTab === 'products' && categories.length > 2 && (
-        <div className="sticky z-9 px-4 py-2" className="bg-white border-b border-gray-200">
+        <div className="sticky z-9 px-4 py-2 bg-white border-b border-gray-200">
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {categories.map(cat => (
               <button key={cat} onClick={() => setActiveCategory(cat)}
@@ -620,7 +620,7 @@ export default function OrderForm() {
             )}
 
             {totalItems > 0 && (
-              <div className="fixed bottom-0 left-0 right-0" className="bg-white border-t border-gray-200 shadow-lg">
+              <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
                 <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-xs" style={{ color: secondaryText }}>{totalItems} item{totalItems !== 1 ? 's' : ''}</p>
