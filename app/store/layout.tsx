@@ -11,24 +11,21 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
   const supabase = createClient()
   const [notifications, setNotifications] = useState<any[]>([])
   const [showNotif, setShowNotif] = useState(false)
-  const [storeId, setStoreId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [features, setFeatures] = useState<Record<string, boolean>>({
     settings: true, orders: true, customers: true, quotes: true,
     suppliers: true, finances: true, goals: true,
     inventory: true, routes: true, summary: true,
-    tools: true, comprobante: true, combos: true,
+    tools: true, comprobante: true, combos: true, wholesale: true,
   })
 
   useEffect(() => {
     let channelRef: any = null
-
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
       if (!store) return
-      setStoreId(store.id)
 
       const { data: feat } = await supabase.from('store_features').select('*').eq('store_id', store.id).single()
       if (feat) {
@@ -46,6 +43,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
           summary:     feat.summary     ?? true,
           tools:       feat.labels      ?? true,
           comprobante: feat.comprobante ?? true,
+          wholesale:   feat.wholesale   ?? true,
         })
       }
 
@@ -64,12 +62,8 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
         })
         .subscribe()
     }
-
     init()
-
-    return () => {
-      if (channelRef) supabase.removeChannel(channelRef)
-    }
+    return () => { if (channelRef) supabase.removeChannel(channelRef) }
   }, [])
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
@@ -89,6 +83,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
     { label: 'Metas',         href: '/store/goals',      icon: '🎯', feature: 'goals' },
     { label: 'Inventario',    href: '/store/inventory',  icon: '🗃️', feature: 'inventory' },
     { label: 'Combos',        href: '/store/combos',     icon: '🎁', feature: 'combos' },
+    { label: 'Mayorista',     href: '/store/wholesale',  icon: '🏭', feature: 'wholesale' },
     { label: 'Rutas',         href: '/store/routes',     icon: '🗺️', feature: 'routes' },
     { label: 'Resumen',       href: '/store/summary',    icon: '📈', feature: 'summary' },
     { label: 'Herramientas',  href: '/store/tools',      icon: '🔧', feature: 'tools' },
@@ -114,7 +109,6 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
                 </span>
               )}
             </button>
-
             {showNotif && (
               <div className="absolute left-0 top-12 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -154,7 +148,6 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
       </div>
-
       <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href
@@ -169,7 +162,6 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
           )
         })}
       </nav>
-
       <div className="px-4 py-4 border-t border-gray-700">
         <button onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
@@ -185,16 +177,13 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
       <aside className="hidden lg:flex w-64 bg-gray-900 text-white flex-col fixed h-full z-30">
         <SidebarContent />
       </aside>
-
       {menuOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[999] lg:hidden" onClick={() => setMenuOpen(false)} />
       )}
-
       <aside className={`fixed top-0 left-0 h-full w-72 bg-gray-900 text-white flex flex-col z-[1000] transform transition-transform duration-300 lg:hidden ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <button onClick={() => setMenuOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">×</button>
         <SidebarContent />
       </aside>
-
       <header className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-gray-900 text-white flex items-center justify-between px-4 z-30 shadow-lg">
         <button onClick={() => setMenuOpen(true)} className="p-2 rounded-lg hover:bg-gray-800 touch-manipulation">
           <div className="space-y-1.5">
@@ -214,7 +203,6 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
           )}
         </button>
       </header>
-
       {showNotif && (
         <div className="lg:hidden fixed top-14 right-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -239,11 +227,8 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
           )}
         </div>
       )}
-
       <main className="flex-1 lg:ml-64 pt-14 lg:pt-0">
-        <div className="p-4 lg:p-8">
-          {children}
-        </div>
+        <div className="p-4 lg:p-8">{children}</div>
       </main>
     </div>
   )

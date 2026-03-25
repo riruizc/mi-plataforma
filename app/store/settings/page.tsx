@@ -14,10 +14,13 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false)
   const [copiedContact, setCopiedContact] = useState(false)
   const [copiedCatalog, setCopiedCatalog] = useState(false)
+  const [copiedWholesale, setCopiedWholesale] = useState(false)
   const [savingContact, setSavingContact] = useState(false)
   const [successContact, setSuccessContact] = useState(false)
   const [catalogActive, setCatalogActive] = useState(false)
   const [togglingCatalog, setTogglingCatalog] = useState(false)
+  const [wholesaleActive, setWholesaleActive] = useState(false)
+  const [togglingWholesale, setTogglingWholesale] = useState(false)
   const [savingCoords, setSavingCoords] = useState(false)
   const [successCoords, setSuccessCoords] = useState(false)
 
@@ -46,6 +49,7 @@ export default function SettingsPage() {
         setStore(data)
         setFormActive(data.form_active !== false)
         setCatalogActive(data.catalog_active || false)
+        setWholesaleActive(data.wholesale_active || false)
         setFormData({
           name: data.name || '', phone: data.phone || '', owner_name: data.owner_name || '',
           theme_color: data.theme_color || '#3b82f6',
@@ -150,12 +154,27 @@ export default function SettingsPage() {
     finally { setTogglingCatalog(false) }
   }
 
+  const toggleWholesaleActive = async () => {
+    if (!store) return
+    setTogglingWholesale(true)
+    try {
+      const supabase = createClient()
+      const newValue = !wholesaleActive
+      await supabase.from('stores').update({ wholesale_active: newValue }).eq('id', store.id)
+      setWholesaleActive(newValue)
+    } catch (e) { alert('Error al cambiar estado') }
+    finally { setTogglingWholesale(false) }
+  }
+
   const formLink = typeof window !== 'undefined' && store ? `${window.location.origin}/order/${store.store_prefix}` : ''
   const contactLink = typeof window !== 'undefined' && store ? `${window.location.origin}/contact/${store.store_prefix}` : ''
   const catalogLink = typeof window !== 'undefined' && store ? `${window.location.origin}/catalog/${store.store_prefix}` : ''
+  const wholesaleLink = typeof window !== 'undefined' && store ? `${window.location.origin}/wholesale/${store.store_prefix}` : ''
+
   const copyLink = () => { navigator.clipboard.writeText(formLink); setCopied(true); setTimeout(() => setCopied(false), 2000) }
   const copyContactLink = () => { navigator.clipboard.writeText(contactLink); setCopiedContact(true); setTimeout(() => setCopiedContact(false), 2000) }
   const copyCatalogLink = () => { navigator.clipboard.writeText(catalogLink); setCopiedCatalog(true); setTimeout(() => setCopiedCatalog(false), 2000) }
+  const copyWholesaleLink = () => { navigator.clipboard.writeText(wholesaleLink); setCopiedWholesale(true); setTimeout(() => setCopiedWholesale(false), 2000) }
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -229,7 +248,38 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* 3. Panel de contacto */}
+          {/* 3. Catálogo Mayorista */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="font-semibold text-gray-900">🏭 Catálogo Mayorista</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{wholesaleActive ? 'Tu catálogo mayorista está activo' : 'El catálogo mayorista está desactivado'}</p>
+              </div>
+              <button onClick={toggleWholesaleActive} disabled={togglingWholesale}
+                className={`relative w-12 h-6 rounded-full transition-colors disabled:opacity-50 ${wholesaleActive ? 'bg-green-500' : 'bg-gray-300'}`}>
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${wholesaleActive ? 'translate-x-7' : 'translate-x-1'}`} />
+              </button>
+            </div>
+            {wholesaleActive && (
+              <>
+                <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-3 border border-gray-200">
+                  <p className="text-xs text-gray-600 flex-1 truncate font-mono">{wholesaleLink}</p>
+                  <button onClick={copyWholesaleLink} className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white touch-manipulation">
+                    {copiedWholesale ? '✅ Copiado' : '📋 Copiar'}
+                  </button>
+                </div>
+                <button onClick={() => window.open(wholesaleLink, '_blank')}
+                  className="w-full py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-700">
+                  👁️ Ver catálogo mayorista
+                </button>
+              </>
+            )}
+            <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              <p className="text-xs text-amber-700">💡 Configura los productos, precios y descuentos en el módulo <strong>Mayorista</strong> del menú</p>
+            </div>
+          </div>
+
+          {/* 4. Panel de contacto */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -241,7 +291,6 @@ export default function SettingsPage() {
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${contactData.contact_active ? 'translate-x-7' : 'translate-x-1'}`} />
               </button>
             </div>
-
             {contactData.contact_active && (
               <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 mb-4 border border-gray-200">
                 <p className="text-xs text-gray-600 flex-1 truncate font-mono">{contactLink}</p>
@@ -250,7 +299,6 @@ export default function SettingsPage() {
                 </button>
               </div>
             )}
-
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Descripción corta</label>
@@ -309,7 +357,6 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-
             {successContact && (
               <div className="mt-3 bg-green-50 border border-green-200 rounded-xl p-3 text-center">
                 <p className="text-green-700 text-sm font-medium">✅ Panel de contacto guardado</p>
@@ -327,7 +374,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* 4. Punto de origen */}
+          {/* 5. Punto de origen */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <h2 className="font-semibold text-gray-900 mb-1">📍 Punto de salida del motorizado</h2>
             <p className="text-xs text-gray-400 mb-4">Desde aquí se calcula la ruta óptima.</p>
@@ -355,7 +402,7 @@ export default function SettingsPage() {
             </button>
           </div>
 
-          {/* 5. Logo */}
+          {/* 6. Logo */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Logo de la tienda</h2>
             <div className="flex items-center gap-4">
@@ -374,7 +421,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* 6. Color */}
+          {/* 7. Color */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Color de tema</h2>
             <div className="flex items-center gap-4">
@@ -391,7 +438,6 @@ export default function SettingsPage() {
               Vista previa del color en tu formulario
             </div>
           </div>
-
         </div>
 
         {/* Datos de la tienda */}
