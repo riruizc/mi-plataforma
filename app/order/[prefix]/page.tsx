@@ -194,7 +194,7 @@ export default function OrderForm() {
 
       const [{ data: prods }, { data: agencyData }, { data: combosData }] =
         await Promise.all([
-          supabase.from('products').select('*, product_variants(*)').eq('store_id', storeData.id).eq('is_active', true),
+          supabase.from('products').select('*, product_variants(*)').eq('store_id', storeData.id).eq('is_active', true).eq('show_in_form', true),
           supabase.from('delivery_agencies').select('*').eq('store_id', storeData.id).eq('is_active', true),
           supabase.from('combos').select('*').eq('store_id', storeData.id).eq('is_active', true).order('name'),
         ])

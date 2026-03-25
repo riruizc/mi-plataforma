@@ -65,6 +65,7 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
         .from('products')
         .select('id, name, category, sale_price, is_active, product_variants(id, color, stock)')
         .eq('store_id', storeData.id)
+        .eq('show_in_catalog', true) 
         .eq('is_active', true)
         .order('category')
         .order('name'),
