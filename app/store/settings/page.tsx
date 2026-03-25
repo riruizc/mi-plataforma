@@ -20,6 +20,8 @@ export default function SettingsPage() {
   const [catalogActive, setCatalogActive] = useState(false)
   const [togglingCatalog, setTogglingCatalog] = useState(false)
   const [wholesaleActive, setWholesaleActive] = useState(false)
+  const [buttonColor, setButtonColor] = useState('#3b82f6')
+  const [textColor, setTextColor] = useState('#ffffff')
   const [togglingWholesale, setTogglingWholesale] = useState(false)
   const [savingCoords, setSavingCoords] = useState(false)
   const [successCoords, setSuccessCoords] = useState(false)
@@ -50,6 +52,8 @@ export default function SettingsPage() {
         setFormActive(data.form_active !== false)
         setCatalogActive(data.catalog_active || false)
         setWholesaleActive(data.wholesale_active || false)
+        setButtonColor(data.button_color || '#3b82f6')
+        setTextColor(data.text_color || '#ffffff')
         setFormData({
           name: data.name || '', phone: data.phone || '', owner_name: data.owner_name || '',
           theme_color: data.theme_color || '#3b82f6',
@@ -96,6 +100,8 @@ export default function SettingsPage() {
       await supabase.from('stores').update({
         name: formData.name, phone: formData.phone, owner_name: formData.owner_name,
         theme_color: formData.theme_color,
+        button_color: buttonColor,
+        text_color: textColor,
       }).eq('id', store.id)
       setStore((prev: any) => ({ ...prev, ...formData }))
       setSuccess(true); setTimeout(() => setSuccess(false), 3000)
@@ -421,21 +427,55 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* 7. Color */}
+          {/* 7. Colores */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-4">Color de tema</h2>
-            <div className="flex items-center gap-4">
-              <input type="color" value={formData.theme_color}
-                onChange={e => setFormData(prev => ({ ...prev, theme_color: e.target.value }))}
-                className="w-16 h-16 rounded-xl border border-gray-200 cursor-pointer" />
-              <div>
-                <p className="text-sm font-medium text-gray-700">Color seleccionado</p>
-                <p className="text-sm text-gray-500 font-mono">{formData.theme_color}</p>
-                <p className="text-xs text-gray-400 mt-1">Aparece en el formulario público</p>
+            <h2 className="font-semibold text-gray-900 mb-1">Colores de tu tienda</h2>
+            <p className="text-xs text-gray-400 mb-4">Se aplican en el formulario, catálogo y página de contacto</p>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <input type="color" value={formData.theme_color}
+                  onChange={e => setFormData(prev => ({ ...prev, theme_color: e.target.value }))}
+                  className="w-12 h-12 rounded-xl border border-gray-200 cursor-pointer flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Color de tema / fondo</p>
+                  <p className="text-xs text-gray-400 font-mono">{formData.theme_color}</p>
+                  <p className="text-xs text-gray-400">Header y fondos de sección</p>
+                </div>
               </div>
-            </div>
-            <div className="mt-4 rounded-xl p-4 text-white text-sm font-medium text-center" style={{ backgroundColor: formData.theme_color }}>
-              Vista previa del color en tu formulario
+              <div className="flex items-center gap-4">
+                <input type="color" value={buttonColor}
+                  onChange={e => setButtonColor(e.target.value)}
+                  className="w-12 h-12 rounded-xl border border-gray-200 cursor-pointer flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Color de botones</p>
+                  <p className="text-xs text-gray-400 font-mono">{buttonColor}</p>
+                  <p className="text-xs text-gray-400">Botones de acción y enlaces</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <input type="color" value={textColor}
+                  onChange={e => setTextColor(e.target.value)}
+                  className="w-12 h-12 rounded-xl border border-gray-200 cursor-pointer flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Color de texto en botones</p>
+                  <p className="text-xs text-gray-400 font-mono">{textColor}</p>
+                  <p className="text-xs text-gray-400">Letras sobre los botones</p>
+                </div>
+              </div>
+              {/* Preview */}
+              <div className="rounded-xl overflow-hidden border border-gray-100">
+                <div className="p-3 text-center text-white text-sm font-medium" style={{ backgroundColor: formData.theme_color }}>
+                  Header de tu tienda
+                </div>
+                <div className="p-3 flex gap-2">
+                  <div className="flex-1 py-2 rounded-lg text-xs font-bold text-center" style={{ backgroundColor: buttonColor, color: textColor }}>
+                    Botón principal
+                  </div>
+                  <div className="flex-1 py-2 rounded-lg text-xs font-bold text-center border-2" style={{ borderColor: buttonColor, color: buttonColor }}>
+                    Botón secundario
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
