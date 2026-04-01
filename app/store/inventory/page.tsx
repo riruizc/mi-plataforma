@@ -400,7 +400,7 @@ export default function InventoryPage() {
                     {/* Image */}
                     <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 border border-gray-100 bg-gray-50 flex items-center justify-center">
                       {product.image_url
-                        ? <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                        ? <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-1" />
                         : <span className="text-2xl">📦</span>}
                     </div>
                     {/* Info */}
