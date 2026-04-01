@@ -251,7 +251,7 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                             return (
                               <div key={product.id} className="bg-white rounded-2xl overflow-hidden border-2 border-gray-100 transition-all">
                                 {product.image_url
-                                  ? <img src={product.image_url} alt={product.name} className="w-full h-20 object-cover" />
+                                  ? <img src={product.image_url} alt={product.name} className="w-full h-24 object-contain p-2 bg-white" />
                                   : <div className="h-20 flex items-center justify-center text-3xl font-bold"
                                       style={{ backgroundColor: color + '22' }}>
                                       <span style={{ color }}>{initial}</span>
@@ -313,7 +313,7 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
                                 className="bg-white rounded-2xl overflow-hidden border-2 transition-all"
                                 style={{ borderColor: isSelected ? btnColor : '#f3f4f6' }}>
                                 {product.image_url
-                                  ? <img src={product.image_url} alt={product.name} className="w-full h-24 object-cover" />
+                                  ? <img src={product.image_url} alt={product.name} className="w-full h-24 object-contain p-2 bg-white" />
                                   : <div className="h-24 flex items-center justify-center text-3xl font-bold"
                                       style={{ backgroundColor: isSelected ? btnColor : btnColor + '22' }}>
                                       <span style={{ color: isSelected ? txtColor : btnColor }}>{initial}</span>
