@@ -78,7 +78,13 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
         .order('name'),
     ])
 
-    setProducts((prods || []).map((p: any) => ({ ...p, variants: p.product_variants || [] })))
+    const mappedProducts = (prods || []).map((p: any) => ({ ...p, variants: p.product_variants || [] }))
+    // Ocultar productos donde todas las variantes tienen stock 0
+    const activeProducts = mappedProducts.filter((p: any) => {
+      if (p.variants.length === 0) return true // sin variantes: siempre mostrar
+      return p.variants.some((v: any) => v.stock > 0)
+    })
+    setProducts(activeProducts)
 
     const comboIds = (combosData || []).map((c: any) => c.id)
     let mappedCombos: Combo[] = (combosData || []).map((c: any) => ({ ...c, items: [] }))
