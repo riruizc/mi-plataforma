@@ -175,6 +175,14 @@ export default function RoutesPage() {
               setOptimizedOrder(savedOptimized)
               setTotalKm(result.totalKm)
 
+              // Draw route line on map
+              if (routeLayerRef.current) { routeLayerRef.current.remove(); routeLayerRef.current = null }
+              if (result.geometry?.length > 0) {
+                const geojsonCoords = result.geometry.map((c: number[]) => [c[1], c[0]] as [number, number])
+                routeLayerRef.current = L.polyline(geojsonCoords, { color: '#2563eb', weight: 4, opacity: 0.8, dashArray: '8, 4' }).addTo(map)
+                map.fitBounds(routeLayerRef.current.getBounds(), { padding: [40, 40] })
+              }
+
               // Re-numerar marcadores
               markersRef.current.forEach(m => m.remove())
               markersRef.current = []
