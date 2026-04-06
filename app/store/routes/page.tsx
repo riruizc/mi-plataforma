@@ -108,22 +108,7 @@ export default function RoutesPage() {
     return sorted
   }
 
-  const fetchOsrmWithRetry = async (url: string, timeoutMs: number, retries = 2): Promise<any> => {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), timeoutMs)
-      try {
-        const res = await fetch(url, { signal: controller.signal })
-        clearTimeout(timeout)
-        return await res.json()
-      } catch (e: any) {
-        clearTimeout(timeout)
-        if (attempt === retries) throw e
-        setOptimizingMsg(`Reintentando... (${attempt + 1}/${retries})`)
-        await new Promise(r => setTimeout(r, 2000))
-      }
-    }
-  }
+
 
   const generateRoute = async () => {
     if (selected.length === 0) { alert('Selecciona al menos un pedido'); return }
@@ -168,46 +153,51 @@ export default function RoutesPage() {
         ...ordersWithLocation.map(o => `${o.lng},${o.lat}`),
       ]
 
-      if (coordPoints.length >= 2) {
-        const url = `https://router.project-osrm.org/trip/v1/driving/${coordPoints.join(';')}?roundtrip=false&source=first&geometries=geojson&overview=full`
-        
-        let data: any = null
+      if (ordersWithLocation.length >= 1 && storeOrigin) {
         try {
-          setOptimizingMsg('Conectando con OSRM...')
-          data = await fetchOsrmWithRetry(url, 40000, 2)
-        } catch (e: any) {
-          console.warn('OSRM falló, usando optimización local:', e.message)
-          usedLocalOptimization = true
-        }
-
-        if (data?.code === 'Ok' && data.trips?.[0]) {
-          const trip = data.trips[0]
-          kmTotal = trip.distance / 1000
-          const geojsonCoords = trip.geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number])
-          routeLayerRef.current = L.polyline(geojsonCoords, { color: '#2563eb', weight: 4, opacity: 0.8, dashArray: '8, 4' }).addTo(map)
-          map.fitBounds(routeLayerRef.current.getBounds(), { padding: [40, 40] })
-
-          const waypoints: { waypoint_index: number }[] = data.waypoints
-          const orderWaypoints = storeOrigin ? waypoints.slice(1) : waypoints
-          const sortedByOsrm = ordersWithLocation.map((o, i) => ({ order: o, osrmIndex: orderWaypoints[i]?.waypoint_index ?? i })).sort((a, b) => a.osrmIndex - b.osrmIndex).map(x => x.order)
-          savedOptimized = sortedByOsrm.map(x => x.id)
-          setOptimizedOrder(savedOptimized)
-          setTotalKm(parseFloat(kmTotal.toFixed(1)))
-
-          // Re-numerar marcadores
-          markersRef.current.forEach(m => m.remove())
-          markersRef.current = []
-          if (storeOrigin) {
-            const originIcon = L.divIcon({ className: '', html: `<div style="background:#16a34a;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)">🏪</div>`, iconSize: [32, 32], iconAnchor: [16, 16] })
-            markersRef.current.push(L.marker([storeOrigin.lat, storeOrigin.lng], { icon: originIcon }).addTo(map).bindPopup('<b>Punto de salida</b>'))
-          }
-          sortedByOsrm.forEach((order, i) => {
-            const icon = L.divIcon({ className: '', html: `<div style="background:#2563eb;color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)">${i + 1}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] })
-            markersRef.current.push(L.marker([order.lat!, order.lng!], { icon }).addTo(map).bindPopup(`<b>#${i + 1} — ${order.order_code}</b><br>${order.customer_name}`))
+          setOptimizingMsg('Optimizando con ORS...')
+          const jobs = ordersWithLocation.map(o => ({ id: o.id, lat: o.lat!, lng: o.lng! }))
+          const res = await fetch('/api/optimize-route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobs, origin: storeOrigin }),
           })
-        } else {
+
+          if (res.ok) {
+            const result = await res.json()
+            if (result.orderedIds?.length > 0) {
+              kmTotal = result.totalKm || 0
+              const sortedByOrs = result.orderedIds
+                .map((id: string) => ordersWithLocation.find(o => o.id === id))
+                .filter(Boolean) as Order[]
+
+              savedOptimized = sortedByOrs.map(x => x.id)
+              setOptimizedOrder(savedOptimized)
+              setTotalKm(result.totalKm)
+
+              // Re-numerar marcadores
+              markersRef.current.forEach(m => m.remove())
+              markersRef.current = []
+              if (storeOrigin) {
+                const originIcon = L.divIcon({ className: '', html: `<div style="background:#16a34a;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)">🏪</div>`, iconSize: [32, 32], iconAnchor: [16, 16] })
+                markersRef.current.push(L.marker([storeOrigin.lat, storeOrigin.lng], { icon: originIcon }).addTo(map).bindPopup('<b>Punto de salida</b>'))
+              }
+              sortedByOrs.forEach((order, i) => {
+                const icon = L.divIcon({ className: '', html: `<div style="background:#2563eb;color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)">${i + 1}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] })
+                markersRef.current.push(L.marker([order.lat!, order.lng!], { icon }).addTo(map).bindPopup(`<b>#${i + 1} — ${order.order_code}</b><br>${order.customer_name}`))
+              })
+            } else {
+              usedLocalOptimization = true
+            }
+          } else {
+            usedLocalOptimization = true
+          }
+        } catch (e) {
+          console.warn('ORS falló, usando optimización local')
           usedLocalOptimization = true
         }
+      } else {
+        usedLocalOptimization = true
       }
     } catch (e) {
       console.error('Error en optimización:', e)
