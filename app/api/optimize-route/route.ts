@@ -11,7 +11,6 @@ export async function POST(req: NextRequest) {
       id: 1,
       profile: 'driving-car',
       start: [origin.lng, origin.lat],
-      end: [origin.lng, origin.lat],
     }]
 
     const orsJobs = jobs.map((j: any, i: number) => ({
