@@ -247,12 +247,14 @@ export default function InventoryPage() {
         }
 
         // Borrar variantes que fueron eliminadas del formulario
+        // Una variante se eliminó si su id ya no aparece en el formulario
+        const newVariantIds = newVariants
+          .map(v => (v as any).id)
+          .filter(Boolean)
+
         for (const existing of existingVariants) {
           if (!existing.id) continue
-          const stillInForm = newVariants.find(v =>
-            (v as any).id === existing.id ||
-            v.color.trim().toLowerCase() === existing.color.trim().toLowerCase()
-          )
+          const stillInForm = newVariantIds.includes(existing.id)
           if (!stillInForm) {
             // Verificar si tiene pedidos antes de borrar
             const { data: refs } = await supabase
@@ -263,7 +265,7 @@ export default function InventoryPage() {
             if (!refs || refs.length === 0) {
               await supabase.from('product_variants').delete().eq('id', existing.id)
             }
-            // Si tiene pedidos asociados, no se borra (integridad de datos)
+            // Si tiene pedidos no se borra — integridad de datos
           }
         }
 
