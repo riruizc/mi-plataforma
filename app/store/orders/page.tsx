@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
@@ -48,16 +47,19 @@ const statusLabel: Record<string, { label: string; color: string }> = {
   cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700' },
 }
 
+const PAGE_SIZE = 50
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [storeId, setStoreId] = useState<string | null>(null)
   const [storeName, setStoreName] = useState('')
   const [storePrefix, setStorePrefix] = useState('')
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState('pending')
+  const [deliveryFilter, setDeliveryFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
 
-  // Edit modal
   const [editOrder, setEditOrder] = useState<any>(null)
   const [editData, setEditData] = useState<any>(null)
   const [editSaving, setEditSaving] = useState(false)
@@ -68,13 +70,11 @@ export default function OrdersPage() {
   const editMarkerRef = useRef<any>(null)
   const editSearchTimeout = useRef<any>(null)
 
-  // Edit items (productos del pedido)
   const [editItems, setEditItems] = useState<OrderItem[]>([])
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [productSearch, setProductSearch] = useState('')
   const [showProductSearch, setShowProductSearch] = useState(false)
 
-  // Manual order modal
   const [showManual, setShowManual] = useState(false)
   const [manualData, setManualData] = useState({ name: '', phone: '', dni: '', destination: '', reference: '', delivery_method: 'motorizado', agency_name: '', total_amount: '' })
   const [manualSaving, setManualSaving] = useState(false)
@@ -102,6 +102,9 @@ export default function OrdersPage() {
     }
     syncMarker()
   }, [editData?.lat, editData?.lng])
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1) }, [filter, deliveryFilter, search])
 
   const loadOrders = async () => {
     try {
@@ -144,8 +147,7 @@ export default function OrdersPage() {
   const removeFinanceTransaction = async (orderId: string) => {
     if (!storeId) return
     const supabase = createClient()
-    await supabase.from('finance_transactions').delete()
-      .eq('order_id', orderId).eq('store_id', storeId).eq('source', 'order')
+    await supabase.from('finance_transactions').delete().eq('order_id', orderId).eq('store_id', storeId).eq('source', 'order')
   }
 
   const handleCancel = async (order: Order) => {
@@ -168,10 +170,7 @@ export default function OrdersPage() {
     if (newStatus === 'delivered') updateData.delivered_at = new Date().toISOString()
     await supabase.from('orders').update(updateData).eq('id', order.id)
     if (newStatus === 'delivered' && order.status !== 'delivered' && storeId) {
-      await supabase.from('finance_transactions').insert({
-        store_id: storeId, type: 'income', source: 'order',
-        description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id,
-      })
+      await supabase.from('finance_transactions').insert({ store_id: storeId, type: 'income', source: 'order', description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id })
     } else if (newStatus !== 'delivered' && order.status === 'delivered') {
       await removeFinanceTransaction(order.id)
     }
@@ -182,10 +181,7 @@ export default function OrdersPage() {
     const supabase = createClient()
     await supabase.from('orders').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', order.id)
     if (order.status !== 'delivered' && storeId) {
-      await supabase.from('finance_transactions').insert({
-        store_id: storeId, type: 'income', source: 'order',
-        description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id,
-      })
+      await supabase.from('finance_transactions').insert({ store_id: storeId, type: 'income', source: 'order', description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id })
     }
     loadOrders()
   }
@@ -233,21 +229,11 @@ export default function OrdersPage() {
     window.open('https://wa.me/51' + phone + '?text=' + mensaje, '_blank')
   }
 
-  // ── EDITAR PEDIDO ──
   const openEdit = async (order: any) => {
     setEditOrder(order)
-    setEditData({
-      name: order.customers?.name || '', phone: order.customers?.phone || '',
-      dni: order.customers?.dni || '', delivery_method: order.delivery_method || 'motorizado',
-      destination: order.destination || '', reference: order.reference || '',
-      lat: order.lat || '', lng: order.lng || '',
-      agency_name: order.agency_name || '', pending_amount: order.pending_amount || 0,
-      total_amount: order.total_amount || 0
-    })
+    setEditData({ name: order.customers?.name || '', phone: order.customers?.phone || '', dni: order.customers?.dni || '', delivery_method: order.delivery_method || 'motorizado', destination: order.destination || '', reference: order.reference || '', lat: order.lat || '', lng: order.lng || '', agency_name: order.agency_name || '', pending_amount: order.pending_amount || 0, total_amount: order.total_amount || 0 })
     setEditItems(order.order_items || [])
-    setEditSuggestions([])
-    setProductSearch('')
-    setShowProductSearch(false)
+    setEditSuggestions([]); setProductSearch(''); setShowProductSearch(false)
     const supabase = createClient()
     const [{ data: agencyData }, { data: prods }] = await Promise.all([
       supabase.from('delivery_agencies').select('*').eq('store_id', order.store_id).eq('is_active', true),
@@ -313,7 +299,6 @@ export default function OrdersPage() {
     }
   }
 
-  // ── MANEJO DE ITEMS EN EDICIÓN ──
   const addItemToEdit = (product: any, variant: any) => {
     const isVariant = variant.id !== product.id
     const matchKey = isVariant ? variant.id : product.id
@@ -324,42 +309,23 @@ export default function OrdersPage() {
         return match ? { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.unit_price } : i
       }))
     } else {
-      setEditItems(prev => [...prev, {
-        product_id: product.id,
-        variant_id: isVariant ? variant.id : undefined,
-        product_name: product.name,
-        color: variant.color,
-        quantity: 1,
-        unit_price: product.sale_price,
-        subtotal: product.sale_price,
-      }])
+      setEditItems(prev => [...prev, { product_id: product.id, variant_id: isVariant ? variant.id : undefined, product_name: product.name, color: variant.color, quantity: 1, unit_price: product.sale_price, subtotal: product.sale_price }])
     }
-    setShowProductSearch(false)
-    setProductSearch('')
+    setShowProductSearch(false); setProductSearch('')
   }
 
   const updateEditItemQty = (index: number, qty: number) => {
-    if (qty <= 0) {
-      setEditItems(prev => prev.filter((_, i) => i !== index))
-    } else {
-      setEditItems(prev => prev.map((item, i) =>
-        i === index ? { ...item, quantity: qty, subtotal: qty * item.unit_price } : item
-      ))
-    }
+    if (qty <= 0) setEditItems(prev => prev.filter((_, i) => i !== index))
+    else setEditItems(prev => prev.map((item, i) => i === index ? { ...item, quantity: qty, subtotal: qty * item.unit_price } : item))
   }
 
   const updateEditItemPrice = (index: number, price: number) => {
-    setEditItems(prev => prev.map((item, i) =>
-      i === index ? { ...item, unit_price: price, subtotal: item.quantity * price } : item
-    ))
+    setEditItems(prev => prev.map((item, i) => i === index ? { ...item, unit_price: price, subtotal: item.quantity * price } : item))
   }
 
-  const filteredProducts = productSearch.trim().length < 1
+  const filteredProductsSearch = productSearch.trim().length < 1
     ? allProducts
-    : allProducts.filter(p =>
-        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-        (p.category || '').toLowerCase().includes(productSearch.toLowerCase())
-      )
+    : allProducts.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) || (p.category || '').toLowerCase().includes(productSearch.toLowerCase()))
 
   const editTotal = editItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0)
 
@@ -374,41 +340,16 @@ export default function OrdersPage() {
       const newTotal = editData.total_amount !== '' && editData.total_amount !== undefined
         ? parseFloat(String(editData.total_amount))
         : (editItems.length > 0 ? editTotal : editOrder.total_amount)
-      await supabase.from('orders').update({
-        delivery_method: editData.delivery_method,
-        destination: editData.destination,
-        reference: editData.reference,
-        lat: editData.lat ? parseFloat(editData.lat) : null,
-        lng: editData.lng ? parseFloat(editData.lng) : null,
-        agency_name: editData.agency_name || null,
-        pending_amount: parseFloat(editData.pending_amount) || 0,
-        total_amount: newTotal,
-      }).eq('id', editOrder.id)
-
-      // Actualizar items
+      await supabase.from('orders').update({ delivery_method: editData.delivery_method, destination: editData.destination, reference: editData.reference, lat: editData.lat ? parseFloat(editData.lat) : null, lng: editData.lng ? parseFloat(editData.lng) : null, agency_name: editData.agency_name || null, pending_amount: parseFloat(editData.pending_amount) || 0, total_amount: newTotal }).eq('id', editOrder.id)
       await supabase.from('order_items').delete().eq('order_id', editOrder.id)
       if (editItems.length > 0) {
-        await supabase.from('order_items').insert(
-          editItems.map(item => ({
-            order_id: editOrder.id,
-            product_id: item.product_id || null,
-            variant_id: item.variant_id || null,
-            product_name: item.product_name,
-            color: item.color,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            subtotal: item.unit_price * item.quantity,
-          }))
-        )
+        await supabase.from('order_items').insert(editItems.map(item => ({ order_id: editOrder.id, product_id: item.product_id || null, variant_id: item.variant_id || null, product_name: item.product_name, color: item.color, quantity: item.quantity, unit_price: item.unit_price, subtotal: item.unit_price * item.quantity })))
       }
-
-      await loadOrders()
-      closeEdit()
+      await loadOrders(); closeEdit()
     } catch (e) { alert('Error al guardar los cambios') }
     finally { setEditSaving(false) }
   }
 
-  // ── AGREGAR PEDIDO MANUAL ──
   const resetManual = () => setManualData({ name: '', phone: '', dni: '', destination: '', reference: '', delivery_method: 'motorizado', agency_name: '', total_amount: '' })
 
   const saveManualOrder = async () => {
@@ -427,26 +368,32 @@ export default function OrdersPage() {
       const { data: counterData } = await supabase.rpc('increment_order_counter', { p_store_id: storeId })
       const code = storePrefix + '-' + year + '-' + String(counterData).padStart(3, '0')
       const token = Math.random().toString(36).substring(2, 15)
-      await supabase.from('orders').insert({
-        store_id: storeId, customer_id: customerId, order_code: code,
-        delivery_method: manualData.delivery_method,
-        agency_name: manualData.delivery_method === 'agencia' ? manualData.agency_name : null,
-        destination: manualData.destination || null, reference: manualData.reference || null,
-        total_amount: parseFloat(manualData.total_amount), pending_amount: parseFloat(manualData.total_amount),
-        status: 'pending', tracking_token: token,
-      })
+      await supabase.from('orders').insert({ store_id: storeId, customer_id: customerId, order_code: code, delivery_method: manualData.delivery_method, agency_name: manualData.delivery_method === 'agencia' ? manualData.agency_name : null, destination: manualData.destination || null, reference: manualData.reference || null, total_amount: parseFloat(manualData.total_amount), pending_amount: parseFloat(manualData.total_amount), status: 'pending', tracking_token: token })
       setShowManual(false); resetManual(); loadOrders()
     } catch (e: any) { alert('Error: ' + e.message) }
     finally { setManualSaving(false) }
   }
 
-  // ── FILTROS Y BÚSQUEDA ──
+  // ── FILTROS ──
   const filtered = orders.filter(o => {
-    const matchFilter = filter === 'all' || o.status === filter
+    const matchStatus = filter === 'all' || o.status === filter
+    const matchDelivery = deliveryFilter === 'all' || o.delivery_method === deliveryFilter
     const q = search.toLowerCase().trim()
     const matchSearch = !q || o.order_code.toLowerCase().includes(q) || o.customer_phone.includes(q) || (o.customers?.dni || '').includes(q) || o.customer_name.toLowerCase().includes(q)
-    return matchFilter && matchSearch
+    return matchStatus && matchDelivery && matchSearch
   })
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  // Counts por status
+  const counts = {
+    all: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    in_route: orders.filter(o => o.status === 'in_route').length,
+    delivered: orders.filter(o => o.status === 'delivered').length,
+    cancelled: orders.filter(o => o.status === 'cancelled').length,
+  }
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -459,7 +406,7 @@ export default function OrdersPage() {
 
   return (
     <div>
-      {/* ── HEADER ── */}
+      {/* HEADER */}
       <div className="mb-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
@@ -468,6 +415,8 @@ export default function OrdersPage() {
           </div>
           <button onClick={() => setShowManual(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm">+ Agregar</button>
         </div>
+
+        {/* Búsqueda */}
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -475,74 +424,137 @@ export default function OrdersPage() {
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>}
         </div>
+
+        {/* Tabs de estado */}
         <div className="flex gap-1.5 flex-wrap">
-          {['all', 'pending', 'in_route', 'delivered', 'cancelled'].map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-colors touch-manipulation ${filter === f ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
-              {f === 'all' ? 'Todos' : statusLabel[f]?.label}
+          {[
+            { key: 'pending', label: 'Pendiente' },
+            { key: 'in_route', label: 'En ruta' },
+            { key: 'delivered', label: 'Entregado' },
+            { key: 'cancelled', label: 'Cancelado' },
+            { key: 'all', label: 'Todos' },
+          ].map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors touch-manipulation flex items-center gap-1 ${filter === f.key ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
+              {f.label}
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${filter === f.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                {counts[f.key as keyof typeof counts]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Filtro de entrega */}
+        <div className="flex gap-1.5">
+          {[
+            { key: 'all', label: '🚚 Todos' },
+            { key: 'motorizado', label: '🛵 Motorizado' },
+            { key: 'agencia', label: '📦 Agencia' },
+          ].map(f => (
+            <button key={f.key} onClick={() => setDeliveryFilter(f.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors touch-manipulation ${deliveryFilter === f.key ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
+              {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── LISTA ── */}
-      {filtered.length === 0 ? (
+      {/* LISTA */}
+      {paginated.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
           <p className="text-4xl mb-3">📦</p>
-          <p className="text-gray-500">{search ? 'No se encontraron pedidos' : 'No hay pedidos aún'}</p>
+          <p className="text-gray-500">{search ? 'No se encontraron pedidos' : 'No hay pedidos en esta categoría'}</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {filtered.map(order => (
-            <div key={order.id} className={`bg-white rounded-xl shadow-sm border p-4 ${order.status === 'cancelled' ? 'border-red-100 opacity-75' : 'border-gray-100'}`}>
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="font-bold text-gray-900 text-sm">{order.order_code}</span>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusLabel[order.status]?.color}`}>{statusLabel[order.status]?.label}</span>
-                <span className="text-xs text-gray-400 ml-auto">{new Date(order.created_at).toLocaleDateString('es-PE')}</span>
-              </div>
-              <p className="font-semibold text-gray-800 text-sm">{order.customer_name}</p>
-              <p className="text-gray-500 text-xs">📱 {order.customer_phone}</p>
-              {order.order_items && order.order_items.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {order.order_items.map((item: any, i: number) => (
-                    <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                      {item.product_name} {item.color} x{item.quantity}
-                    </span>
-                  ))}
+        <>
+          <div className="space-y-3">
+            {paginated.map(order => (
+              <div key={order.id} className={`bg-white rounded-xl shadow-sm border p-4 ${order.status === 'cancelled' ? 'border-red-100 opacity-75' : 'border-gray-100'}`}>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <span className="font-bold text-gray-900 text-sm">{order.order_code}</span>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusLabel[order.status]?.color}`}>{statusLabel[order.status]?.label}</span>
+                  <span className="text-xs text-gray-400 ml-auto">{new Date(order.created_at).toLocaleDateString('es-PE')}</span>
                 </div>
-              )}
-              <div className="mt-1.5">
-                {order.delivery_method === 'motorizado'
-                  ? <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">🛵 Motorizado</span>
-                  : <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">📦 {order.agency_name || 'Agencia'} — {order.destination || 'Sin destino'}</span>
-                }
-              </div>
-              <div className="flex gap-4 mt-2 text-xs">
-                <span className="text-gray-600">Total: <strong>S/ {Number(order.total_amount).toFixed(2)}</strong></span>
-                <span className="text-orange-600">Por cobrar: <strong>S/ {Number(order.pending_amount).toFixed(2)}</strong></span>
-              </div>
-              {order.status !== 'cancelled' && (
-                <div className="grid grid-cols-2 sm:flex gap-2 mt-3">
-                  <button onClick={() => enviarComprobante(order)} className="px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium touch-manipulation">📄💬 Comprobante</button>
-                  <button onClick={() => { const link = window.location.origin + '/track?code=' + order.order_code; navigator.clipboard.writeText(link).then(() => alert('Link copiado')) }} className="px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-medium touch-manipulation">🔗 Rastreo</button>
-                  {order.status !== 'delivered' && (
-                    <button onClick={() => handleDeliver(order)} className="px-3 py-2 rounded-lg text-xs font-medium bg-green-600 text-white touch-manipulation">✅ Entregado</button>
-                  )}
-                  <select value={order.status} onChange={e => handleStatusChange(order, e.target.value)} className="px-2 py-2 rounded-lg text-xs border border-gray-200 focus:outline-none bg-white">
-                    <option value="pending">Pendiente</option>
-                    <option value="in_route">En ruta</option>
-                    <option value="delivered">Entregado</option>
-                    <option value="cancelled">Cancelado</option>
-                  </select>
-                  <button onClick={() => openEdit(order)} className="px-3 py-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium touch-manipulation">✏️ Editar</button>
+                <p className="font-semibold text-gray-800 text-sm">{order.customer_name}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                  <p className="text-gray-500 text-xs">📱 {order.customer_phone}</p>
+                  {order.customers?.dni && <p className="text-gray-500 text-xs">🪪 {order.customers.dni}</p>}
                 </div>
-              )}
+                {order.order_items && order.order_items.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {order.order_items.map((item: any, i: number) => (
+                      <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                        {item.product_name} {item.color} x{item.quantity}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-1.5">
+                  {order.delivery_method === 'motorizado'
+                    ? <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">🛵 Motorizado</span>
+                    : <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">📦 {order.agency_name || 'Agencia'} — {order.destination || 'Sin destino'}</span>
+                  }
+                </div>
+                <div className="flex gap-4 mt-2 text-xs">
+                  <span className="text-gray-600">Total: <strong>S/ {Number(order.total_amount).toFixed(2)}</strong></span>
+                  <span className="text-orange-600">Por cobrar: <strong>S/ {Number(order.pending_amount).toFixed(2)}</strong></span>
+                </div>
+                {order.status !== 'cancelled' && (
+                  <div className="grid grid-cols-2 sm:flex gap-2 mt-3">
+                    <button onClick={() => enviarComprobante(order)} className="px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium touch-manipulation">📄💬 Comprobante</button>
+                    <button onClick={() => { const link = window.location.origin + '/track?code=' + order.order_code; navigator.clipboard.writeText(link).then(() => alert('Link copiado')) }} className="px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-medium touch-manipulation">🔗 Rastreo</button>
+                    {order.status !== 'delivered' && (
+                      <button onClick={() => handleDeliver(order)} className="px-3 py-2 rounded-lg text-xs font-medium bg-green-600 text-white touch-manipulation">✅ Entregado</button>
+                    )}
+                    <select value={order.status} onChange={e => handleStatusChange(order, e.target.value)} className="px-2 py-2 rounded-lg text-xs border border-gray-200 focus:outline-none bg-white">
+                      <option value="pending">Pendiente</option>
+                      <option value="in_route">En ruta</option>
+                      <option value="delivered">Entregado</option>
+                      <option value="cancelled">Cancelado</option>
+                    </select>
+                    <button onClick={() => openEdit(order)} className="px-3 py-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium touch-manipulation">✏️ Editar</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* PAGINACIÓN */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 bg-white rounded-xl border border-gray-100 p-3">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50">
+                ← Anterior
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  let pageNum: number
+                  if (totalPages <= 7) pageNum = i + 1
+                  else if (page <= 4) pageNum = i + 1
+                  else if (page >= totalPages - 3) pageNum = totalPages - 6 + i
+                  else pageNum = page - 3 + i
+                  return (
+                    <button key={pageNum} onClick={() => setPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-xs font-medium ${page === pageNum ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                      {pageNum}
+                    </button>
+                  )
+                })}
+              </div>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50">
+                Siguiente →
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+
+          <p className="text-center text-xs text-gray-400 mt-2">
+            Mostrando {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} de {filtered.length} pedidos
+          </p>
+        </>
       )}
 
-      {/* ── MODAL AGREGAR PEDIDO MANUAL ── */}
+      {/* MODAL AGREGAR PEDIDO MANUAL */}
       {showManual && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-screen overflow-y-auto">
@@ -553,39 +565,29 @@ export default function OrdersPage() {
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Nombre completo *</label>
-                <input type="text" value={manualData.name} onChange={e => setManualData(p => ({ ...p, name: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Juan Pérez" />
+                <input type="text" value={manualData.name} onChange={e => setManualData(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Juan Pérez" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Celular *</label>
-                  <input type="text" inputMode="numeric" value={manualData.phone}
-                    onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 9) setManualData(p => ({ ...p, phone: v })) }}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="999999999" />
+                  <input type="text" inputMode="numeric" value={manualData.phone} onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 9) setManualData(p => ({ ...p, phone: v })) }} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="999999999" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">DNI / CE</label>
-                  <input type="text" inputMode="numeric" value={manualData.dni}
-                    onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 12) setManualData(p => ({ ...p, dni: v })) }}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="12345678" />
+                  <input type="text" inputMode="numeric" value={manualData.dni} onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 12) setManualData(p => ({ ...p, dni: v })) }} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="12345678" />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Método de entrega</label>
                 <div className="flex gap-2">
-                  <button onClick={() => setManualData(p => ({ ...p, delivery_method: 'motorizado', agency_name: '' }))}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium border ${manualData.delivery_method === 'motorizado' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>🛵 Motorizado</button>
-                  {agencies.length > 0 && (
-                    <button onClick={() => setManualData(p => ({ ...p, delivery_method: 'agencia' }))}
-                      className={`flex-1 py-2 rounded-xl text-sm font-medium border ${manualData.delivery_method === 'agencia' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>📦 Agencia</button>
-                  )}
+                  <button onClick={() => setManualData(p => ({ ...p, delivery_method: 'motorizado', agency_name: '' }))} className={`flex-1 py-2 rounded-xl text-sm font-medium border ${manualData.delivery_method === 'motorizado' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>🛵 Motorizado</button>
+                  {agencies.length > 0 && <button onClick={() => setManualData(p => ({ ...p, delivery_method: 'agencia' }))} className={`flex-1 py-2 rounded-xl text-sm font-medium border ${manualData.delivery_method === 'agencia' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>📦 Agencia</button>}
                 </div>
               </div>
               {manualData.delivery_method === 'agencia' && agencies.length > 0 && (
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Agencia</label>
-                  <select value={manualData.agency_name} onChange={e => setManualData(p => ({ ...p, agency_name: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <select value={manualData.agency_name} onChange={e => setManualData(p => ({ ...p, agency_name: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Selecciona agencia</option>
                     {agencies.map(a => <option key={a.id} value={a.agency_name}>{a.agency_name}</option>)}
                   </select>
@@ -593,31 +595,26 @@ export default function OrdersPage() {
               )}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Dirección / Destino</label>
-                <input type="text" value={manualData.destination} onChange={e => setManualData(p => ({ ...p, destination: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Av. Principal 123" />
+                <input type="text" value={manualData.destination} onChange={e => setManualData(p => ({ ...p, destination: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Av. Principal 123" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Referencia</label>
-                <input type="text" value={manualData.reference} onChange={e => setManualData(p => ({ ...p, reference: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Casa azul, frente al parque" />
+                <input type="text" value={manualData.reference} onChange={e => setManualData(p => ({ ...p, reference: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Casa azul, frente al parque" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Total (S/) *</label>
-                <input type="number" value={manualData.total_amount} onChange={e => setManualData(p => ({ ...p, total_amount: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00" />
+                <input type="number" value={manualData.total_amount} onChange={e => setManualData(p => ({ ...p, total_amount: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0.00" />
               </div>
             </div>
             <div className="flex gap-3 p-5 border-t border-gray-100 sticky bottom-0 bg-white">
               <button onClick={() => { setShowManual(false); resetManual() }} className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium">Cancelar</button>
-              <button onClick={saveManualOrder} disabled={manualSaving} className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">
-                {manualSaving ? 'Guardando...' : 'Guardar pedido'}
-              </button>
+              <button onClick={saveManualOrder} disabled={manualSaving} className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">{manualSaving ? 'Guardando...' : 'Guardar pedido'}</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── MODAL EDITAR ── */}
+      {/* MODAL EDITAR */}
       {editOrder && editData && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-lg max-h-screen overflow-y-auto">
@@ -628,107 +625,67 @@ export default function OrdersPage() {
               </div>
               <button onClick={closeEdit} className="text-gray-400 hover:text-gray-600 text-2xl font-bold w-8 h-8 flex items-center justify-center">×</button>
             </div>
-
             <div className="p-4 sm:p-5 space-y-5">
-
-              {/* DATOS DEL CLIENTE */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Datos del cliente</h3>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Nombre completo</label>
-                    <input type="text" value={editData.name} onChange={e => setEditData((p: any) => ({ ...p, name: e.target.value }))}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" value={editData.name} onChange={e => setEditData((p: any) => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">DNI / CE</label>
-                      <input type="text" value={editData.dni} onChange={e => setEditData((p: any) => ({ ...p, dni: e.target.value }))}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="text" value={editData.dni} onChange={e => setEditData((p: any) => ({ ...p, dni: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Celular</label>
-                      <input type="tel" value={editData.phone} onChange={e => setEditData((p: any) => ({ ...p, phone: e.target.value }))}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="tel" value={editData.phone} onChange={e => setEditData((p: any) => ({ ...p, phone: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   </div>
                 </div>
               </div>
-
-              {/* ── PRODUCTOS DEL PEDIDO ── */}
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-gray-700">Productos del pedido</h3>
-                  <button
-                    onClick={() => setShowProductSearch(!showProductSearch)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors">
-                    🔍 Buscar producto
-                  </button>
+                  <button onClick={() => setShowProductSearch(!showProductSearch)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg text-xs font-semibold hover:bg-blue-100 transition-colors">🔍 Buscar producto</button>
                 </div>
-
-                {/* Buscador de productos */}
                 {showProductSearch && (
                   <div className="mb-3 border border-blue-200 rounded-xl overflow-hidden">
                     <div className="p-3 bg-blue-50">
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-                        <input
-                          type="text"
-                          value={productSearch}
-                          onChange={e => setProductSearch(e.target.value)}
-                          placeholder="Buscar por nombre o categoría..."
-                          autoFocus
-                          className="w-full pl-8 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
-                        {productSearch && (
-                          <button onClick={() => setProductSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>
-                        )}
+                        <input type="text" value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Buscar por nombre o categoría..." autoFocus className="w-full pl-8 pr-8 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                        {productSearch && <button onClick={() => setProductSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>}
                       </div>
                     </div>
-
                     <div className="max-h-56 overflow-y-auto bg-white">
-                      {filteredProducts.length === 0 ? (
+                      {filteredProductsSearch.length === 0 ? (
                         <p className="text-center text-gray-400 text-sm py-6">No se encontraron productos</p>
-                      ) : (
-                        filteredProducts.map(product => (
-                          <div key={product.id} className="border-b border-gray-100 last:border-0">
-                            <div className="px-3 py-2 bg-gray-50 flex items-center justify-between">
-                              <div>
-                                <p className="text-xs font-semibold text-gray-800">{product.name}</p>
-                                {product.category && <p className="text-xs text-gray-400">{product.category} · S/ {Number(product.sale_price).toFixed(2)}</p>}
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5 px-3 py-2">
-                              {product.variants && product.variants.length > 0 ? (
-                                product.variants.map((v: any) => (
-                                  <button
-                                    key={v.id}
-                                    onClick={() => addItemToEdit(product, v)}
-                                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors">
-                                    + {v.color}
-                                  </button>
-                                ))
-                              ) : (
-                                <button
-                                  onClick={() => addItemToEdit(product, { id: product.id, color: 'Único' })}
-                                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors">
-                                  + Agregar
-                                </button>
-                              )}
+                      ) : filteredProductsSearch.map(product => (
+                        <div key={product.id} className="border-b border-gray-100 last:border-0">
+                          <div className="px-3 py-2 bg-gray-50 flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-semibold text-gray-800">{product.name}</p>
+                              {product.category && <p className="text-xs text-gray-400">{product.category} · S/ {Number(product.sale_price).toFixed(2)}</p>}
                             </div>
                           </div>
-                        ))
-                      )}
+                          <div className="flex flex-wrap gap-1.5 px-3 py-2">
+                            {product.variants && product.variants.length > 0
+                              ? product.variants.map((v: any) => (
+                                  <button key={v.id} onClick={() => addItemToEdit(product, v)} className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors">+ {v.color}</button>
+                                ))
+                              : <button onClick={() => addItemToEdit(product, { id: product.id, color: 'Único' })} className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors">+ Agregar</button>
+                            }
+                          </div>
+                        </div>
+                      ))}
                     </div>
-
                     <div className="p-2 bg-gray-50 border-t border-gray-100 text-center">
-                      <button onClick={() => { setShowProductSearch(false); setProductSearch('') }}
-                        className="text-xs text-gray-500 font-medium hover:text-gray-700">Cerrar buscador ↑</button>
+                      <button onClick={() => { setShowProductSearch(false); setProductSearch('') }} className="text-xs text-gray-500 font-medium hover:text-gray-700">Cerrar buscador ↑</button>
                     </div>
                   </div>
                 )}
-
-                {/* Items actuales */}
                 {editItems.length === 0 ? (
                   <div className="text-center py-5 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                     <p className="text-gray-400 text-sm">Sin productos. Usa "Buscar producto" para agregar.</p>
@@ -742,32 +699,22 @@ export default function OrdersPage() {
                             <p className="text-sm font-medium text-gray-900 truncate">{item.product_name}</p>
                             <p className="text-xs text-gray-500">{item.color}</p>
                           </div>
-                          <button onClick={() => updateEditItemQty(index, 0)}
-                            className="text-red-400 hover:text-red-600 text-xl leading-none w-6 h-6 flex items-center justify-center flex-shrink-0">×</button>
+                          <button onClick={() => updateEditItemQty(index, 0)} className="text-red-400 hover:text-red-600 text-xl leading-none w-6 h-6 flex items-center justify-center flex-shrink-0">×</button>
                         </div>
                         <div className="flex items-center gap-3">
-                          {/* Cantidad */}
                           <div className="flex items-center gap-1.5">
-                            <button onClick={() => updateEditItemQty(index, item.quantity - 1)}
-                              className="w-7 h-7 rounded-full bg-white border border-gray-200 text-gray-600 font-bold text-sm flex items-center justify-center hover:bg-gray-100">−</button>
+                            <button onClick={() => updateEditItemQty(index, item.quantity - 1)} className="w-7 h-7 rounded-full bg-white border border-gray-200 text-gray-600 font-bold text-sm flex items-center justify-center hover:bg-gray-100">−</button>
                             <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
-                            <button onClick={() => updateEditItemQty(index, item.quantity + 1)}
-                              className="w-7 h-7 rounded-full bg-white border border-gray-200 text-gray-600 font-bold text-sm flex items-center justify-center hover:bg-gray-100">+</button>
+                            <button onClick={() => updateEditItemQty(index, item.quantity + 1)} className="w-7 h-7 rounded-full bg-white border border-gray-200 text-gray-600 font-bold text-sm flex items-center justify-center hover:bg-gray-100">+</button>
                           </div>
-                          {/* Precio unitario editable */}
                           <div className="flex items-center gap-1 ml-2">
                             <span className="text-xs text-gray-500">S/</span>
-                            <input
-                              type="number" step="0.01" value={item.unit_price}
-                              onChange={e => updateEditItemPrice(index, parseFloat(e.target.value) || 0)}
-                              className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
-                            />
+                            <input type="number" step="0.01" value={item.unit_price} onChange={e => updateEditItemPrice(index, parseFloat(e.target.value) || 0)} className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
                           </div>
                           <span className="text-sm font-bold text-gray-800 ml-auto">S/ {(item.unit_price * item.quantity).toFixed(2)}</span>
                         </div>
                       </div>
                     ))}
-                    {/* Total editable */}
                     <div className="pt-2 border-t border-gray-200 mt-1 space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-xs text-gray-500">Calculado de items</span>
@@ -775,107 +722,67 @@ export default function OrdersPage() {
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm font-semibold text-gray-700">Total del pedido (S/)</span>
-                        <input
-                          type="number" step="0.01"
-                          value={editData.total_amount}
-                          onChange={e => setEditData((p: any) => ({ ...p, total_amount: e.target.value }))}
-                          className="w-28 px-3 py-1.5 border border-gray-300 rounded-xl text-sm text-right font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        <input type="number" step="0.01" value={editData.total_amount} onChange={e => setEditData((p: any) => ({ ...p, total_amount: e.target.value }))} className="w-28 px-3 py-1.5 border border-gray-300 rounded-xl text-sm text-right font-bold focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <p className="text-xs text-gray-400">Este monto se registra en Finanzas al marcar como entregado</p>
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* ENTREGA */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Entrega</h3>
                 <div className="flex gap-2 mb-3">
-                  <button onClick={() => setEditData((p: any) => ({ ...p, delivery_method: 'motorizado', agency_name: '' }))}
-                    className={'flex-1 py-2.5 rounded-xl text-sm font-medium border ' + (editData.delivery_method === 'motorizado' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200')}>
-                    🛵 Motorizado
-                  </button>
-                  {editAgencies.length > 0 && (
-                    <button onClick={() => setEditData((p: any) => ({ ...p, delivery_method: 'agencia', lat: '', lng: '' }))}
-                      className={'flex-1 py-2.5 rounded-xl text-sm font-medium border ' + (editData.delivery_method === 'agencia' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200')}>
-                      📦 Agencia
-                    </button>
-                  )}
+                  <button onClick={() => setEditData((p: any) => ({ ...p, delivery_method: 'motorizado', agency_name: '' }))} className={'flex-1 py-2.5 rounded-xl text-sm font-medium border ' + (editData.delivery_method === 'motorizado' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200')}>🛵 Motorizado</button>
+                  {editAgencies.length > 0 && <button onClick={() => setEditData((p: any) => ({ ...p, delivery_method: 'agencia', lat: '', lng: '' }))} className={'flex-1 py-2.5 rounded-xl text-sm font-medium border ' + (editData.delivery_method === 'agencia' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200')}>📦 Agencia</button>}
                 </div>
-
                 {editData.delivery_method === 'motorizado' && (
                   <div className="space-y-3">
                     <div className="relative">
                       <label className="block text-xs font-medium text-gray-600 mb-1">Dirección</label>
-                      <input type="text" value={editData.destination} onChange={e => handleEditAddress(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="text" value={editData.destination} onChange={e => handleEditAddress(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       {editSuggestions.length > 0 && (
                         <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-xl shadow-lg mt-1 max-h-40 overflow-y-auto">
                           {editSuggestions.map((s: any, i: number) => (
-                            <button key={i} onClick={() => selectEditSuggestion(s)}
-                              className="w-full text-left px-3 py-2.5 text-xs text-gray-700 hover:bg-blue-50 border-b border-gray-50 last:border-0">{s.display_name}</button>
+                            <button key={i} onClick={() => selectEditSuggestion(s)} className="w-full text-left px-3 py-2.5 text-xs text-gray-700 hover:bg-blue-50 border-b border-gray-50 last:border-0">{s.display_name}</button>
                           ))}
                         </div>
                       )}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Referencia</label>
-                      <input type="text" value={editData.reference} onChange={e => setEditData((p: any) => ({ ...p, reference: e.target.value }))}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="text" value={editData.reference} onChange={e => setEditData((p: any) => ({ ...p, reference: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Coordenadas</label>
-                      <input
-                        type="text" placeholder="(-12.0508110, -76.9717180)"
-                        defaultValue={editData.lat && editData.lng ? `(${editData.lat}, ${editData.lng})` : ''}
-                        onChange={e => {
-                          const match = e.target.value.match(/\(?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\)?/)
-                          if (match) setEditData((p: any) => ({ ...p, lat: match[1], lng: match[2] }))
-                        }}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-                      />
-                      {editData.lat && editData.lng
-                        ? <p className="text-xs text-green-600 mt-1">📍 Lat: {Number(editData.lat).toFixed(6)}, Lng: {Number(editData.lng).toFixed(6)}</p>
-                        : <p className="text-xs text-gray-400 mt-1">Pega las coordenadas en cualquier formato</p>
-                      }
+                      <input type="text" placeholder="(-12.0508110, -76.9717180)" defaultValue={editData.lat && editData.lng ? `(${editData.lat}, ${editData.lng})` : ''} onChange={e => { const match = e.target.value.match(/\(?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\)?/); if (match) setEditData((p: any) => ({ ...p, lat: match[1], lng: match[2] })) }} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                      {editData.lat && editData.lng ? <p className="text-xs text-green-600 mt-1">📍 Lat: {Number(editData.lat).toFixed(6)}, Lng: {Number(editData.lng).toFixed(6)}</p> : <p className="text-xs text-gray-400 mt-1">Pega las coordenadas en cualquier formato</p>}
                     </div>
                   </div>
                 )}
-
                 {editData.delivery_method === 'agencia' && (
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Agencia</label>
-                      <select value={editData.agency_name} onChange={e => setEditData((p: any) => ({ ...p, agency_name: e.target.value, destination: '' }))}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <select value={editData.agency_name} onChange={e => setEditData((p: any) => ({ ...p, agency_name: e.target.value, destination: '' }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Selecciona agencia</option>
                         {editAgencies.map((a: any) => <option key={a.id} value={a.agency_name}>{a.agency_name}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Destino</label>
-                      <input type="text" value={editData.destination} onChange={e => setEditData((p: any) => ({ ...p, destination: e.target.value }))}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      <input type="text" value={editData.destination} onChange={e => setEditData((p: any) => ({ ...p, destination: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* MONTO PENDIENTE */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Monto pendiente (S/)</label>
-                <input type="number" step="0.01" value={editData.pending_amount}
-                  onChange={e => setEditData((p: any) => ({ ...p, pending_amount: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input type="number" step="0.01" value={editData.pending_amount} onChange={e => setEditData((p: any) => ({ ...p, pending_amount: e.target.value }))} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
-
             <div className="flex gap-3 p-4 sm:p-5 border-t border-gray-100 sticky bottom-0 bg-white">
               <button onClick={closeEdit} className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium">Cancelar</button>
-              <button onClick={saveEdit} disabled={editSaving} className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">
-                {editSaving ? 'Guardando...' : 'Guardar'}
-              </button>
+              <button onClick={saveEdit} disabled={editSaving} className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">{editSaving ? 'Guardando...' : 'Guardar'}</button>
             </div>
           </div>
         </div>
