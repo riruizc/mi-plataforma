@@ -213,30 +213,60 @@ export default function InventoryPage() {
       let productId = editingProduct?.id
 
       if (editingProduct) {
-        // Update producto
+        // 1. Actualizar datos del producto
         const { error: updateError } = await supabase
           .from('products')
           .update(productUpdate)
           .eq('id', editingProduct.id)
-        if (updateError) { alert('Error al actualizar: ' + updateError.message); return }
+        if (updateError) { alert('Error al actualizar: ' + updateError.message); setSaving(false); return }
 
-        // Borrar variantes existentes y verificar que se completó
-        const { error: deleteError } = await supabase
-          .from('product_variants')
-          .delete()
-          .eq('product_id', editingProduct.id)
-        if (deleteError) { alert('Error al borrar variantes: ' + deleteError.message); setSaving(false); return }
-        
-        // Verificar que quedaron en 0
-        const { data: remaining } = await supabase
-          .from('product_variants')
-          .select('id')
-          .eq('product_id', editingProduct.id)
-        if (remaining && remaining.length > 0) {
-          alert('Error: no se pudieron eliminar las variantes anteriores. Intenta de nuevo.')
-          setSaving(false)
-          return
+        // 2. Manejo inteligente de variantes (sin borrar las que tienen pedidos)
+        const newVariants = variants.filter(v => v.color.trim())
+        const existingVariants = editingProduct.variants || []
+
+        // Actualizar o insertar cada variante del formulario
+        for (const v of newVariants) {
+          const match = existingVariants.find(e =>
+            e.id === (v as any).id ||
+            e.color.trim().toLowerCase() === v.color.trim().toLowerCase()
+          )
+          if (match?.id) {
+            // Actualizar variante existente
+            await supabase.from('product_variants')
+              .update({ color: v.color.trim(), stock: Number(v.stock) || 0 })
+              .eq('id', match.id)
+          } else {
+            // Insertar variante nueva
+            await supabase.from('product_variants').insert({
+              product_id: editingProduct.id,
+              store_id: store.id,
+              color: v.color.trim(),
+              stock: Number(v.stock) || 0
+            })
+          }
         }
+
+        // Borrar variantes que fueron eliminadas del formulario
+        for (const existing of existingVariants) {
+          if (!existing.id) continue
+          const stillInForm = newVariants.find(v =>
+            (v as any).id === existing.id ||
+            v.color.trim().toLowerCase() === existing.color.trim().toLowerCase()
+          )
+          if (!stillInForm) {
+            // Verificar si tiene pedidos antes de borrar
+            const { data: refs } = await supabase
+              .from('order_items')
+              .select('id')
+              .eq('variant_id', existing.id)
+              .limit(1)
+            if (!refs || refs.length === 0) {
+              await supabase.from('product_variants').delete().eq('id', existing.id)
+            }
+            // Si tiene pedidos asociados, no se borra (integridad de datos)
+          }
+        }
+
       } else {
         // Insertar nuevo producto
         const { data: newProduct, error } = await supabase
@@ -244,26 +274,25 @@ export default function InventoryPage() {
           .insert({ ...productUpdate, store_id: store.id })
           .select('id')
           .single()
-        if (error) { alert('Error al crear: ' + error.message); return }
+        if (error) { alert('Error al crear: ' + error.message); setSaving(false); return }
         productId = newProduct?.id
-      }
 
-      // Insertar variantes nuevas (sin duplicados de color)
-      const validVariants = variants.filter(v => v.color.trim())
-      const uniqueVariants = validVariants.filter((v, i, arr) =>
-        arr.findIndex(x => x.color.trim().toLowerCase() === v.color.trim().toLowerCase()) === i
-      )
-      if (uniqueVariants.length > 0 && productId) {
-        await new Promise(r => setTimeout(r, 300))
-        const { error: varError } = await supabase.from('product_variants').insert(
-          uniqueVariants.map(v => ({
-            product_id: productId,
-            store_id: store.id,
-            color: v.color.trim(),
-            stock: Number(v.stock) || 0
-          }))
+        // Insertar variantes del nuevo producto
+        const validVariants = variants.filter(v => v.color.trim())
+        const uniqueVariants = validVariants.filter((v, i, arr) =>
+          arr.findIndex(x => x.color.trim().toLowerCase() === v.color.trim().toLowerCase()) === i
         )
-        if (varError) { alert('Error al guardar variantes: ' + varError.message); setSaving(false); return }
+        if (uniqueVariants.length > 0 && productId) {
+          const { error: varError } = await supabase.from('product_variants').insert(
+            uniqueVariants.map(v => ({
+              product_id: productId,
+              store_id: store.id,
+              color: v.color.trim(),
+              stock: Number(v.stock) || 0
+            }))
+          )
+          if (varError) { alert('Error al guardar variantes: ' + varError.message); setSaving(false); return }
+        }
       }
 
       setShowForm(false)
