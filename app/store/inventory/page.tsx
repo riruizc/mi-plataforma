@@ -233,18 +233,22 @@ export default function InventoryPage() {
         productId = newProduct?.id
       }
 
-      // Insertar variantes nuevas
+      // Insertar variantes nuevas (sin duplicados de color)
       const validVariants = variants.filter(v => v.color.trim())
-      if (validVariants.length > 0 && productId) {
+      const uniqueVariants = validVariants.filter((v, i, arr) =>
+        arr.findIndex(x => x.color.trim().toLowerCase() === v.color.trim().toLowerCase()) === i
+      )
+      if (uniqueVariants.length > 0 && productId) {
+        await new Promise(r => setTimeout(r, 300))
         const { error: varError } = await supabase.from('product_variants').insert(
-          validVariants.map(v => ({
+          uniqueVariants.map(v => ({
             product_id: productId,
             store_id: store.id,
             color: v.color.trim(),
             stock: Number(v.stock) || 0
           }))
         )
-        if (varError) { alert('Error al guardar variantes: ' + varError.message); return }
+        if (varError) { alert('Error al guardar variantes: ' + varError.message); setSaving(false); return }
       }
 
       setShowForm(false)
