@@ -71,7 +71,7 @@ export default function InventoryPage() {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
+      const { data: store } = await supabase.from('stores').select('id').eq('email', (user.email ?? '').toLowerCase()).single()
       if (!store) return
       setStoreId(store.id)
       const { data } = await supabase.from('products').select('*, product_variants(*)').eq('store_id', store.id).order('created_at', { ascending: false })
@@ -192,13 +192,14 @@ export default function InventoryPage() {
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
-      if (!store) return
+      if (!user) { alert('No hay sesión activa'); setSaving(false); return }
+      const { data: store } = await supabase.from('stores').select('id').eq('email', (user.email ?? '').toLowerCase()).single()
+      if (!store) { alert('No se encontró la tienda'); setSaving(false); return }
 
-      const productData = {
-        store_id: store.id,
-        name: form.name, category: form.category,
+      // Separar datos de producto (sin store_id para el update)
+      const productUpdate = {
+        name: form.name,
+        category: form.category,
         cost_price: parseFloat(form.cost_price) || 0,
         sale_price: parseFloat(form.sale_price) || 0,
         barcode: form.barcode.trim() || null,
@@ -210,24 +211,49 @@ export default function InventoryPage() {
       }
 
       let productId = editingProduct?.id
+
       if (editingProduct) {
-        await supabase.from('products').update(productData).eq('id', editingProduct.id)
+        // Update producto
+        const { error: updateError } = await supabase
+          .from('products')
+          .update(productUpdate)
+          .eq('id', editingProduct.id)
+        if (updateError) { alert('Error al actualizar: ' + updateError.message); return }
+
+        // Borrar variantes existentes
         await supabase.from('product_variants').delete().eq('product_id', editingProduct.id)
       } else {
-        const { data: newProduct, error } = await supabase.from('products').insert(productData).select('id').single()
-        if (error) { alert('Error: ' + error.message); return }
+        // Insertar nuevo producto
+        const { data: newProduct, error } = await supabase
+          .from('products')
+          .insert({ ...productUpdate, store_id: store.id })
+          .select('id')
+          .single()
+        if (error) { alert('Error al crear: ' + error.message); return }
         productId = newProduct?.id
       }
 
+      // Insertar variantes nuevas
       const validVariants = variants.filter(v => v.color.trim())
       if (validVariants.length > 0 && productId) {
-        await supabase.from('product_variants').insert(
-          validVariants.map(v => ({ product_id: productId, store_id: store.id, color: v.color, stock: Number(v.stock) || 0 }))
+        const { error: varError } = await supabase.from('product_variants').insert(
+          validVariants.map(v => ({
+            product_id: productId,
+            store_id: store.id,
+            color: v.color.trim(),
+            stock: Number(v.stock) || 0
+          }))
         )
+        if (varError) { alert('Error al guardar variantes: ' + varError.message); return }
       }
-      setShowForm(false); loadProducts()
-    } catch (e: any) { alert('Error: ' + e.message) }
-    finally { setSaving(false) }
+
+      setShowForm(false)
+      loadProducts()
+    } catch (e: any) {
+      alert('Error inesperado: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const toggleActive = async (product: Product) => {
