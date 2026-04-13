@@ -220,8 +220,23 @@ export default function InventoryPage() {
           .eq('id', editingProduct.id)
         if (updateError) { alert('Error al actualizar: ' + updateError.message); return }
 
-        // Borrar variantes existentes
-        await supabase.from('product_variants').delete().eq('product_id', editingProduct.id)
+        // Borrar variantes existentes y verificar que se completó
+        const { error: deleteError } = await supabase
+          .from('product_variants')
+          .delete()
+          .eq('product_id', editingProduct.id)
+        if (deleteError) { alert('Error al borrar variantes: ' + deleteError.message); setSaving(false); return }
+        
+        // Verificar que quedaron en 0
+        const { data: remaining } = await supabase
+          .from('product_variants')
+          .select('id')
+          .eq('product_id', editingProduct.id)
+        if (remaining && remaining.length > 0) {
+          alert('Error: no se pudieron eliminar las variantes anteriores. Intenta de nuevo.')
+          setSaving(false)
+          return
+        }
       } else {
         // Insertar nuevo producto
         const { data: newProduct, error } = await supabase
