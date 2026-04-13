@@ -248,6 +248,7 @@ export default function InventoryPage() {
 
         // Borrar variantes que fueron eliminadas del formulario
         // Una variante se eliminó si su id ya no aparece en el formulario
+        let hasLockedVariants = false
         const newVariantIds = newVariants
           .map(v => (v as any).id)
           .filter(Boolean)
@@ -263,10 +264,18 @@ export default function InventoryPage() {
               .eq('variant_id', existing.id)
               .limit(1)
             if (!refs || refs.length === 0) {
+              // Sin pedidos: borrar completamente
               await supabase.from('product_variants').delete().eq('id', existing.id)
+            } else {
+              // Con pedidos: solo poner stock en 0 (no se puede borrar sin romper historial)
+              await supabase.from('product_variants').update({ stock: 0 }).eq('id', existing.id)
+              hasLockedVariants = true
             }
-            // Si tiene pedidos no se borra — integridad de datos
           }
+        }
+
+        if (hasLockedVariants) {
+          alert('Algunas variantes eliminadas tienen pedidos en el historial y se han dejado con stock 0 (no se pueden eliminar para conservar el historial de ventas).')
         }
 
       } else {
