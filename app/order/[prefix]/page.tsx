@@ -202,7 +202,7 @@ export default function OrderForm() {
         ])
 
       setAgencies(agencyData || [])
-      setProducts((prods || []).map((p: any) => ({ ...p, variants: p.product_variants || [] })))
+      setProducts((prods || []).map((p: any) => ({ ...p, variants: (p.product_variants || []).filter((v: any) => v.stock > 0) })))
 
       const comboIds = (combosData || []).map((c: any) => c.id)
       let mappedCombos: Combo[] = (combosData || []).map((c: any) => ({ ...c, items: [] }))

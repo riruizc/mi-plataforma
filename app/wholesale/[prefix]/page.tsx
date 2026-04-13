@@ -52,7 +52,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
       product_id: wp.product_id, base_price: wp.base_price,
       product_name: wp.products?.name || '',
       image_url: wp.products?.image_url || null,
-      variants: wp.products?.product_variants || []
+      variants: (wp.products?.product_variants || []).filter((v: any) => v.stock > 0)
     })))
 
     const pkgIds = (wPkgs || []).map((p: any) => p.id)
