@@ -113,8 +113,12 @@ function MapPicker({ lat, lng, onSelect, themeColor }: {
     const L = await import('leaflet')
     await import('leaflet/dist/leaflet.css' as any)
     if ((mapRef.current as any)._leaflet_id) { (mapRef.current as any)._leaflet_id = null }
-    const map = L.map(mapRef.current).setView([-8.1116, -79.0286], 14)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map)
+    // Lima, Perú como centro por defecto
+    const map = L.map(mapRef.current).setView([-12.0464, -77.0428], 13)
+    // Tiles de Esri — más actualizados en Lima y Perú
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri'
+    }).addTo(map)
     map.on('click', (e: any) => {
       const { lat, lng } = e.latlng
       if (markerRef.current) markerRef.current.remove()
@@ -122,8 +126,22 @@ function MapPicker({ lat, lng, onSelect, themeColor }: {
       markerRef.current = L.marker([lat, lng], { icon }).addTo(map)
       onSelect(lat, lng)
     })
-    if (navigator.geolocation) navigator.geolocation.getCurrentPosition((pos) => { map.setView([pos.coords.latitude, pos.coords.longitude], 16) })
     mapInstanceRef.current = map
+    // Auto-geolocalizar al abrir el mapa
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords
+          map.setView([latitude, longitude], 17)
+          const icon = L.divIcon({ className: '', html: '<div style="background:' + themeColor + ';width:22px;height:22px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>', iconSize: [22, 22], iconAnchor: [11, 11] })
+          if (markerRef.current) markerRef.current.remove()
+          markerRef.current = L.marker([latitude, longitude], { icon }).addTo(map)
+          onSelect(latitude, longitude)
+        },
+        () => { /* Si el usuario no da permisos, queda en Lima */ },
+        { timeout: 8000, enableHighAccuracy: true }
+      )
+    }
   }
 
   return (
