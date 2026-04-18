@@ -298,13 +298,39 @@ export default function OrderForm() {
     setSubmitting(true)
     try {
       const supabase = createClient()
-      // maybeSingle() en vez de single() — no lanza error si no existe el cliente
-      const { data: existingCustomer } = await supabase.from('customers').select('id').eq('store_id', store.id).eq('phone', customer.phone).maybeSingle()
-      let customerId = existingCustomer?.id
-      if (!customerId) {
-        const { data: newCustomer, error: insertError } = await supabase.from('customers').insert({ store_id: store.id, name: customer.name, phone: customer.phone, dni: customer.dni || null }).select('id').single()
-        if (insertError) { console.error('Error creando cliente:', insertError); }
-        customerId = newCustomer?.id
+      // Buscar cliente existente por teléfono
+      let customerId: string | undefined
+      const { data: existingCustomer } = await supabase
+        .from('customers').select('id')
+        .eq('store_id', store.id)
+        .eq('phone', customer.phone)
+        .maybeSingle()
+      
+      if (existingCustomer?.id) {
+        // Cliente ya existe — actualizar sus datos
+        customerId = existingCustomer.id
+        await supabase.from('customers')
+          .update({ name: customer.name, dni: customer.dni || null })
+          .eq('id', existingCustomer.id)
+      } else {
+        // Cliente nuevo — insertar
+        const { data: newCustomer, error: insertError } = await supabase
+          .from('customers')
+          .insert({ store_id: store.id, name: customer.name, phone: customer.phone, dni: customer.dni || null })
+          .select('id')
+          .maybeSingle()
+        
+        if (insertError) {
+          // Si falló por duplicado, buscarlo de nuevo
+          const { data: retryCustomer } = await supabase
+            .from('customers').select('id')
+            .eq('store_id', store.id)
+            .eq('phone', customer.phone)
+            .maybeSingle()
+          customerId = retryCustomer?.id
+        } else {
+          customerId = newCustomer?.id
+        }
       }
       const year = new Date().getFullYear()
       const { data: counterData } = await supabase.rpc('increment_order_counter', { p_store_id: store.id })
