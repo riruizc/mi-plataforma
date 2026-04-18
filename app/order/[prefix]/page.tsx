@@ -298,10 +298,12 @@ export default function OrderForm() {
     setSubmitting(true)
     try {
       const supabase = createClient()
-      const { data: existingCustomer } = await supabase.from('customers').select('id').eq('store_id', store.id).eq('phone', customer.phone).single()
+      // maybeSingle() en vez de single() — no lanza error si no existe el cliente
+      const { data: existingCustomer } = await supabase.from('customers').select('id').eq('store_id', store.id).eq('phone', customer.phone).maybeSingle()
       let customerId = existingCustomer?.id
       if (!customerId) {
-        const { data: newCustomer } = await supabase.from('customers').insert({ store_id: store.id, name: customer.name, phone: customer.phone, dni: customer.dni }).select('id').single()
+        const { data: newCustomer, error: insertError } = await supabase.from('customers').insert({ store_id: store.id, name: customer.name, phone: customer.phone, dni: customer.dni || null }).select('id').single()
+        if (insertError) { console.error('Error creando cliente:', insertError); }
         customerId = newCustomer?.id
       }
       const year = new Date().getFullYear()
