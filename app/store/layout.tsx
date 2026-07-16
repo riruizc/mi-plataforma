@@ -23,9 +23,9 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
     let channelRef: any = null
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
-      if (!store) return
+      if (!user) { router.push('/login'); return }
+      const { data: store } = await supabase.from('stores').select('id, status').eq('email', user.email).single()
+      if (!store || (store.status !== 'active' && store.status !== 'admin')) { router.push('/pending'); return }
 
       const { data: feat } = await supabase.from('store_features').select('*').eq('store_id', store.id).single()
       if (feat) {

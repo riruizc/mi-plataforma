@@ -53,6 +53,7 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
       .from('stores')
       .select('id, name, phone, theme_color, button_color, text_color, logo_url, store_prefix, contact_whatsapp_msg, catalog_active')
       .eq('store_prefix', prefix.toUpperCase())
+      .eq('status', 'active')
       .single()
 
     if (!storeData || !storeData.catalog_active) {

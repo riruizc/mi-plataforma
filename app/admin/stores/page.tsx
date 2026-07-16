@@ -62,11 +62,16 @@ export default function StoresPage() {
     loadStores()
   }
 
-  const extendPlan = async (storeId: string, days: number) => {
+  const extendPlan = async (store: Store, days: number) => {
     const supabase = createClient()
-    const expires = new Date()
+    const now = new Date()
+    const currentExpiry = store.expires_at ? new Date(store.expires_at) : null
+    // Si el plan aún no venció, se extiende desde su fecha de vencimiento;
+    // si ya venció (o no tenía fecha), se cuenta desde hoy.
+    const base = currentExpiry && currentExpiry > now ? currentExpiry : now
+    const expires = new Date(base)
     expires.setDate(expires.getDate() + days)
-    await supabase.from('stores').update({ expires_at: expires.toISOString() }).eq('id', storeId)
+    await supabase.from('stores').update({ expires_at: expires.toISOString() }).eq('id', store.id)
     loadStores()
   }
 
@@ -276,7 +281,7 @@ export default function StoresPage() {
                   {store.status === 'active' ? '🔴 Desactivar' : '🟢 Activar'}
                 </button>
                 {[30, 60, 90].map(days => (
-                  <button key={days} onClick={() => extendPlan(store.id, days)}
+                  <button key={days} onClick={() => extendPlan(store, days)}
                     className="py-2 rounded-lg text-xs font-medium bg-blue-50 text-blue-600 touch-manipulation">
                     +{days} días
                   </button>

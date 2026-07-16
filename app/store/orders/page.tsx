@@ -153,7 +153,7 @@ export default function OrdersPage() {
   const handleCancel = async (order: Order) => {
     if (!confirm('¿Cancelar este pedido? Se reintegrará el stock de los productos.')) return
     const supabase = createClient()
-    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id)
+    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id).eq('store_id', storeId)
     if (order.status === 'delivered') await removeFinanceTransaction(order.id)
     if (order.order_items && order.order_items.length > 0) {
       for (const item of order.order_items) {
@@ -168,7 +168,7 @@ export default function OrdersPage() {
     const supabase = createClient()
     const updateData: any = { status: newStatus }
     if (newStatus === 'delivered') updateData.delivered_at = new Date().toISOString()
-    await supabase.from('orders').update(updateData).eq('id', order.id)
+    await supabase.from('orders').update(updateData).eq('id', order.id).eq('store_id', storeId)
     if (newStatus === 'delivered' && order.status !== 'delivered' && storeId) {
       await supabase.from('finance_transactions').insert({ store_id: storeId, type: 'income', source: 'order', description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id })
     } else if (newStatus !== 'delivered' && order.status === 'delivered') {
@@ -179,7 +179,7 @@ export default function OrdersPage() {
 
   const handleDeliver = async (order: Order) => {
     const supabase = createClient()
-    await supabase.from('orders').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', order.id)
+    await supabase.from('orders').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', order.id).eq('store_id', storeId)
     if (order.status !== 'delivered' && storeId) {
       await supabase.from('finance_transactions').insert({ store_id: storeId, type: 'income', source: 'order', description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id })
     }
@@ -330,17 +330,46 @@ export default function OrdersPage() {
   const editTotal = editItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0)
 
   const saveEdit = async () => {
-    if (!editOrder || !editData) return
+    if (!editOrder || !editData || !storeId) return
     setEditSaving(true)
     try {
       const supabase = createClient()
       if (editOrder.customer_id) {
-        await supabase.from('customers').update({ name: editData.name, phone: editData.phone, dni: editData.dni }).eq('id', editOrder.customer_id)
+        await supabase.from('customers').update({ name: editData.name, phone: editData.phone, dni: editData.dni }).eq('id', editOrder.customer_id).eq('store_id', storeId)
       }
       const newTotal = editData.total_amount !== '' && editData.total_amount !== undefined
         ? parseFloat(String(editData.total_amount))
         : (editItems.length > 0 ? editTotal : editOrder.total_amount)
-      await supabase.from('orders').update({ delivery_method: editData.delivery_method, destination: editData.destination, reference: editData.reference, lat: editData.lat ? parseFloat(editData.lat) : null, lng: editData.lng ? parseFloat(editData.lng) : null, agency_name: editData.agency_name || null, pending_amount: parseFloat(editData.pending_amount) || 0, total_amount: newTotal }).eq('id', editOrder.id)
+      const { data: updatedOrder } = await supabase.from('orders').update({ delivery_method: editData.delivery_method, destination: editData.destination, reference: editData.reference, lat: editData.lat ? parseFloat(editData.lat) : null, lng: editData.lng ? parseFloat(editData.lng) : null, agency_name: editData.agency_name || null, pending_amount: parseFloat(editData.pending_amount) || 0, total_amount: newTotal }).eq('id', editOrder.id).eq('store_id', storeId).select('id').maybeSingle()
+      if (!updatedOrder) { alert('No se pudo guardar el pedido'); return }
+
+      // Si el pedido ya estaba entregado, su transacción en Finanzas quedó
+      // creada con el total anterior — hay que mantenerla en sync.
+      if (editOrder.status === 'delivered' && newTotal !== editOrder.total_amount) {
+        await supabase.from('finance_transactions').update({ amount: newTotal })
+          .eq('order_id', editOrder.id).eq('store_id', storeId).eq('source', 'order')
+      }
+
+      // Reconciliar stock: la cantidad de cada variante puede haber cambiado
+      // al editar (agregar/quitar productos, subir/bajar cantidad). Sin esto
+      // el inventario queda desincronizado de lo realmente vendido.
+      const originalQtyByVariant = new Map<string, number>()
+      for (const item of (editOrder.order_items || []) as OrderItem[]) {
+        if (!item.variant_id) continue
+        originalQtyByVariant.set(item.variant_id, (originalQtyByVariant.get(item.variant_id) || 0) + item.quantity)
+      }
+      const newQtyByVariant = new Map<string, number>()
+      for (const item of editItems) {
+        if (!item.variant_id) continue
+        newQtyByVariant.set(item.variant_id, (newQtyByVariant.get(item.variant_id) || 0) + item.quantity)
+      }
+      const allVariantIds = new Set([...originalQtyByVariant.keys(), ...newQtyByVariant.keys()])
+      for (const variantId of allVariantIds) {
+        const delta = (newQtyByVariant.get(variantId) || 0) - (originalQtyByVariant.get(variantId) || 0)
+        if (delta > 0) await supabase.rpc('decrement_stock', { p_variant_id: variantId, p_qty: delta })
+        else if (delta < 0) await supabase.rpc('increment_stock', { p_variant_id: variantId, p_qty: -delta })
+      }
+
       await supabase.from('order_items').delete().eq('order_id', editOrder.id)
       if (editItems.length > 0) {
         await supabase.from('order_items').insert(editItems.map(item => ({ order_id: editOrder.id, product_id: item.product_id || null, variant_id: item.variant_id || null, product_name: item.product_name, color: item.color, quantity: item.quantity, unit_price: item.unit_price, subtotal: item.unit_price * item.quantity })))
@@ -358,7 +387,7 @@ export default function OrdersPage() {
     setManualSaving(true)
     try {
       const supabase = createClient()
-      const { data: existing } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', manualData.phone).single()
+      const { data: existing } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', manualData.phone).maybeSingle()
       let customerId = existing?.id
       if (!customerId) {
         const { data: newC } = await supabase.from('customers').insert({ store_id: storeId, name: manualData.name, phone: manualData.phone, dni: manualData.dni }).select('id').single()
@@ -367,7 +396,7 @@ export default function OrdersPage() {
       const year = new Date().getFullYear()
       const { data: counterData } = await supabase.rpc('increment_order_counter', { p_store_id: storeId })
       const code = storePrefix + '-' + year + '-' + String(counterData).padStart(3, '0')
-      const token = Math.random().toString(36).substring(2, 15)
+      const token = crypto.randomUUID().replace(/-/g, '')
       await supabase.from('orders').insert({ store_id: storeId, customer_id: customerId, order_code: code, delivery_method: manualData.delivery_method, agency_name: manualData.delivery_method === 'agencia' ? manualData.agency_name : null, destination: manualData.destination || null, reference: manualData.reference || null, total_amount: parseFloat(manualData.total_amount), pending_amount: parseFloat(manualData.total_amount), status: 'pending', tracking_token: token })
       setShowManual(false); resetManual(); loadOrders()
     } catch (e: any) { alert('Error: ' + e.message) }

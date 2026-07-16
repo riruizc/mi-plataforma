@@ -223,7 +223,16 @@ export default function DespachoPage() {
     const usedClusters = new Set<number>()
     const riderClusterMap = new Map<string, number>()
     centralRiders.forEach(rider => {
-      if (!rider.origin_lat || !rider.origin_lng) { riderClusterMap.set(rider.id, usedClusters.size); usedClusters.add(usedClusters.size); return }
+      if (!rider.origin_lat || !rider.origin_lng) {
+        // Tomar el primer índice de cluster libre, no el tamaño del set
+        // (que puede repetirse si un rider con coordenadas ya tomó un
+        // índice bajo antes, dejando huecos en vez de una secuencia 0,1,2...)
+        let idx = 0
+        while (usedClusters.has(idx)) idx++
+        riderClusterMap.set(rider.id, idx)
+        usedClusters.add(idx)
+        return
+      }
       let minD = Infinity, best = 0
       clusterCentroids.forEach((c,ci) => {
         if (usedClusters.has(ci)) return

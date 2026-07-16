@@ -315,111 +315,24 @@ export default function OrderForm() {
     if (!delivery.destination) { alert('Indica tu dirección o destino de entrega'); return }
     setSubmitting(true)
     try {
-      const supabase = createClient()
-      // Buscar cliente existente por teléfono
-      let customerId: string | undefined
-      const { data: existingCustomer } = await supabase
-        .from('customers').select('id')
-        .eq('store_id', store.id)
-        .eq('phone', customer.phone)
-        .maybeSingle()
-      
-      if (existingCustomer?.id) {
-        // Cliente ya existe — actualizar sus datos
-        customerId = existingCustomer.id
-        await supabase.from('customers')
-          .update({ name: customer.name, dni: customer.dni || null })
-          .eq('id', existingCustomer.id)
-      } else {
-        // Cliente nuevo — insertar
-        const { data: newCustomer, error: insertError } = await supabase
-          .from('customers')
-          .insert({ store_id: store.id, name: customer.name, phone: customer.phone, dni: customer.dni || null })
-          .select('id')
-          .maybeSingle()
-        
-        if (insertError) {
-          // Si falló por duplicado, buscarlo de nuevo
-          const { data: retryCustomer } = await supabase
-            .from('customers').select('id')
-            .eq('store_id', store.id)
-            .eq('phone', customer.phone)
-            .maybeSingle()
-          customerId = retryCustomer?.id
-        } else {
-          customerId = newCustomer?.id
-        }
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storePrefix: prefix,
+          customer,
+          delivery,
+          cart: cart.map(c => ({ product_id: c.product_id, variant_id: c.variant_id || null, quantity: c.quantity })),
+          comboCart: comboCart.map(c => ({ combo_id: c.combo_id, quantity: c.quantity })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.order_code) {
+        alert(data.error || 'Error al enviar el pedido, intenta de nuevo')
+        return
       }
-      const year = new Date().getFullYear()
-      const { data: counterData } = await supabase.rpc('increment_order_counter', { p_store_id: store.id })
-      const code = store.store_prefix + '-' + year + '-' + String(counterData).padStart(3, '0')
-      const token = Math.random().toString(36).substring(2, 15)
-      const { data: order } = await supabase.from('orders').insert({
-        store_id: store.id, customer_id: customerId, order_code: code,
-        delivery_method: delivery.method,
-        agency_name: delivery.method === 'agencia' ? delivery.agency_name : null,
-        destination: delivery.destination, reference: delivery.reference || null,
-        lat: delivery.method === 'motorizado' && delivery.lat ? Number(delivery.lat) : null,
-        lng: delivery.method === 'motorizado' && delivery.lng ? Number(delivery.lng) : null,
-        total_amount: total, pending_amount: total, status: 'pending', tracking_token: token,
-      }).select('id').single()
-
-      if (order) {
-        // Insertar items de productos normales
-        if (cart.length > 0) {
-          await supabase.from('order_items').insert(
-            cart.map((c) => ({
-              order_id: order.id,
-              product_id: c.product_id,
-              variant_id: c.variant_id || null, // FIX: null para productos sin variante
-              product_name: c.product_name,
-              color: c.color,
-              quantity: c.quantity,
-              unit_price: c.unit_price,
-              subtotal: c.unit_price * c.quantity
-            }))
-          )
-          for (const item of cart) {
-            // FIX: solo descontar stock si tiene variant_id real
-            if (item.variant_id) {
-              await supabase.rpc('decrement_stock', { p_variant_id: item.variant_id, p_qty: item.quantity })
-            }
-          }
-        }
-
-        // Insertar items de combos (expandidos) y descontar stock
-        if (comboCart.length > 0) {
-          for (const comboItem of comboCart) {
-            for (const ci of comboItem.items) {
-              const totalQty = ci.quantity * comboItem.quantity
-              await supabase.from('order_items').insert({
-                order_id: order.id,
-                product_id: ci.product_id,
-                variant_id: ci.variant_id || null,
-                product_name: `[Combo: ${comboItem.combo_name}] ${ci.product_name}`,
-                color: ci.color || 'Único',
-                quantity: totalQty,
-                unit_price: 0,
-                subtotal: 0,
-              })
-              if (ci.variant_id) await supabase.rpc('decrement_stock', { p_variant_id: ci.variant_id, p_qty: totalQty })
-            }
-            await supabase.from('order_items').insert({
-              order_id: order.id,
-              product_id: comboItem.items[0]?.product_id || null,
-              variant_id: null,
-              product_name: `🎁 Combo: ${comboItem.combo_name}`,
-              color: `x${comboItem.quantity}`,
-              quantity: comboItem.quantity,
-              unit_price: comboItem.unit_price,
-              subtotal: comboItem.unit_price * comboItem.quantity,
-            })
-          }
-        }
-
-        setOrderCode(code)
-        setStep(4)
-      }
+      setOrderCode(data.order_code)
+      setStep(4)
     } catch (e) { console.error(e); alert('Error al enviar el pedido, intenta de nuevo') }
     finally { setSubmitting(false) }
   }
@@ -644,7 +557,7 @@ export default function OrderForm() {
                               <div className="flex items-center gap-2">
                                 <button onClick={() => updateComboQty(combo.id, inCart.quantity - 1)}
                                   className="w-7 h-7 rounded-full flex items-center justify-center font-bold touch-manipulation" style={{ background: cardBg, color: secondaryText }}>−</button>
-                                <span className="w-6 text-center text-sm font-semibold">{inCart.quantity}</span>
+                                <span className="w-6 text-center text-sm font-semibold" style={{ color: primaryText }}>{inCart.quantity}</span>
                                 <button onClick={() => updateComboQty(combo.id, inCart.quantity + 1)}
                                   className="w-7 h-7 rounded-full flex items-center justify-center font-bold touch-manipulation" style={{ background: cardBg, color: secondaryText }}>+</button>
                               </div>

@@ -117,7 +117,8 @@ export default function CombosPage() {
       const supabase = createClient()
       let comboId = editingCombo?.id
       if (editingCombo) {
-        await supabase.from('combos').update({ name: form.name, description: form.description, price: parseFloat(form.price) }).eq('id', editingCombo.id)
+        const { data: updatedCombo } = await supabase.from('combos').update({ name: form.name, description: form.description, price: parseFloat(form.price) }).eq('id', editingCombo.id).eq('store_id', storeId).select('id').maybeSingle()
+        if (!updatedCombo) { alert('No se pudo guardar el combo'); setSaving(false); return }
         await supabase.from('combo_items').delete().eq('combo_id', editingCombo.id)
       } else {
         const { data: newCombo } = await supabase.from('combos').insert({ store_id: storeId, name: form.name, description: form.description, price: parseFloat(form.price), is_active: true }).select('id').single()
@@ -136,15 +137,16 @@ export default function CombosPage() {
 
   const toggleActive = async (combo: Combo) => {
     const supabase = createClient()
-    await supabase.from('combos').update({ is_active: !combo.is_active }).eq('id', combo.id)
+    await supabase.from('combos').update({ is_active: !combo.is_active }).eq('id', combo.id).eq('store_id', storeId)
     loadData()
   }
 
   const deleteCombo = async (combo: Combo) => {
     if (!confirm(`¿Eliminar el combo "${combo.name}"?`)) return
     const supabase = createClient()
+    const { data: deletedCombo } = await supabase.from('combos').delete().eq('id', combo.id).eq('store_id', storeId).select('id').maybeSingle()
+    if (!deletedCombo) return
     await supabase.from('combo_items').delete().eq('combo_id', combo.id)
-    await supabase.from('combos').delete().eq('id', combo.id)
     loadData()
   }
 

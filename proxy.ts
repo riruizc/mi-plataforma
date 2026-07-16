@@ -30,6 +30,22 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
+  // Si está logueado y trata de entrar al panel, validar el status de su tienda
+  if (user && (path.startsWith('/admin') || path.startsWith('/store'))) {
+    const { data: store } = await supabase
+      .from('stores')
+      .select('status')
+      .eq('email', user.email!)
+      .single()
+
+    if (path.startsWith('/admin') && store?.status !== 'admin') {
+      return NextResponse.redirect(new URL(store?.status === 'active' ? '/store/dashboard' : '/pending', request.url))
+    }
+    if (path.startsWith('/store') && store?.status !== 'active' && store?.status !== 'admin') {
+      return NextResponse.redirect(new URL('/pending', request.url))
+    }
+  }
+
   // Si ya está logueado y trata de ir al login
   if (user && path === '/login') {
     const { data: store } = await supabase
@@ -37,7 +53,7 @@ export async function proxy(request: NextRequest) {
       .select('status')
       .eq('email', user.email!)
       .single()
-  
+
     if (store?.status === 'admin') {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url))
     } else if (store?.status === 'active') {

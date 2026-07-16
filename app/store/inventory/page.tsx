@@ -157,7 +157,7 @@ export default function InventoryPage() {
       const supabase = createClient()
       for (const adj of stockAdjustments) {
         if (adj.adjust === 0 || !adj.variantId) continue
-        await supabase.from('product_variants').update({ stock: Math.max(0, adj.stock + adj.adjust) }).eq('id', adj.variantId)
+        await supabase.from('product_variants').update({ stock: Math.max(0, adj.stock + adj.adjust) }).eq('id', adj.variantId).eq('store_id', storeId)
       }
       setShowStockModal(false); setScannedProduct(null); loadProducts()
     } catch (e: any) { alert('Error: ' + e.message) }
@@ -218,6 +218,7 @@ export default function InventoryPage() {
           .from('products')
           .update(productUpdate)
           .eq('id', editingProduct.id)
+          .eq('store_id', store.id)
         if (updateError) { alert('Error al actualizar: ' + updateError.message); setSaving(false); return }
 
         // 2. Manejo inteligente de variantes (sin borrar las que tienen pedidos)
@@ -235,6 +236,7 @@ export default function InventoryPage() {
             await supabase.from('product_variants')
               .update({ color: v.color.trim(), stock: Number(v.stock) || 0 })
               .eq('id', match.id)
+              .eq('store_id', store.id)
           } else {
             // Insertar variante nueva
             await supabase.from('product_variants').insert({
@@ -265,10 +267,10 @@ export default function InventoryPage() {
               .limit(1)
             if (!refs || refs.length === 0) {
               // Sin pedidos: borrar completamente
-              await supabase.from('product_variants').delete().eq('id', existing.id)
+              await supabase.from('product_variants').delete().eq('id', existing.id).eq('store_id', store.id)
             } else {
               // Con pedidos: solo poner stock en 0 (no se puede borrar sin romper historial)
-              await supabase.from('product_variants').update({ stock: 0 }).eq('id', existing.id)
+              await supabase.from('product_variants').update({ stock: 0 }).eq('id', existing.id).eq('store_id', store.id)
               hasLockedVariants = true
             }
           }
@@ -317,15 +319,15 @@ export default function InventoryPage() {
 
   const toggleActive = async (product: Product) => {
     const supabase = createClient()
-    await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id)
+    await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id).eq('store_id', storeId)
     loadProducts()
   }
 
   const handleDelete = async (productId: string) => {
     if (!confirm('¿Eliminar este producto?')) return
     const supabase = createClient()
-    await supabase.from('product_variants').delete().eq('product_id', productId)
-    await supabase.from('products').delete().eq('id', productId)
+    await supabase.from('product_variants').delete().eq('product_id', productId).eq('store_id', storeId)
+    await supabase.from('products').delete().eq('id', productId).eq('store_id', storeId)
     loadProducts()
   }
 

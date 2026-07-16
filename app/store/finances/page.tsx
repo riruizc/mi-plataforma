@@ -110,7 +110,7 @@ export default function FinancesPage() {
     await supabase.from('finance_transactions').update({
       description: editForm.description,
       amount: parseFloat(editForm.amount) || 0,
-    }).eq('id', editingTx.id)
+    }).eq('id', editingTx.id).eq('store_id', storeId)
     setEditingTx(null)
     loadData()
     setSavingEdit(false)
@@ -119,7 +119,7 @@ export default function FinancesPage() {
   const deleteTx = async (tx: Transaction) => {
     if (!confirm(`¿Eliminar "${tx.description}"?`)) return
     const supabase = createClient()
-    await supabase.from('finance_transactions').delete().eq('id', tx.id)
+    await supabase.from('finance_transactions').delete().eq('id', tx.id).eq('store_id', storeId)
     loadData()
   }
 

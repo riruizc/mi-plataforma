@@ -45,11 +45,24 @@ export async function DELETE(request: Request) {
     }
 
     // 3. Ahora sí proceder con el borrado
-    const { storeId, email } = await request.json()
+    const { storeId } = await request.json()
 
-    if (!storeId || !email) {
+    if (!storeId) {
       return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
     }
+
+    // Tomar el email real de la tienda a borrar desde la DB, nunca confiar
+    // en un email que mande el cliente en el body de la request.
+    const { data: storeToDelete } = await adminSupabase
+      .from('stores')
+      .select('email')
+      .eq('id', storeId)
+      .single()
+
+    if (!storeToDelete) {
+      return NextResponse.json({ error: 'Tienda no encontrada' }, { status: 404 })
+    }
+    const email = storeToDelete.email
 
     // 4. Borrar order_items de los pedidos de la tienda
     const { data: orders } = await adminSupabase

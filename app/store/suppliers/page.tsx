@@ -87,7 +87,7 @@ export default function SuppliersPage() {
     try {
       const supabase = createClient()
       if (editingSupplier) {
-        await supabase.from('suppliers').update({ ...form }).eq('id', editingSupplier.id)
+        await supabase.from('suppliers').update({ ...form }).eq('id', editingSupplier.id).eq('store_id', storeId)
       } else {
         await supabase.from('suppliers').insert({ store_id: storeId, ...form })
       }
@@ -99,15 +99,16 @@ export default function SuppliersPage() {
 
   const toggleActive = async (supplier: Supplier) => {
     const supabase = createClient()
-    await supabase.from('suppliers').update({ is_active: !supplier.is_active }).eq('id', supplier.id)
+    await supabase.from('suppliers').update({ is_active: !supplier.is_active }).eq('id', supplier.id).eq('store_id', storeId)
     loadData()
   }
 
   const deleteSupplier = async (supplier: Supplier) => {
     if (!confirm(`¿Eliminar a "${supplier.name}"?\n\nLos productos asociados quedarán sin proveedor.`)) return
     const supabase = createClient()
-    await supabase.from('products').update({ supplier_id: null }).eq('supplier_id', supplier.id)
-    await supabase.from('suppliers').delete().eq('id', supplier.id)
+    const { data: deletedSupplier } = await supabase.from('suppliers').delete().eq('id', supplier.id).eq('store_id', storeId).select('id').maybeSingle()
+    if (!deletedSupplier) return
+    await supabase.from('products').update({ supplier_id: null }).eq('supplier_id', supplier.id).eq('store_id', storeId)
     setSelected(null)
     loadData()
   }
@@ -116,7 +117,7 @@ export default function SuppliersPage() {
     setAssigningProducts(true)
     const supabase = createClient()
     const newSupplierId = product.supplier_id === supplierId ? null : supplierId
-    await supabase.from('products').update({ supplier_id: newSupplierId }).eq('id', product.id)
+    await supabase.from('products').update({ supplier_id: newSupplierId }).eq('id', product.id).eq('store_id', storeId)
     await loadData()
     // Refrescar selected
     if (selected) {

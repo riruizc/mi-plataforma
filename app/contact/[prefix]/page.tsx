@@ -7,6 +7,7 @@ export default async function ContactPage({ params }: { params: Promise<{ prefix
     .from('stores')
     .select('id, name, phone, theme_color, button_color, text_color, logo_url, store_prefix, contact_active, contact_bg_color, contact_logo_shape, contact_description, contact_whatsapp_msg, contact_facebook, contact_tiktok, contact_instagram, catalog_active, wholesale_active')
     .eq('store_prefix', prefix.toUpperCase())
+    .eq('status', 'active')
     .single()
 
   if (!store) return (

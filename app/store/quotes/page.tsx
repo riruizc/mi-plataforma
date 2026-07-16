@@ -179,10 +179,26 @@ export default function QuotesPage() {
     try {
       const supabase = createClient()
 
+      // Validar stock disponible antes de convertir (la cotización pudo
+      // haberse creado cuando había stock, y ya no queda suficiente)
+      const variantIds = quote.items.filter(i => i.variant_id).map(i => i.variant_id as string)
+      const stockMap = new Map<string, number>()
+      if (variantIds.length > 0) {
+        const { data: variantsStock } = await supabase.from('product_variants').select('id, stock').in('id', variantIds)
+        for (const v of (variantsStock || []) as any[]) stockMap.set(v.id, v.stock)
+        const shortages = quote.items.filter(i => i.variant_id && (stockMap.get(i.variant_id) ?? 0) < i.quantity)
+        if (shortages.length > 0) {
+          const list = shortages.map(i => `• ${i.product_name}${i.variant_name ? ' (' + i.variant_name + ')' : ''}: pide ${i.quantity}, hay ${stockMap.get(i.variant_id!) ?? 0}`).join('\n')
+          if (!confirm(`Stock insuficiente para:\n${list}\n\n¿Convertir de todas formas? El stock de esos productos quedará en 0.`)) {
+            setConverting(null); return
+          }
+        }
+      }
+
       // Buscar o crear cliente
       let customerId = null
       if (quote.customer_phone) {
-        const { data: existing } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', quote.customer_phone).single()
+        const { data: existing } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', quote.customer_phone).maybeSingle()
         customerId = existing?.id
         if (!customerId) {
           const { data: newC } = await supabase.from('customers').insert({ store_id: storeId, name: quote.customer_name, phone: quote.customer_phone, dni: quote.customer_dni }).select('id').single()
@@ -194,7 +210,7 @@ export default function QuotesPage() {
       const year = new Date().getFullYear()
       const { data: counterData } = await supabase.rpc('increment_order_counter', { p_store_id: storeId })
       const code = storePrefix + '-' + year + '-' + String(counterData).padStart(3, '0')
-      const token = Math.random().toString(36).substring(2, 15)
+      const token = crypto.randomUUID().replace(/-/g, '')
 
       // Crear pedido
       const { data: newOrder } = await supabase.from('orders').insert({
@@ -225,16 +241,17 @@ export default function QuotesPage() {
             subtotal: i.subtotal,
           }))
         )
-        // Descontar stock
+        // Descontar stock (clampeado a 0, nunca negativo)
         for (const item of quote.items) {
           if (item.variant_id) {
-            await supabase.rpc('decrement_stock', { p_variant_id: item.variant_id, p_qty: item.quantity })
+            const available = stockMap.get(item.variant_id) ?? item.quantity
+            await supabase.rpc('decrement_stock', { p_variant_id: item.variant_id, p_qty: Math.min(item.quantity, available) })
           }
         }
       }
 
       // Marcar cotización como convertida
-      await supabase.from('quotes').update({ status: 'converted' }).eq('id', quote.id)
+      await supabase.from('quotes').update({ status: 'converted' }).eq('id', quote.id).eq('store_id', storeId)
       loadData()
       alert(`✅ Pedido creado: ${code}`)
     } catch (e: any) { alert('Error: ' + e.message) }

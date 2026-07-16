@@ -10,6 +10,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname()
   const supabase = createClient()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => { setMenuOpen(false) }, [pathname])
 
@@ -18,7 +19,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       const { data: store } = await supabase.from('stores').select('status').eq('email', user.email!).single()
-      if (store?.status !== 'admin') router.push('/store/dashboard')
+      if (store?.status !== 'admin') { router.push('/store/dashboard'); return }
+      setIsAdmin(true)
     }
     checkAdmin()
   }, [])
@@ -69,6 +71,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
     </>
   )
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex bg-gray-100">

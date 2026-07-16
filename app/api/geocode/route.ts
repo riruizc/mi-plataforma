@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Rate limit best-effort en memoria (por IP). No es infalible en entornos
+// serverless multi-instancia, pero frena el abuso directo del endpoint.
+const RATE_LIMIT = 20
+const RATE_WINDOW_MS = 60_000
+const hits = new Map<string, number[]>()
+
+function isRateLimited(ip: string) {
+  const now = Date.now()
+  const timestamps = (hits.get(ip) || []).filter(t => now - t < RATE_WINDOW_MS)
+  timestamps.push(now)
+  hits.set(ip, timestamps)
+  return timestamps.length > RATE_LIMIT
+}
+
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')
   if (!q) return NextResponse.json([])
@@ -9,6 +23,11 @@ export async function GET(req: NextRequest) {
   const allowed = process.env.NEXT_PUBLIC_SITE_URL || 'pedidospe.com'
   if (!origin.includes(allowed) && !origin.includes('localhost')) {
     return NextResponse.json([], { status: 403 })
+  }
+
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown'
+  if (isRateLimited(ip)) {
+    return NextResponse.json([], { status: 429 })
   }
 
   try {

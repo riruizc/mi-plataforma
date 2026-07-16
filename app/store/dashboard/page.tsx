@@ -17,10 +17,17 @@ export default function StoreDashboard() {
     const { data: storeData } = await supabase.from('stores').select('*').eq('email', user.email).single()
     if (!storeData) return
     setStore(storeData)
-    const today = new Date().toISOString().split('T')[0]
+    // Límites del día en hora local (no UTC), para que "hoy" coincida con
+    // el calendario del usuario y no cambie ~5 horas antes de medianoche.
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const startOfTomorrow = new Date(startOfToday)
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1)
     const { data: orders } = await supabase
       .from('orders').select('status, total_amount')
-      .eq('store_id', storeData.id).gte('created_at', today)
+      .eq('store_id', storeData.id)
+      .gte('created_at', startOfToday.toISOString())
+      .lt('created_at', startOfTomorrow.toISOString())
     if (orders) {
       setStats({
         todayOrders: orders.length,

@@ -34,14 +34,14 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
 
   const loadData = async (prefix: string) => {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-    const { data: storeData } = await supabase.from('stores').select('id, name, phone, theme_color, button_color, text_color, logo_url, store_prefix, wholesale_active').eq('store_prefix', prefix.toUpperCase()).single()
+    const { data: storeData } = await supabase.from('stores').select('id, name, phone, theme_color, button_color, text_color, logo_url, store_prefix, wholesale_active').eq('store_prefix', prefix.toUpperCase()).eq('status', 'active').single()
     if (!storeData || !storeData.wholesale_active) { setNotFound(true); setLoading(false); return }
     setStore(storeData)
 
     const [{ data: wConfig }, { data: wRanges }, { data: wProds }, { data: wPkgs }, { data: wClear }] = await Promise.all([
       supabase.from('wholesale_config').select('*').eq('store_id', storeData.id).single(),
       supabase.from('wholesale_discount_ranges').select('*').eq('store_id', storeData.id).order('sort_order'),
-      supabase.from('wholesale_products').select('*, products(name, image_url, product_variants(id, color))').eq('store_id', storeData.id).eq('is_active', true),
+      supabase.from('wholesale_products').select('*, products(name, image_url, product_variants(id, color, stock))').eq('store_id', storeData.id).eq('is_active', true),
       supabase.from('wholesale_packages').select('*').eq('store_id', storeData.id).eq('is_active', true).order('created_at'),
       supabase.from('wholesale_clearance').select('*, products(name, image_url), product_variants(color)').eq('store_id', storeData.id).eq('is_active', true),
     ])

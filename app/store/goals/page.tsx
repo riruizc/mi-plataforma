@@ -82,7 +82,7 @@ export default function GoalsPage() {
           target_amount: target,
           current_amount: current,
           is_completed,
-        }).eq('id', editingGoal.id)
+        }).eq('id', editingGoal.id).eq('store_id', storeId)
       } else {
         await supabase.from('goals').insert({
           store_id: storeId,
@@ -103,14 +103,14 @@ export default function GoalsPage() {
     if (!confirm(`¿Usar la ganancia real (S/ ${gananciaReal.toFixed(2)}) como progreso de "${goal.title}"?`)) return
     const supabase = createClient()
     const is_completed = gananciaReal >= goal.target_amount
-    await supabase.from('goals').update({ current_amount: gananciaReal, is_completed }).eq('id', goal.id)
+    await supabase.from('goals').update({ current_amount: gananciaReal, is_completed }).eq('id', goal.id).eq('store_id', storeId)
     loadData()
   }
 
   const deleteGoal = async (goal: Goal) => {
     if (!confirm(`¿Eliminar la meta "${goal.title}"?`)) return
     const supabase = createClient()
-    await supabase.from('goals').delete().eq('id', goal.id)
+    await supabase.from('goals').delete().eq('id', goal.id).eq('store_id', storeId)
     loadData()
   }
 
