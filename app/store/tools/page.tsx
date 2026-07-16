@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { IconTruck, IconTag, IconGift, IconClose, IconCheck, IconMapPin, IconDownload, IconTrash, IconPackage } from '@/lib/icons'
 
 const SHALOM_ORIGINS = [
   'CAJAMARCA / HUALGAYOC / BAMBAMARCA / BAMBAMARCA',
@@ -733,51 +734,51 @@ export default function ToolsPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <p className="text-gray-500">Cargando...</p>
+      <div className="w-8 h-8 border-4 border-db-line border-t-db-brand rounded-full animate-spin mx-auto" />
     </div>
   )
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Herramientas</h1>
-        <p className="text-gray-500 mt-1">Agencias de delivery y etiquetas PDF</p>
+        <h1 className="text-xl lg:text-2xl font-bold text-db-ink">Herramientas</h1>
+        <p className="text-db-ink-soft mt-1 text-sm">Agencias de delivery y etiquetas PDF</p>
       </div>
 
       <div className="flex gap-2 mb-6 flex-wrap">
         <button onClick={() => setTab('agencias')}
-          className={'px-4 py-2 rounded-xl text-sm font-medium ' + (tab === 'agencias' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600')}>
-          🚚 Agencias
+          className={'flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ' + (tab === 'agencias' ? 'bg-db-brand text-white' : 'bg-db-surface border border-db-line text-db-ink-soft')}>
+          <IconTruck className="w-4 h-4" />Agencias
         </button>
         <button onClick={() => setTab('etiquetas')}
-          className={'px-4 py-2 rounded-xl text-sm font-medium ' + (tab === 'etiquetas' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600')}>
-          🏷️ Etiquetas PDF
+          className={'flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold ' + (tab === 'etiquetas' ? 'bg-db-brand text-white' : 'bg-db-surface border border-db-line text-db-ink-soft')}>
+          <IconTag className="w-4 h-4" />Etiquetas PDF
         </button>
         {hasShalomAgency && (
           <button onClick={openShalomPro}
-            className="px-4 py-2 rounded-xl text-sm font-medium bg-orange-500 text-white">
-            📦 Formato Shalom Pro
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-db-accent text-white">
+            <IconGift className="w-4 h-4" />Formato Shalom Pro
           </button>
         )}
       </div>
 
       {/* MODAL SHALOM PRO */}
       {showShalomPro && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-screen flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-db-surface rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-screen flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-db-line sticky top-0 bg-db-surface rounded-t-2xl">
               <div>
-                <h2 className="font-bold text-gray-900">📦 Formato Shalom Pro</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Genera el Excel de carga masiva</p>
+                <h2 className="font-bold text-db-ink flex items-center gap-2"><IconGift className="w-4 h-4 text-db-accent" />Formato Shalom Pro</h2>
+                <p className="text-xs text-db-ink-soft mt-0.5">Genera el Excel de carga masiva</p>
               </div>
-              <button onClick={() => setShowShalomPro(false)} className="text-gray-400 text-2xl font-bold">×</button>
+              <button onClick={() => setShowShalomPro(false)} className="text-db-ink-soft"><IconClose className="w-5 h-5" /></button>
             </div>
 
             <div className="overflow-y-auto flex-1 p-5 space-y-5">
               {/* Agencia de origen */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">1. Selecciona la agencia de origen</label>
-                <p className="text-xs text-gray-400 mb-2">Esta será la sucursal Shalom desde donde salen los paquetes</p>
+                <label className="block text-sm font-bold text-db-ink mb-2">1. Selecciona la agencia de origen</label>
+                <p className="text-xs text-db-ink-soft mb-2">Esta será la sucursal Shalom desde donde salen los paquetes</p>
                 <div className="relative">
                   <input
                     type="text"
@@ -795,57 +796,59 @@ export default function ToolsPage() {
                       }
                     }}
                     placeholder="Escribe para buscar... ej: Lima, Trujillo"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                    className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-accent"
                   />
                   {shalomOriginSuggestions.length > 0 && (
-                    <div className="absolute z-10 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg mt-1 max-h-48 overflow-y-auto">
+                    <div className="absolute z-10 left-0 right-0 bg-db-surface border border-db-line rounded-xl shadow-lg mt-1 max-h-48 overflow-y-auto">
                       {shalomOriginSuggestions.map((o, i) => (
                         <button key={i} type="button"
                           onClick={() => { setShalomOrigin(o); setShalomOriginQuery(o); setShalomOriginSuggestions([]) }}
-                          className="w-full text-left px-3 py-2.5 text-xs text-gray-700 hover:bg-orange-50 border-b border-gray-50 last:border-0">
-                          📍 {o}
+                          className="w-full flex items-center gap-1.5 text-left px-3 py-2.5 text-xs text-db-ink hover:bg-db-accent-tint border-b border-db-line last:border-0">
+                          <IconMapPin className="w-3 h-3 text-db-ink-soft flex-shrink-0" />{o}
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
                 {shalomOrigin && (
-                  <p className="text-xs text-green-600 mt-1.5 font-medium">✅ Origen: {shalomOrigin}</p>
+                  <p className="text-xs text-db-delivered mt-1.5 font-semibold">Origen: {shalomOrigin}</p>
                 )}
               </div>
 
               {/* Pedidos pendientes de Shalom */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">2. Selecciona los pedidos a exportar</label>
+                <label className="block text-sm font-bold text-db-ink mb-2">2. Selecciona los pedidos a exportar</label>
                 {loadingShalom ? (
-                  <div className="text-center py-6"><div className="w-6 h-6 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mx-auto" /></div>
+                  <div className="text-center py-6"><div className="w-6 h-6 border-2 border-db-accent border-t-transparent rounded-full animate-spin mx-auto" /></div>
                 ) : shalomOrders.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 rounded-xl border border-gray-100">
-                    <p className="text-2xl mb-2">📦</p>
-                    <p className="text-gray-500 text-sm">No hay pedidos pendientes con Shalom</p>
+                  <div className="text-center py-8 bg-db-paper rounded-xl">
+                    <IconPackage className="w-6 h-6 mx-auto mb-2 text-db-ink-soft opacity-40" />
+                    <p className="text-db-ink-soft text-sm">No hay pedidos pendientes con Shalom</p>
                   </div>
                 ) : (
                   <>
                     <div className="flex gap-2 mb-2">
                       <button onClick={() => setSelectedShalom(shalomOrders.map(o => o.id))}
-                        className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600">Seleccionar todos</button>
+                        className="text-xs px-3 py-1.5 border border-db-line rounded-full text-db-ink-soft font-semibold">Seleccionar todos</button>
                       <button onClick={() => setSelectedShalom([])}
-                        className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600">Limpiar</button>
+                        className="text-xs px-3 py-1.5 border border-db-line rounded-full text-db-ink-soft font-semibold">Limpiar</button>
                     </div>
                     <div className="space-y-2 max-h-64 overflow-y-auto">
                       {shalomOrders.map(order => (
                         <div key={order.id} onClick={() => setSelectedShalom(prev =>
                             prev.includes(order.id) ? prev.filter(x => x !== order.id) : [...prev, order.id]
                           )}
-                          className={'flex items-center justify-between p-3 rounded-xl border cursor-pointer ' +
-                            (selectedShalom.includes(order.id) ? 'border-orange-400 bg-orange-50' : 'border-gray-100 hover:border-gray-300')}>
+                          className={'flex items-center justify-between p-3 rounded-xl cursor-pointer ' +
+                            (selectedShalom.includes(order.id) ? 'bg-db-accent-tint ring-2 ring-db-accent' : 'bg-db-paper')}>
                           <div className="flex-1 min-w-0">
-                            <p className="font-mono font-bold text-sm text-gray-900">{order.order_code}</p>
-                            <p className="text-xs text-gray-600">{order.customers?.name || '-'} · {order.customers?.phone || '-'}</p>
-                            <p className="text-xs text-gray-400 truncate">{order.destination || 'Sin destino'}</p>
+                            <p className="font-data font-bold text-sm text-db-ink">{order.order_code}</p>
+                            <p className="text-xs text-db-ink-soft">{order.customers?.name || '-'} · {order.customers?.phone || '-'}</p>
+                            <p className="text-xs text-db-ink-soft truncate">{order.destination || 'Sin destino'}</p>
                           </div>
-                          <div className={'w-5 h-5 rounded-full border-2 flex-shrink-0 ml-3 ' +
-                            (selectedShalom.includes(order.id) ? 'bg-orange-500 border-orange-500' : 'border-gray-300')} />
+                          <div className={'w-5 h-5 rounded-full border-2 flex-shrink-0 ml-3 flex items-center justify-center ' +
+                            (selectedShalom.includes(order.id) ? 'bg-db-accent border-db-accent' : 'border-db-line')}>
+                            {selectedShalom.includes(order.id) && <IconCheck className="w-3 h-3 text-white" />}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -854,10 +857,10 @@ export default function ToolsPage() {
               </div>
             </div>
 
-            <div className="p-5 border-t border-gray-100 sticky bottom-0 bg-white">
+            <div className="p-5 border-t border-db-line sticky bottom-0 bg-db-surface">
               <button onClick={generarExcelShalom} disabled={!shalomOrigin || selectedShalom.length === 0}
-                className="w-full py-3 bg-orange-500 text-white rounded-xl text-sm font-bold disabled:opacity-40">
-                📥 Generar Excel ({selectedShalom.length} pedidos)
+                className="w-full flex items-center justify-center gap-1.5 py-3 bg-db-accent text-white rounded-full text-sm font-bold disabled:opacity-40">
+                <IconDownload className="w-4 h-4" />Generar Excel ({selectedShalom.length} pedidos)
               </button>
             </div>
           </div>
@@ -866,61 +869,61 @@ export default function ToolsPage() {
 
       {tab === 'agencias' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-4">Agregar agencia</h2>
+          <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-5">
+            <h2 className="font-bold text-db-ink mb-4">Agregar agencia</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la agencia *</label>
+                <label className="block text-sm font-semibold text-db-ink mb-1">Nombre de la agencia *</label>
                 <input type="text" value={newAgency.name} onChange={e => setNewAgency(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand"
                   placeholder="Ej: Shalom, Olva, Flores" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Destinos predefinidos <span className="text-gray-400">(opcional, separados por coma)</span>
+                <label className="block text-sm font-semibold text-db-ink mb-1">
+                  Destinos predefinidos <span className="text-db-ink-soft font-normal">(opcional, separados por coma)</span>
                 </label>
                 <input type="text" value={newAgency.destinations} onChange={e => setNewAgency(prev => ({ ...prev, destinations: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand"
                   placeholder="Ej: Moquegua, Arequipa, Tacna" />
-                <p className="text-xs text-gray-400 mt-1">Si lo dejas vacío, el cliente podrá escribir el destino libremente</p>
+                <p className="text-xs text-db-ink-soft mt-1">Si lo dejas vacío, el cliente podrá escribir el destino libremente</p>
               </div>
               <button onClick={agregarAgencia} disabled={saving}
-                className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold disabled:opacity-50">
-                {saving ? 'Guardando...' : '+ Agregar agencia'}
+                className="w-full py-2.5 bg-db-brand text-white rounded-full text-sm font-semibold disabled:opacity-50">
+                {saving ? 'Guardando...' : 'Agregar agencia'}
               </button>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-4">Agencias configuradas ({agencies.length})</h2>
+          <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-5">
+            <h2 className="font-bold text-db-ink mb-4">Agencias configuradas ({agencies.length})</h2>
             {agencies.length === 0 ? (
               <div className="text-center py-6">
-                <p className="text-3xl mb-2">🚚</p>
-                <p className="text-gray-500 text-sm">No hay agencias configuradas</p>
+                <IconTruck className="w-7 h-7 mx-auto mb-2 text-db-ink-soft opacity-40" />
+                <p className="text-db-ink-soft text-sm">No hay agencias configuradas</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {agencies.map(agency => (
-                  <div key={agency.id} className="flex items-start justify-between gap-3 p-3 bg-gray-50 rounded-xl">
+                  <div key={agency.id} className="flex items-start justify-between gap-3 p-3 bg-db-paper rounded-xl">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-gray-900">{agency.agency_name}</p>
-                        <span className={'text-xs px-2 py-0.5 rounded-full font-medium ' + (agency.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
+                        <p className="font-bold text-db-ink">{agency.agency_name}</p>
+                        <span className={'text-[10.5px] px-2 py-0.5 rounded-full font-semibold ' + (agency.is_active ? 'bg-db-delivered-bg text-db-delivered' : 'bg-db-surface text-db-ink-soft')}>
                           {agency.is_active ? 'Activa' : 'Inactiva'}
                         </span>
                       </div>
                       {agency.destinations?.length > 0
-                        ? <p className="text-xs text-gray-500 mt-1">Destinos: {agency.destinations.join(', ')}</p>
-                        : <p className="text-xs text-gray-400 mt-1">Destino libre</p>
+                        ? <p className="text-xs text-db-ink-soft mt-1">Destinos: {agency.destinations.join(', ')}</p>
+                        : <p className="text-xs text-db-ink-soft mt-1">Destino libre</p>
                       }
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => toggleAgencia(agency)}
-                        className={'px-3 py-1.5 rounded-lg text-xs font-medium border ' + (agency.is_active ? 'border-gray-200 text-gray-600' : 'border-green-200 text-green-700')}>
+                        className={'px-3 py-1.5 rounded-full text-xs font-semibold border ' + (agency.is_active ? 'border-db-line text-db-ink-soft' : 'border-db-delivered text-db-delivered')}>
                         {agency.is_active ? 'Desactivar' : 'Activar'}
                       </button>
                       <button onClick={() => eliminarAgencia(agency.id)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-600">🗑️</button>
+                        className="p-1.5 rounded-full border border-db-cancelled text-db-cancelled"><IconTrash className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                 ))}
@@ -932,54 +935,56 @@ export default function ToolsPage() {
 
       {tab === 'etiquetas' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="font-semibold text-gray-900">Generar etiquetas</h2>
-                <p className="text-xs text-gray-500 mt-0.5">8 etiquetas por hoja A4 — incluye productos del pedido</p>
+                <h2 className="font-bold text-db-ink">Generar etiquetas</h2>
+                <p className="text-xs text-db-ink-soft mt-0.5">8 etiquetas por hoja A4 — incluye productos del pedido</p>
               </div>
               {selectedOrders.length > 0 && (
                 <button onClick={generarEtiquetas}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold">
-                  📄 Generar PDF ({selectedOrders.length})
+                  className="flex items-center gap-1.5 px-4 py-2 bg-db-brand text-white rounded-full text-sm font-semibold">
+                  <IconDownload className="w-4 h-4" />Generar PDF ({selectedOrders.length})
                 </button>
               )}
             </div>
 
             <div className="flex gap-2 mb-3">
               <button onClick={() => setSelectedOrders(orders.map(o => o.id))}
-                className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600">
+                className="text-xs px-3 py-1.5 border border-db-line rounded-full text-db-ink-soft font-semibold">
                 Seleccionar todos
               </button>
               <button onClick={() => setSelectedOrders([])}
-                className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-600">
+                className="text-xs px-3 py-1.5 border border-db-line rounded-full text-db-ink-soft font-semibold">
                 Limpiar
               </button>
             </div>
 
             {orders.length === 0 ? (
               <div className="text-center py-6">
-                <p className="text-3xl mb-2">📦</p>
-                <p className="text-gray-500 text-sm">No hay pedidos activos</p>
+                <IconPackage className="w-7 h-7 mx-auto mb-2 text-db-ink-soft opacity-40" />
+                <p className="text-db-ink-soft text-sm">No hay pedidos activos</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-64 sm:max-h-96 overflow-y-auto">
                 {orders.map(order => (
                   <div key={order.id} onClick={() => toggleOrderSelect(order.id)}
-                    className={'flex items-center justify-between p-3 rounded-xl border cursor-pointer ' + (selectedOrders.includes(order.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-300')}>
+                    className={'flex items-center justify-between p-3 rounded-xl cursor-pointer ' + (selectedOrders.includes(order.id) ? 'bg-db-brand-tint ring-2 ring-db-brand' : 'bg-db-paper')}>
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono font-bold text-sm text-gray-900">{order.order_code}</p>
-                      <p className="text-xs text-gray-600">{order.customers?.name || '-'}</p>
+                      <p className="font-data font-bold text-sm text-db-ink">{order.order_code}</p>
+                      <p className="text-xs text-db-ink-soft">{order.customers?.name || '-'}</p>
                       {order.order_items && order.order_items.length > 0 && (
-                        <p className="text-xs text-gray-400 mt-0.5 truncate">
+                        <p className="text-xs text-db-ink-soft mt-0.5 truncate">
                           {order.order_items.slice(0, 2).map(i => `${i.product_name} x${i.quantity}`).join(', ')}
                           {order.order_items.length > 2 ? ` +${order.order_items.length - 2} más` : ''}
                         </p>
                       )}
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      <p className="text-sm font-bold text-orange-600">S/ {Number(order.pending_amount).toFixed(2)}</p>
-                      <div className={'w-5 h-5 rounded-full border-2 ' + (selectedOrders.includes(order.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300')} />
+                      <p className="text-sm font-bold text-db-accent font-data">S/ {Number(order.pending_amount).toFixed(2)}</p>
+                      <div className={'w-5 h-5 rounded-full border-2 flex items-center justify-center ' + (selectedOrders.includes(order.id) ? 'bg-db-brand border-db-brand' : 'border-db-line')}>
+                        {selectedOrders.includes(order.id) && <IconCheck className="w-3 h-3 text-white" />}
+                      </div>
                     </div>
                   </div>
                 ))}
