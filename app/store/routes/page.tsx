@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { IconMap, IconPackage, IconDownload, IconCheck, IconStar, IconMessageCircle, IconMapPin } from '@/lib/icons'
 
 type OrderItem = {
   id?: string
@@ -235,7 +236,7 @@ export default function RoutesPage() {
 
     try {
       const supabase = createClient()
-      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+      const token = crypto.randomUUID().replace(/-/g, '')
       const { data: route, error } = await supabase.from('routes').insert({
         store_id: storeId,
         origin_lat: storeOrigin?.lat || null,
@@ -286,9 +287,9 @@ export default function RoutesPage() {
     doc.save('comprobante-' + order.order_code + '.pdf')
   }
 
-  const statusLabel: Record<string, { label: string; color: string }> = {
-    pending: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-700' },
-    in_route: { label: 'En ruta', color: 'bg-blue-100 text-blue-700' },
+  const statusLabel: Record<string, { label: string; text: string; bg: string }> = {
+    pending: { label: 'Pendiente', text: 'text-db-pending', bg: 'bg-db-pending-bg' },
+    in_route: { label: 'En ruta', text: 'text-db-route', bg: 'bg-db-route-bg' },
   }
 
   const displayOrders = optimizedOrder.length > 0
@@ -302,31 +303,31 @@ export default function RoutesPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto" />
+      <div className="w-8 h-8 border-4 border-db-line border-t-db-brand rounded-full animate-spin mx-auto" />
     </div>
   )
 
   return (
     <div>
       <div className="mb-4">
-        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Rutas</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Selecciona pedidos y genera una ruta optimizada</p>
+        <h1 className="text-xl lg:text-2xl font-bold text-db-ink">Rutas</h1>
+        <p className="text-db-ink-soft text-sm mt-0.5">Selecciona pedidos y genera una ruta optimizada</p>
         {storeOrigin
-          ? <p className="text-xs text-green-600 mt-1">🏪 Punto de salida configurado</p>
-          : <p className="text-xs text-orange-500 mt-1">⚠️ Sin punto de salida — configúralo en <a href="/store/settings" className="underline">Ajustes</a></p>}
+          ? <p className="text-xs text-db-delivered mt-1 font-semibold">Punto de salida configurado</p>
+          : <p className="text-xs text-db-accent mt-1 font-semibold">Sin punto de salida — configúralo en <a href="/store/settings" className="underline">Ajustes</a></p>}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-900 text-sm lg:text-base">Pedidos activos ({orders.length})</h2>
-            {selected.length > 0 && <span className="text-sm text-blue-600 font-medium">{selected.length} seleccionados</span>}
+            <h2 className="font-bold text-db-ink text-sm lg:text-base">Pedidos activos ({orders.length})</h2>
+            {selected.length > 0 && <span className="text-sm text-db-brand font-semibold">{selected.length} seleccionados</span>}
           </div>
 
           {orders.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
-              <p className="text-2xl mb-2">📦</p>
-              <p className="text-gray-500 text-sm">No hay pedidos pendientes</p>
+            <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-8 text-center">
+              <IconPackage className="w-6 h-6 mx-auto mb-2 text-db-ink-soft opacity-50" />
+              <p className="text-db-ink-soft text-sm">No hay pedidos pendientes</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-[400px] lg:max-h-[500px] overflow-y-auto pr-1">
@@ -335,28 +336,28 @@ export default function RoutesPage() {
                 const showNumber = optimizedOrder.length > 0 && selected.includes(order.id) && !!order.lat && !!order.lng
                 return (
                   <div key={order.id} onClick={() => toggleSelect(order.id)}
-                    className={`bg-white rounded-xl border p-3 lg:p-4 cursor-pointer transition-all touch-manipulation ${selected.includes(order.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-100 hover:border-gray-300'}`}>
+                    className={`bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-3 lg:p-4 cursor-pointer transition-all touch-manipulation ${selected.includes(order.id) ? 'ring-2 ring-db-brand' : ''}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-2 flex-1">
                         {showNumber && (
-                          <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{optimIdx + 1}</div>
+                          <div className="w-7 h-7 rounded-full bg-db-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5 font-data">{optimIdx + 1}</div>
                         )}
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="font-semibold text-gray-900 text-sm">{order.order_code}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusLabel[order.status]?.color}`}>{statusLabel[order.status]?.label}</span>
-                            {(!order.lat || !order.lng) && <span className="text-xs bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">Sin GPS</span>}
+                            <span className="font-data font-semibold text-db-ink text-sm">{order.order_code}</span>
+                            <span className={`text-[10.5px] px-2 py-0.5 rounded-full font-semibold ${statusLabel[order.status]?.bg} ${statusLabel[order.status]?.text}`}>{statusLabel[order.status]?.label}</span>
+                            {(!order.lat || !order.lng) && <span className="text-[10.5px] bg-db-accent-tint text-db-accent px-2 py-0.5 rounded-full font-semibold">Sin GPS</span>}
                           </div>
-                          <p className="text-sm text-gray-700">{order.customer_name}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{order.destination}</p>
-                          {order.reference && <p className="text-xs text-gray-400">{order.reference}</p>}
+                          <p className="text-sm text-db-ink font-medium">{order.customer_name}</p>
+                          <p className="text-xs text-db-ink-soft mt-0.5">{order.destination}</p>
+                          {order.reference && <p className="text-xs text-db-ink-soft">{order.reference}</p>}
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <button onClick={e => { e.stopPropagation(); generarComprobante(order) }}
-                          className="px-2 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium touch-manipulation">📄 PDF</button>
-                        <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${selected.includes(order.id) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
-                          {selected.includes(order.id) && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
+                          className="flex items-center gap-1 px-2 py-1.5 bg-db-delivered-bg text-db-delivered rounded-full text-xs font-semibold touch-manipulation"><IconDownload className="w-3 h-3" />PDF</button>
+                        <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${selected.includes(order.id) ? 'bg-db-brand border-db-brand' : 'border-db-line'}`}>
+                          {selected.includes(order.id) && <IconCheck className="w-3 h-3 text-white" />}
                         </div>
                       </div>
                     </div>
@@ -370,34 +371,34 @@ export default function RoutesPage() {
             <>
               <div className="mt-3 flex gap-2">
                 <button onClick={() => setSelected(orders.map(o => o.id))}
-                  className="flex-1 py-2.5 rounded-xl text-xs lg:text-sm font-medium border border-gray-200 text-gray-700 touch-manipulation">
+                  className="flex-1 py-2.5 rounded-full text-xs lg:text-sm font-semibold border border-db-line text-db-ink-soft touch-manipulation">
                   Seleccionar todos
                 </button>
                 <button onClick={generateRoute} disabled={selected.length === 0 || optimizing}
-                  className="flex-1 py-2.5 rounded-xl text-xs lg:text-sm font-medium bg-blue-600 text-white disabled:opacity-50 touch-manipulation">
-                  {optimizing ? `⏳ ${optimizingMsg}` : '🗺️ Generar ruta'}
+                  className="flex items-center justify-center gap-1.5 flex-1 py-2.5 rounded-full text-xs lg:text-sm font-semibold bg-db-brand text-white disabled:opacity-50 touch-manipulation">
+                  {optimizing ? optimizingMsg : <><IconMap className="w-4 h-4" />Generar ruta</>}
                 </button>
               </div>
 
               {totalKm !== null && (
-                <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-2">
-                  <span className="text-blue-600 text-lg">📍</span>
+                <div className="mt-3 bg-db-brand-tint rounded-2xl px-4 py-3 flex items-center gap-2.5">
+                  <IconMapPin className="w-5 h-5 text-db-brand flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-semibold text-blue-800">Ruta optimizada</p>
-                    <p className="text-xs text-blue-600">{totalKm} km totales · {ordersWithLocation.length} paradas</p>
+                    <p className="text-sm font-bold text-db-brand">Ruta optimizada</p>
+                    <p className="text-xs text-db-brand/70 font-data">{totalKm} km totales · {ordersWithLocation.length} paradas</p>
                   </div>
                 </div>
               )}
 
               {routeLink && (
-                <div className="mt-3 bg-green-50 border border-green-200 rounded-xl p-4">
-                  <p className="text-sm font-semibold text-green-800 mb-2">🔗 Link del motorizado:</p>
-                  <p className="text-xs text-green-600 break-all mb-3">{routeLink}</p>
+                <div className="mt-3 bg-db-delivered-bg rounded-2xl p-4">
+                  <p className="text-sm font-bold text-db-delivered mb-2">Link del motorizado:</p>
+                  <p className="text-xs text-db-delivered/80 break-all mb-3 font-data">{routeLink}</p>
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => { navigator.clipboard.writeText(routeLink); alert('Link copiado') }}
-                      className="py-2.5 rounded-xl text-xs font-medium bg-blue-600 text-white touch-manipulation">📋 Copiar link</button>
+                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-semibold bg-db-brand text-white touch-manipulation"><IconStar className="w-3.5 h-3.5" />Copiar link</button>
                     <button onClick={() => window.open('https://wa.me/?text=' + encodeURIComponent('Tu ruta de entregas: ' + routeLink), '_blank')}
-                      className="py-2.5 rounded-xl text-xs font-medium bg-green-600 text-white touch-manipulation">💬 WhatsApp</button>
+                      className="flex items-center justify-center gap-1.5 py-2.5 rounded-full text-xs font-semibold bg-db-delivered text-white touch-manipulation"><IconMessageCircle className="w-3.5 h-3.5" />WhatsApp</button>
                   </div>
                 </div>
               )}
@@ -406,12 +407,12 @@ export default function RoutesPage() {
         </div>
 
         <div>
-          <h2 className="font-semibold text-gray-900 mb-3 text-sm lg:text-base">Mapa</h2>
-          <div ref={mapRef} className="w-full rounded-xl overflow-hidden border border-gray-200" style={{ height: '300px' }} />
+          <h2 className="font-bold text-db-ink mb-3 text-sm lg:text-base">Mapa</h2>
+          <div ref={mapRef} className="w-full rounded-2xl overflow-hidden border border-db-line" style={{ height: '300px' }} />
           {ordersWithoutLocation.length > 0 && selected.length > 0 && (
-            <div className="mt-3 bg-orange-50 border border-orange-200 rounded-xl p-3">
-              <p className="text-sm text-orange-700 font-medium">⚠️ {ordersWithoutLocation.length} pedido(s) sin GPS no aparecen en el mapa</p>
-              {ordersWithoutLocation.map(o => <p key={o.id} className="text-xs text-orange-600 mt-0.5">• {o.order_code} — {o.destination}</p>)}
+            <div className="mt-3 bg-db-accent-tint rounded-2xl p-3">
+              <p className="text-sm text-db-accent font-semibold">{ordersWithoutLocation.length} pedido(s) sin GPS no aparecen en el mapa</p>
+              {ordersWithoutLocation.map(o => <p key={o.id} className="text-xs text-db-accent/80 mt-0.5">• {o.order_code} — {o.destination}</p>)}
             </div>
           )}
         </div>
