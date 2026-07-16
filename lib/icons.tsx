@@ -100,3 +100,6 @@ export const IconMail = ({ className }: IconProps) => (
 export const IconPhone = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" {...base} className={className}><path d="M6.6 10.8a15.5 15.5 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11 11 0 0 0 3.5.6 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11 11 0 0 0 .6 3.5 1 1 0 0 1-.25 1Z" /></svg>
 )
+export const IconClock = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>
+)

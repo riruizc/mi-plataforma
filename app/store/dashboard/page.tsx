@@ -5,17 +5,8 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import {
   IconPackage, IconArchive, IconMap, IconTrendingUp, IconWrench, IconSettings,
+  IconClock, IconCheck, IconWallet,
 } from '@/lib/icons'
-
-const IconClock = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>
-)
-const IconCheck = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 6 9 17l-5-5" /></svg>
-)
-const IconWallet = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v3" /><path d="M3 7v11a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1h-4.5a2.5 2.5 0 0 0 0 5H21" /></svg>
-)
 
 export default function StoreDashboard() {
   const [store, setStore] = useState<any>(null)
