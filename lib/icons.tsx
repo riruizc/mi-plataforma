@@ -73,3 +73,9 @@ export const IconTrash = ({ className }: IconProps) => (
 export const IconTag = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" {...base} className={className}><path d="m20.6 12-8-8H4v8.6l8 8a1 1 0 0 0 1.4 0l7.2-7.2a1 1 0 0 0 0-1.4Z" /><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" /></svg>
 )
+export const IconStar = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12 2.5 15 9l7 1-5.2 5 1.3 7-6.1-3.3L5.9 22l1.3-7L2 10l7-1Z" /></svg>
+)
+export const IconMessageCircle = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M21 12a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.9-.95L3 21l1.5-5.2A8.4 8.4 0 0 1 3.5 12 8.5 8.5 0 0 1 12 3.5 8.5 8.5 0 0 1 21 12Z" /></svg>
+)
