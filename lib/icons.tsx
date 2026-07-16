@@ -82,3 +82,12 @@ export const IconStar = ({ className }: IconProps) => (
 export const IconMessageCircle = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" {...base} className={className}><path d="M21 12a8.5 8.5 0 0 1-8.5 8.5 8.4 8.4 0 0 1-3.9-.95L3 21l1.5-5.2A8.4 8.4 0 0 1 3.5 12 8.5 8.5 0 0 1 12 3.5 8.5 8.5 0 0 1 21 12Z" /></svg>
 )
+export const IconCheck = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 6 9 17l-5-5" /></svg>
+)
+export const IconChevronDown = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="m6 9 6 6 6-6" /></svg>
+)
+export const IconDownload = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M12 3v12m0 0 4.5-4.5M12 15 7.5 10.5" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
+)

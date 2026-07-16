@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { IconFileText, IconSearch, IconPlus, IconClose, IconCheck, IconDownload } from '@/lib/icons'
 
 type QuoteItem = { product_id: string; variant_id: string | null; product_name: string; variant_name: string | null; quantity: number; unit_price: number; subtotal: number }
 type Quote = {
@@ -270,10 +271,10 @@ export default function QuotesPage() {
     loadData()
   }
 
-  const statusStyle: Record<string, string> = {
-    active: 'bg-green-100 text-green-700',
-    converted: 'bg-blue-100 text-blue-700',
-    expired: 'bg-red-100 text-red-700',
+  const statusStyle: Record<string, { text: string; bg: string }> = {
+    active: { text: 'text-db-delivered', bg: 'bg-db-delivered-bg' },
+    converted: { text: 'text-db-brand', bg: 'bg-db-brand-tint' },
+    expired: { text: 'text-db-cancelled', bg: 'bg-db-cancelled-bg' },
   }
   const statusText: Record<string, string> = { active: 'Activa', converted: 'Convertida', expired: 'Expirada' }
 
@@ -281,7 +282,7 @@ export default function QuotesPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto" />
+      <div className="w-8 h-8 border-4 border-db-line border-t-db-brand rounded-full animate-spin mx-auto" />
     </div>
   )
 
@@ -289,50 +290,50 @@ export default function QuotesPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Cotizaciones</h1>
-          <p className="text-gray-500 text-sm mt-0.5">{quotes.length} cotizaciones</p>
+          <h1 className="text-xl lg:text-2xl font-bold text-db-ink">Cotizaciones</h1>
+          <p className="text-db-ink-soft text-sm mt-0.5">{quotes.length} cotizaciones</p>
         </div>
-        <button onClick={openNew} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm">
-          + Nueva
+        <button onClick={openNew} className="flex items-center gap-1.5 bg-db-brand text-white font-semibold px-4 py-2.5 rounded-full text-sm shadow-[0_4px_14px_-4px_rgba(36,81,232,0.55)]">
+          <IconPlus className="w-4 h-4" />Nueva
         </button>
       </div>
 
       {quotes.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
-          <p className="text-4xl mb-3">📄</p>
-          <p className="text-gray-500 font-medium">No hay cotizaciones aún</p>
-          <p className="text-gray-400 text-sm mt-1">Crea una cotización y conviértela a pedido cuando el cliente confirme</p>
+        <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-12 text-center">
+          <IconFileText className="w-8 h-8 mx-auto mb-3 text-db-ink-soft opacity-50" />
+          <p className="text-db-ink font-semibold">No hay cotizaciones aún</p>
+          <p className="text-db-ink-soft text-sm mt-1">Crea una cotización y conviértela a pedido cuando el cliente confirme</p>
         </div>
       ) : (
         <div className="space-y-3">
           {quotes.map(quote => {
             const diasRestantes = Math.ceil((new Date(quote.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
             return (
-              <div key={quote.id} className={`bg-white rounded-xl border p-4 lg:p-5 ${quote.status === 'expired' ? 'opacity-70 border-red-100' : quote.status === 'converted' ? 'border-blue-100' : 'border-gray-100'}`}>
+              <div key={quote.id} className={`bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-4 lg:p-5 ${quote.status === 'expired' ? 'opacity-70' : ''}`}>
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-bold text-gray-900">{quote.customer_name}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusStyle[quote.status]}`}>
+                      <p className="font-bold text-db-ink">{quote.customer_name}</p>
+                      <span className={`text-[10.5px] px-2 py-0.5 rounded-full font-semibold ${statusStyle[quote.status]?.bg} ${statusStyle[quote.status]?.text}`}>
                         {statusText[quote.status]}
                       </span>
                     </div>
-                    {quote.customer_phone && <p className="text-xs text-gray-400 mt-0.5">📱 {quote.customer_phone}</p>}
+                    {quote.customer_phone && <p className="text-xs text-db-ink-soft mt-0.5 font-data">{quote.customer_phone}</p>}
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-lg font-bold text-gray-900">S/ {Number(quote.total_amount).toFixed(2)}</p>
+                    <p className="text-lg font-bold text-db-ink font-data tabular-nums">S/ {Number(quote.total_amount).toFixed(2)}</p>
                     {quote.status === 'active' && (
-                      <p className={`text-xs font-medium ${diasRestantes <= 1 ? 'text-red-500' : diasRestantes <= 3 ? 'text-orange-500' : 'text-gray-400'}`}>
+                      <p className={`text-xs font-semibold ${diasRestantes <= 1 ? 'text-db-cancelled' : diasRestantes <= 3 ? 'text-db-accent' : 'text-db-ink-soft'}`}>
                         {diasRestantes > 0 ? `Vence en ${diasRestantes}d` : 'Vence hoy'}
                       </p>
                     )}
-                    {quote.status === 'expired' && <p className="text-xs text-red-400">Expirada</p>}
+                    {quote.status === 'expired' && <p className="text-xs text-db-cancelled">Expirada</p>}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-1 mb-3">
                   {quote.items.map((item, i) => (
-                    <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                    <span key={i} className="text-[11px] font-semibold bg-db-brand-tint text-db-brand px-2.5 py-1 rounded-full">
                       {item.product_name}{item.variant_name ? ` (${item.variant_name})` : ''} x{item.quantity}
                     </span>
                   ))}
@@ -340,17 +341,17 @@ export default function QuotesPage() {
 
                 <div className="flex gap-2 flex-wrap">
                   <button onClick={() => generatePDF(quote)}
-                    className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium">
-                    📄 Descargar PDF
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-db-delivered-bg text-db-delivered rounded-full text-xs font-semibold">
+                    <IconDownload className="w-3.5 h-3.5" />PDF
                   </button>
                   {quote.status === 'active' && (
                     <button onClick={() => convertToOrder(quote)} disabled={converting === quote.id}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold disabled:opacity-50">
-                      {converting === quote.id ? 'Convirtiendo...' : '✅ Convertir a pedido'}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-db-brand text-white rounded-full text-xs font-semibold disabled:opacity-50">
+                      <IconCheck className="w-3.5 h-3.5" />{converting === quote.id ? 'Convirtiendo...' : 'Convertir a pedido'}
                     </button>
                   )}
                   <button onClick={() => deleteQuote(quote)}
-                    className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium">Eliminar</button>
+                    className="px-3 py-1.5 bg-db-cancelled-bg text-db-cancelled rounded-full text-xs font-semibold">Eliminar</button>
                 </div>
               </div>
             )
@@ -360,127 +361,127 @@ export default function QuotesPage() {
 
       {/* MODAL NUEVA COTIZACIÓN */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[95vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 flex-shrink-0">
-              <h2 className="font-bold text-gray-900">Nueva cotización</h2>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 text-2xl font-bold">×</button>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-db-surface rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[95vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-db-line flex-shrink-0">
+              <h2 className="font-bold text-db-ink">Nueva cotización</h2>
+              <button onClick={() => setShowForm(false)} className="text-db-ink-soft"><IconClose className="w-5 h-5" /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
               {/* Datos del cliente */}
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-700">Datos del cliente</h3>
+                <h3 className="text-sm font-bold text-db-ink">Datos del cliente</h3>
                 <input type="text" value={form.customer_name} onChange={e => setForm(p => ({ ...p, customer_name: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand"
                   placeholder="Nombre completo *" />
                 <div className="grid grid-cols-2 gap-3">
                   <input type="text" inputMode="numeric" value={form.customer_phone}
                     onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 9) setForm(p => ({ ...p, customer_phone: v })) }}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand font-data"
                     placeholder="Celular" />
                   <input type="text" inputMode="numeric" value={form.customer_dni}
                     onChange={e => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 12) setForm(p => ({ ...p, customer_dni: v })) }}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand font-data"
                     placeholder="DNI / CE" />
                 </div>
               </div>
 
               {/* Entrega */}
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-700">Entrega</h3>
+                <h3 className="text-sm font-bold text-db-ink">Entrega</h3>
                 <div className="flex gap-2">
                   <button onClick={() => setForm(p => ({ ...p, delivery_method: 'motorizado', agency_name: '' }))}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium border ${form.delivery_method === 'motorizado' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
-                    🛵 Motorizado
+                    className={`flex-1 py-2 rounded-xl text-sm font-semibold border ${form.delivery_method === 'motorizado' ? 'bg-db-brand text-white border-db-brand' : 'bg-db-surface text-db-ink-soft border-db-line'}`}>
+                    Motorizado
                   </button>
                   {agencies.length > 0 && (
                     <button onClick={() => setForm(p => ({ ...p, delivery_method: 'agencia' }))}
-                      className={`flex-1 py-2 rounded-xl text-sm font-medium border ${form.delivery_method === 'agencia' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>
-                      📦 Agencia
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold border ${form.delivery_method === 'agencia' ? 'bg-db-brand text-white border-db-brand' : 'bg-db-surface text-db-ink-soft border-db-line'}`}>
+                      Agencia
                     </button>
                   )}
                 </div>
                 {form.delivery_method === 'agencia' && (
                   <select value={form.agency_name} onChange={e => setForm(p => ({ ...p, agency_name: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand">
                     <option value="">Selecciona agencia</option>
                     {agencies.map(a => <option key={a.id} value={a.agency_name}>{a.agency_name}</option>)}
                   </select>
                 )}
                 <input type="text" value={form.destination} onChange={e => setForm(p => ({ ...p, destination: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand"
                   placeholder="Dirección / Destino" />
                 <input type="text" value={form.reference} onChange={e => setForm(p => ({ ...p, reference: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand"
                   placeholder="Referencia (opcional)" />
               </div>
 
               {/* Productos seleccionados */}
               <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2">Productos</h3>
+                <h3 className="text-sm font-bold text-db-ink mb-2">Productos</h3>
                 {selectedItems.length === 0 ? (
-                  <div className="bg-gray-50 rounded-xl p-3 text-center text-sm text-gray-400">Agrega productos desde abajo</div>
+                  <div className="bg-db-paper rounded-xl p-3 text-center text-sm text-db-ink-soft">Agrega productos desde abajo</div>
                 ) : (
                   <div className="space-y-2 mb-3">
                     {selectedItems.map(item => (
-                      <div key={item.product_id + (item.variant_id || '')} className="flex items-center gap-3 bg-blue-50 rounded-xl px-3 py-2">
+                      <div key={item.product_id + (item.variant_id || '')} className="flex items-center gap-3 bg-db-brand-tint rounded-xl px-3 py-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-blue-900 truncate">{item.product_name}</p>
-                          {item.variant_name && <p className="text-xs text-blue-600">{item.variant_name}</p>}
+                          <p className="text-sm font-semibold text-db-brand truncate">{item.product_name}</p>
+                          {item.variant_name && <p className="text-xs text-db-brand/70">{item.variant_name}</p>}
                         </div>
-                        <span className="text-xs text-blue-600 flex-shrink-0">S/ {item.subtotal.toFixed(2)}</span>
+                        <span className="text-xs text-db-brand flex-shrink-0 font-data">S/ {item.subtotal.toFixed(2)}</span>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <button onClick={() => updateQty(item.product_id, item.variant_id, item.quantity - 1)}
-                            className="w-6 h-6 bg-white rounded-lg text-blue-600 font-bold text-sm flex items-center justify-center">−</button>
-                          <span className="w-6 text-center text-sm font-bold text-blue-900">{item.quantity}</span>
+                            className="w-6 h-6 bg-db-surface rounded-full text-db-brand font-bold text-sm flex items-center justify-center">−</button>
+                          <span className="w-6 text-center text-sm font-bold text-db-brand font-data">{item.quantity}</span>
                           <button onClick={() => updateQty(item.product_id, item.variant_id, item.quantity + 1)}
-                            className="w-6 h-6 bg-white rounded-lg text-blue-600 font-bold text-sm flex items-center justify-center">+</button>
+                            className="w-6 h-6 bg-db-surface rounded-full text-db-brand font-bold text-sm flex items-center justify-center">+</button>
                         </div>
-                        <button onClick={() => removeItem(item.product_id, item.variant_id)} className="text-red-400 text-lg font-bold">×</button>
+                        <button onClick={() => removeItem(item.product_id, item.variant_id)} className="text-db-cancelled"><IconClose className="w-4 h-4" /></button>
                       </div>
                     ))}
                     <div className="text-right">
-                      <p className="text-sm font-bold text-gray-900">Total: S/ {total.toFixed(2)}</p>
+                      <p className="text-sm font-bold text-db-ink font-data">Total: S/ {total.toFixed(2)}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Buscador productos */}
                 <div className="relative mb-2">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-db-ink-soft"><IconSearch className="w-3.5 h-3.5" /></span>
                   <input type="text" value={searchProduct} onChange={e => setSearchProduct(e.target.value)}
                     placeholder="Buscar producto..."
-                    className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  {searchProduct && <button onClick={() => setSearchProduct('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">×</button>}
+                    className="w-full pl-8 pr-3 py-2 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand" />
+                  {searchProduct && <button onClick={() => setSearchProduct('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-db-ink-soft">×</button>}
                 </div>
-                <div className="space-y-1 max-h-44 overflow-y-auto border border-gray-100 rounded-xl p-2">
+                <div className="space-y-1 max-h-44 overflow-y-auto border border-db-line rounded-xl p-2">
                   {filteredProducts.map(product => {
                     const qty = selectedItems.filter(i => i.product_id === product.id).reduce((s, i) => s + i.quantity, 0)
                     return (
                       <button key={product.id} onClick={() => handleAddProduct(product)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm ${qty > 0 ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm ${qty > 0 ? 'bg-db-brand-tint text-db-brand' : 'hover:bg-db-paper text-db-ink'}`}>
                         <div className="text-left">
-                          <span className="font-medium">{product.name}</span>
-                          {product.variants.length > 0 && <span className="ml-2 text-xs text-gray-400">{product.variants.length} variantes</span>}
+                          <span className="font-semibold">{product.name}</span>
+                          {product.variants.length > 0 && <span className="ml-2 text-xs text-db-ink-soft">{product.variants.length} variantes</span>}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-400">S/ {Number(product.sale_price).toFixed(2)}</span>
-                          {qty > 0 ? <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">x{qty}</span> : <span className="text-blue-500 font-bold">{product.variants.length > 0 ? '▾' : '+'}</span>}
+                          <span className="text-xs text-db-ink-soft font-data">S/ {Number(product.sale_price).toFixed(2)}</span>
+                          {qty > 0 ? <span className="text-xs bg-db-brand text-white px-1.5 py-0.5 rounded-full font-bold font-data">x{qty}</span> : <span className="text-db-brand font-bold">+</span>}
                         </div>
                       </button>
                     )
                   })}
-                  {filteredProducts.length === 0 && <p className="text-center text-gray-400 text-sm py-3">Sin resultados</p>}
+                  {filteredProducts.length === 0 && <p className="text-center text-db-ink-soft text-sm py-3">Sin resultados</p>}
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-3 p-5 border-t border-gray-100 flex-shrink-0">
+            <div className="flex gap-3 p-5 border-t border-db-line flex-shrink-0">
               <button onClick={() => setShowForm(false)}
-                className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium">Cancelar</button>
+                className="flex-1 py-3 border border-db-line text-db-ink-soft rounded-full text-sm font-semibold">Cancelar</button>
               <button onClick={saveQuote} disabled={saving}
-                className="flex-1 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">
+                className="flex-1 py-3 bg-db-brand text-white rounded-full text-sm font-bold disabled:opacity-50">
                 {saving ? 'Guardando...' : 'Crear cotización'}
               </button>
             </div>
@@ -490,28 +491,28 @@ export default function QuotesPage() {
 
       {/* MODAL VARIANTE */}
       {variantModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-xs shadow-xl">
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-db-surface rounded-2xl w-full max-w-xs shadow-2xl">
+            <div className="flex items-center justify-between p-5 border-b border-db-line">
               <div>
-                <h3 className="font-bold text-gray-900">{variantModal.name}</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Elige una variante</p>
+                <h3 className="font-bold text-db-ink">{variantModal.name}</h3>
+                <p className="text-xs text-db-ink-soft mt-0.5">Elige una variante</p>
               </div>
-              <button onClick={() => setVariantModal(null)} className="text-gray-400 text-2xl font-bold">×</button>
+              <button onClick={() => setVariantModal(null)} className="text-db-ink-soft"><IconClose className="w-5 h-5" /></button>
             </div>
             <div className="p-4 space-y-2">
               {variantModal.variants.map(v => (
                 <button key={v.id} onClick={() => addItem(variantModal.id, v.id, variantModal.name, v.color, variantModal.sale_price)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-blue-50 rounded-xl">
-                  <span className="font-medium text-gray-800 text-sm">{v.color}</span>
+                  className="w-full flex items-center justify-between px-4 py-3 bg-db-paper hover:bg-db-brand-tint rounded-xl">
+                  <span className="font-semibold text-db-ink text-sm">{v.color}</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">{v.stock} en stock</span>
-                    <span className="text-blue-500 font-bold text-lg">+</span>
+                    <span className="text-xs text-db-ink-soft font-data">{v.stock} en stock</span>
+                    <span className="text-db-brand font-bold text-lg">+</span>
                   </div>
                 </button>
               ))}
               <button onClick={() => addItem(variantModal.id, null, variantModal.name, null, variantModal.sale_price)}
-                className="w-full px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium">Sin variante específica</button>
+                className="w-full px-4 py-2.5 bg-db-paper text-db-ink-soft rounded-xl text-sm font-semibold">Sin variante específica</button>
             </div>
           </div>
         </div>
