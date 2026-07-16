@@ -91,3 +91,12 @@ export const IconChevronDown = ({ className }: IconProps) => (
 export const IconDownload = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" {...base} className={className}><path d="M12 3v12m0 0 4.5-4.5M12 15 7.5 10.5" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
 )
+export const IconMapPin = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M12 21s7-6.3 7-11.5A7 7 0 0 0 5 9.5C5 14.7 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.3" /></svg>
+)
+export const IconMail = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></svg>
+)
+export const IconPhone = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M6.6 10.8a15.5 15.5 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11 11 0 0 0 3.5.6 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11 11 0 0 0 .6 3.5 1 1 0 0 1-.25 1Z" /></svg>
+)
