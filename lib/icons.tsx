@@ -106,3 +106,12 @@ export const IconClock = ({ className }: IconProps) => (
 export const IconFlame = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" {...base} className={className}><path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c1.5 1 2 3 2 4.5a5 5 0 0 1-10 0C7 9 12 8 12 2Z" /></svg>
 )
+export const IconPalette = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M12 2a10 10 0 1 0 0 20c1.2 0 2-1 2-2 0-.6-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.2 0-1 .8-1.5 1.8-1.5H16a4 4 0 0 0 4-4c0-5.5-4.5-10-8-10Z" /><circle cx="7.5" cy="10.5" r="1.2" fill="currentColor" stroke="none" /><circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none" /><circle cx="16.2" cy="10.5" r="1.2" fill="currentColor" stroke="none" /></svg>
+)
+export const IconEye = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+)
+export const IconLink = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M9 15 15 9M10 6l1-1a4 4 0 0 1 6 6l-1 1M14 18l-1 1a4 4 0 0 1-6-6l1-1" /></svg>
+)
