@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { IconFactory, IconSettings, IconGift, IconFlame, IconSearch, IconPlus, IconClose, IconEdit, IconTrash, IconCheck, IconCamera } from '@/lib/icons'
 
 type Product = { id: string; name: string; category: string; sale_price: number; variants: { id: string; color: string }[] }
 type DiscountRange = { id?: string; min_units: number; max_units: number | null; discount_pct: number; sort_order: number }
@@ -119,7 +120,7 @@ export default function WholesalePage() {
         if (e3) throw new Error('Productos: ' + e3.message)
       }
 
-      showSuccess('✅ Configuración guardada correctamente')
+      showSuccess('Configuración guardada correctamente')
     } catch (e: any) { alert('Error al guardar: ' + e.message) }
     finally { setSaving(false) }
   }
@@ -274,7 +275,7 @@ export default function WholesalePage() {
         )
         if (error) throw error
       }
-      showSuccess('✅ Remates guardados correctamente')
+      showSuccess('Remates guardados correctamente')
     } catch (e: any) { alert('Error al guardar remates: ' + e.message) }
     finally { setSaving(false) }
   }
@@ -293,102 +294,105 @@ export default function WholesalePage() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-db-line border-t-db-brand rounded-full animate-spin" />
     </div>
   )
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">🏭 Mayorista</h1>
-        <p className="text-gray-500 text-sm mt-0.5">Configura tu catálogo mayorista público</p>
+        <h1 className="text-xl lg:text-2xl font-bold text-db-ink flex items-center gap-2"><IconFactory className="w-5 h-5 text-db-brand" />Mayorista</h1>
+        <p className="text-db-ink-soft text-sm mt-0.5">Configura tu catálogo mayorista público</p>
       </div>
 
       {saveOk && (
-        <div className="mb-4 bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-          <p className="text-green-700 text-sm font-medium">{saveOk}</p>
+        <div className="mb-4 bg-db-delivered-bg rounded-xl p-3 text-center">
+          <p className="text-db-delivered text-sm font-semibold">{saveOk}</p>
         </div>
       )}
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {[
-          { key: 'config', label: '⚙️ Productos y descuentos' },
-          { key: 'packages', label: '📦 Paquetes' },
-          { key: 'clearance', label: '🔥 Remates' },
-        ].map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key as any)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${activeTab === t.key ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-600'}`}>
-            {t.label}
-          </button>
-        ))}
+          { key: 'config', label: 'Productos y descuentos', icon: IconSettings },
+          { key: 'packages', label: 'Paquetes', icon: IconGift },
+          { key: 'clearance', label: 'Remates', icon: IconFlame },
+        ].map(t => {
+          const Icon = t.icon
+          return (
+            <button key={t.key} onClick={() => setActiveTab(t.key as any)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${activeTab === t.key ? 'bg-db-brand text-white' : 'bg-db-surface border border-db-line text-db-ink-soft'}`}>
+              <Icon className="w-4 h-4" />{t.label}
+            </button>
+          )
+        })}
       </div>
 
       {/* ── TAB CONFIG ── */}
       {activeTab === 'config' && (
         <div className="space-y-5">
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-1">Mínimo de unidades para ver precios</h2>
-            <p className="text-xs text-gray-400 mb-3">El cliente debe escoger al menos este número de productos para ver el precio total</p>
+          <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-5">
+            <h2 className="font-bold text-db-ink mb-1">Mínimo de unidades para ver precios</h2>
+            <p className="text-xs text-db-ink-soft mb-3">El cliente debe escoger al menos este número de productos para ver el precio total</p>
             <div className="flex items-center gap-3">
               <button onClick={() => setMinUnits(Math.max(1, minUnits - 1))}
-                className="w-9 h-9 rounded-full bg-gray-100 text-gray-700 font-bold flex items-center justify-center touch-manipulation">−</button>
-              <span className="text-2xl font-bold text-gray-900 w-12 text-center">{minUnits}</span>
+                className="w-9 h-9 rounded-full bg-db-paper text-db-ink-soft font-bold flex items-center justify-center touch-manipulation">−</button>
+              <span className="text-2xl font-bold text-db-ink w-12 text-center font-data">{minUnits}</span>
               <button onClick={() => setMinUnits(minUnits + 1)}
-                className="w-9 h-9 rounded-full bg-gray-100 text-gray-700 font-bold flex items-center justify-center touch-manipulation">+</button>
-              <span className="text-sm text-gray-500">unidades mínimas</span>
+                className="w-9 h-9 rounded-full bg-db-paper text-db-ink-soft font-bold flex items-center justify-center touch-manipulation">+</button>
+              <span className="text-sm text-db-ink-soft">unidades mínimas</span>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-5">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h2 className="font-semibold text-gray-900">Rangos de descuento</h2>
-                <p className="text-xs text-gray-400 mt-0.5">A mayor cantidad, mayor descuento sobre el precio base</p>
+                <h2 className="font-bold text-db-ink">Rangos de descuento</h2>
+                <p className="text-xs text-db-ink-soft mt-0.5">A mayor cantidad, mayor descuento sobre el precio base</p>
               </div>
-              <button onClick={addRange} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium touch-manipulation">+ Agregar</button>
+              <button onClick={addRange} className="flex items-center gap-1.5 px-3 py-1.5 bg-db-brand text-white rounded-full text-xs font-semibold touch-manipulation"><IconPlus className="w-3.5 h-3.5" />Agregar</button>
             </div>
             {ranges.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">Sin rangos. Agrega uno para configurar los descuentos.</p>
+              <p className="text-sm text-db-ink-soft text-center py-4">Sin rangos. Agrega uno para configurar los descuentos.</p>
             ) : (
               <div className="space-y-3">
                 {ranges.map((r, i) => (
-                  <div key={i} className="flex items-center gap-2 flex-wrap bg-gray-50 rounded-xl p-3">
+                  <div key={i} className="flex items-center gap-2 flex-wrap bg-db-paper rounded-xl p-3">
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-500">De</span>
+                      <span className="text-xs text-db-ink-soft">De</span>
                       <input type="number" value={r.min_units} onChange={e => updateRange(i, 'min_units', parseInt(e.target.value) || 0)}
-                        className="w-16 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" />
+                        className="w-16 px-2 py-1.5 border border-db-line rounded-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-db-brand bg-db-surface font-data" />
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-500">a</span>
+                      <span className="text-xs text-db-ink-soft">a</span>
                       <input type="number" value={r.max_units ?? ''} onChange={e => updateRange(i, 'max_units', e.target.value ? parseInt(e.target.value) : null)}
-                        placeholder="∞" className="w-16 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" />
-                      <span className="text-xs text-gray-500">pzas</span>
+                        placeholder="∞" className="w-16 px-2 py-1.5 border border-db-line rounded-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-db-brand bg-db-surface font-data" />
+                      <span className="text-xs text-db-ink-soft">pzas</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <input type="number" value={r.discount_pct} onChange={e => updateRange(i, 'discount_pct', parseFloat(e.target.value) || 0)}
-                        className="w-16 px-2 py-1.5 border border-green-300 rounded-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-green-500 bg-green-50" />
-                      <span className="text-xs text-green-600 font-medium">% OFF</span>
+                        className="w-16 px-2 py-1.5 border border-db-delivered rounded-lg text-sm text-center focus:outline-none focus:ring-1 focus:ring-db-delivered bg-db-delivered-bg text-db-delivered font-data" />
+                      <span className="text-xs text-db-delivered font-semibold">% OFF</span>
                     </div>
-                    <button onClick={() => removeRange(i)} className="text-red-400 text-xl ml-auto">×</button>
+                    <button onClick={() => removeRange(i)} className="text-db-cancelled ml-auto"><IconClose className="w-4 h-4" /></button>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-1">Productos del catálogo mayorista</h2>
-            <p className="text-xs text-gray-400 mb-3">Selecciona qué productos aparecen y define su precio base mayorista</p>
+          <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-5">
+            <h2 className="font-bold text-db-ink mb-1">Productos del catálogo mayorista</h2>
+            <p className="text-xs text-db-ink-soft mb-3">Selecciona qué productos aparecen y define su precio base mayorista</p>
             {/* Search */}
             <div className="relative mb-3">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-db-ink-soft"><IconSearch className="w-3.5 h-3.5" /></span>
               <input type="text" value={productSearch} onChange={e => setProductSearch(e.target.value)}
                 placeholder="Buscar producto..."
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              {productSearch && <button onClick={() => setProductSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>}
+                className="w-full pl-9 pr-4 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand" />
+              {productSearch && <button onClick={() => setProductSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-db-ink-soft text-lg">×</button>}
             </div>
             {products.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">No hay productos activos en el inventario</p>
+              <p className="text-sm text-db-ink-soft text-center py-4">No hay productos activos en el inventario</p>
             ) : (
               <div className="space-y-2 max-h-80 overflow-y-auto">
                 {filteredProducts.map(product => {
@@ -396,14 +400,14 @@ export default function WholesalePage() {
                   const isSelected = !!wp
                   return (
                     <div key={product.id}
-                      className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer touch-manipulation ${isSelected ? 'border-blue-400 bg-blue-50' : 'border-gray-100 hover:border-gray-300'}`}
+                      className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer touch-manipulation ${isSelected ? 'border-db-brand bg-db-brand-tint' : 'border-db-line hover:border-db-brand/50'}`}
                       onClick={() => toggleWholesaleProduct(product)}>
-                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
-                        {isSelected && <span className="text-white text-xs">✓</span>}
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-db-brand border-db-brand' : 'border-db-line'}`}>
+                        {isSelected && <IconCheck className="w-3 h-3 text-white" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-sm font-semibold text-db-ink">{product.name}</p>
+                        <p className="text-xs text-db-ink-soft">
                           {product.category && `${product.category} · `}
                           Precio venta: S/ {Number(product.sale_price).toFixed(2)}
                           {product.variants.length > 0 && ` · ${product.variants.length} variantes`}
@@ -411,26 +415,26 @@ export default function WholesalePage() {
                       </div>
                       {isSelected && (
                         <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                          <span className="text-xs text-gray-500">Base:</span>
+                          <span className="text-xs text-db-ink-soft">Base:</span>
                           <input type="number" value={wp.base_price} onChange={e => updateWholesalePrice(product.id, parseFloat(e.target.value) || 0)}
-                            className="w-20 px-2 py-1 border border-blue-300 rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                            className="w-20 px-2 py-1 border border-db-brand rounded-lg text-xs text-center focus:outline-none focus:ring-1 focus:ring-db-brand bg-db-surface font-data"
                             onClick={e => e.stopPropagation()} />
                         </div>
                       )}
                     </div>
                   )
                 })}
-                {filteredProducts.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No se encontraron productos</p>}
+                {filteredProducts.length === 0 && <p className="text-sm text-db-ink-soft text-center py-4">No se encontraron productos</p>}
               </div>
             )}
             {wholesaleProducts.length > 0 && (
-              <p className="text-xs text-blue-600 mt-2 font-medium">{wholesaleProducts.length} producto{wholesaleProducts.length !== 1 ? 's' : ''} seleccionado{wholesaleProducts.length !== 1 ? 's' : ''}</p>
+              <p className="text-xs text-db-brand mt-2 font-semibold">{wholesaleProducts.length} producto{wholesaleProducts.length !== 1 ? 's' : ''} seleccionado{wholesaleProducts.length !== 1 ? 's' : ''}</p>
             )}
           </div>
 
           <button onClick={saveConfig} disabled={saving}
-            className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50 touch-manipulation">
-            {saving ? '⏳ Guardando...' : '💾 Guardar configuración'}
+            className="w-full py-3 bg-db-brand text-white rounded-full font-semibold text-sm disabled:opacity-50 touch-manipulation">
+            {saving ? 'Guardando...' : 'Guardar configuración'}
           </button>
         </div>
       )}
@@ -439,43 +443,43 @@ export default function WholesalePage() {
       {activeTab === 'packages' && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-500">{packages.length} paquete{packages.length !== 1 ? 's' : ''}</p>
-            <button onClick={openNewPackage} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium touch-manipulation">+ Nuevo paquete</button>
+            <p className="text-sm text-db-ink-soft">{packages.length} paquete{packages.length !== 1 ? 's' : ''}</p>
+            <button onClick={openNewPackage} className="flex items-center gap-1.5 px-4 py-2 bg-db-brand text-white rounded-full text-sm font-semibold touch-manipulation"><IconPlus className="w-4 h-4" />Nuevo paquete</button>
           </div>
 
           {packages.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-              <p className="text-4xl mb-3">📦</p>
-              <p className="text-gray-500">No hay paquetes. Crea uno para empezar.</p>
+            <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-12 text-center">
+              <IconGift className="w-8 h-8 mx-auto mb-3 text-db-ink-soft opacity-50" />
+              <p className="text-db-ink-soft">No hay paquetes. Crea uno para empezar.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {packages.map(pkg => (
-                <div key={pkg.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <div key={pkg.id} className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] overflow-hidden">
                   {pkg.image_url
                     ? <img src={pkg.image_url} alt={pkg.name} className="w-full h-36 object-cover" />
-                    : <div className="w-full h-36 bg-gray-100 flex items-center justify-center text-4xl">📦</div>}
+                    : <div className="w-full h-36 bg-db-paper flex items-center justify-center"><IconGift className="w-8 h-8 text-db-ink-soft opacity-40" /></div>}
                   <div className="p-4">
                     <div className="flex items-start justify-between mb-1">
-                      <p className="font-bold text-gray-900">{pkg.name}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${pkg.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      <p className="font-bold text-db-ink">{pkg.name}</p>
+                      <span className={`text-[10.5px] px-2 py-0.5 rounded-full font-semibold ${pkg.is_active ? 'bg-db-delivered-bg text-db-delivered' : 'bg-db-paper text-db-ink-soft'}`}>
                         {pkg.is_active ? 'Activo' : 'Inactivo'}
                       </span>
                     </div>
-                    {pkg.description && <p className="text-xs text-gray-500 mb-2">{pkg.description}</p>}
-                    <p className="text-lg font-bold text-blue-600 mb-2">S/ {Number(pkg.price).toFixed(2)}</p>
+                    {pkg.description && <p className="text-xs text-db-ink-soft mb-2">{pkg.description}</p>}
+                    <p className="text-lg font-bold text-db-brand mb-2 font-data">S/ {Number(pkg.price).toFixed(2)}</p>
                     {pkg.items.length > 0 && (
                       <div className="flex flex-wrap gap-1 mb-3">
                         {pkg.items.map((item, i) => (
-                          <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                          <span key={i} className="text-[11px] font-semibold bg-db-paper text-db-ink-soft px-2 py-0.5 rounded-full">
                             {item.quantity}x {item.product_name}{item.color && item.color !== 'Único' ? ` (${item.color})` : ''}
                           </span>
                         ))}
                       </div>
                     )}
                     <div className="flex gap-2">
-                      <button onClick={() => openEditPackage(pkg)} className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium touch-manipulation">✏️ Editar</button>
-                      <button onClick={() => deletePackage(pkg.id!)} className="flex-1 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-medium touch-manipulation">🗑️ Eliminar</button>
+                      <button onClick={() => openEditPackage(pkg)} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-db-brand-tint text-db-brand rounded-full text-xs font-semibold touch-manipulation"><IconEdit className="w-3.5 h-3.5" />Editar</button>
+                      <button onClick={() => deletePackage(pkg.id!)} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-db-cancelled-bg text-db-cancelled rounded-full text-xs font-semibold touch-manipulation"><IconTrash className="w-3.5 h-3.5" />Eliminar</button>
                     </div>
                   </div>
                 </div>
@@ -484,119 +488,120 @@ export default function WholesalePage() {
           )}
 
           {showPackageForm && (
-            <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-              <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[95vh] flex flex-col shadow-xl">
-                <div className="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
-                  <h3 className="font-bold text-gray-900">{editingPackage ? 'Editar paquete' : 'Nuevo paquete'}</h3>
-                  <button onClick={() => setShowPackageForm(false)} className="text-gray-400 text-2xl touch-manipulation">×</button>
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <div className="bg-db-surface rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[95vh] flex flex-col shadow-2xl">
+                <div className="p-5 border-b border-db-line flex items-center justify-between sticky top-0 bg-db-surface rounded-t-2xl">
+                  <h3 className="font-bold text-db-ink">{editingPackage ? 'Editar paquete' : 'Nuevo paquete'}</h3>
+                  <button onClick={() => setShowPackageForm(false)} className="text-db-ink-soft touch-manipulation"><IconClose className="w-5 h-5" /></button>
                 </div>
                 <div className="overflow-y-auto flex-1 p-5 space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Nombre *</label>
+                      <label className="block text-xs font-semibold text-db-ink mb-1">Nombre *</label>
                       <input type="text" value={pkgForm.name} onChange={e => setPkgForm(p => ({ ...p, name: e.target.value }))}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand"
                         placeholder="Ej: Pack verano" />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Descripción</label>
+                      <label className="block text-xs font-semibold text-db-ink mb-1">Descripción</label>
                       <input type="text" value={pkgForm.description} onChange={e => setPkgForm(p => ({ ...p, description: e.target.value }))}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand"
                         placeholder="Breve descripción del paquete" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Precio S/ *</label>
+                      <label className="block text-xs font-semibold text-db-ink mb-1">Precio S/ *</label>
                       <input type="number" value={pkgForm.price} onChange={e => setPkgForm(p => ({ ...p, price: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        className="w-full px-3 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand font-data" />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
+                      <label className="block text-xs font-semibold text-db-ink mb-1">Estado</label>
                       <button onClick={() => setPkgForm(p => ({ ...p, is_active: !p.is_active }))}
-                        className={`w-full py-2.5 rounded-xl text-sm font-medium border-2 touch-manipulation ${pkgForm.is_active ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-200 text-gray-500'}`}>
-                        {pkgForm.is_active ? '✅ Activo' : '⭕ Inactivo'}
+                        className={`w-full py-2.5 rounded-xl text-sm font-semibold border-2 touch-manipulation ${pkgForm.is_active ? 'border-db-delivered bg-db-delivered-bg text-db-delivered' : 'border-db-line text-db-ink-soft'}`}>
+                        {pkgForm.is_active ? 'Activo' : 'Inactivo'}
                       </button>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-semibold text-db-ink mb-1">
                       Imagen del paquete
-                      <span className="ml-1 text-gray-400 font-normal">(recomendado: 800×600px, JPG o PNG)</span>
+                      <span className="ml-1 text-db-ink-soft font-normal">(recomendado: 800×600px, JPG o PNG)</span>
                     </label>
                     <input ref={pkgFileRef} type="file" accept="image/*" className="hidden"
                       onChange={e => { if (e.target.files?.[0]) uploadPackageImage(e.target.files[0]) }} />
                     {pkgForm.image_url ? (
                       <div className="relative">
-                        <img src={pkgForm.image_url} alt="Preview" className="w-full h-36 object-cover rounded-xl border border-gray-200" />
+                        <img src={pkgForm.image_url} alt="Preview" className="w-full h-36 object-cover rounded-xl border border-db-line" />
                         <button onClick={() => setPkgForm(p => ({ ...p, image_url: '' }))}
-                          className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center text-sm touch-manipulation">×</button>
+                          className="absolute top-2 right-2 w-7 h-7 bg-db-cancelled text-white rounded-full flex items-center justify-center touch-manipulation"><IconClose className="w-3.5 h-3.5" /></button>
                       </div>
                     ) : (
                       <button onClick={() => pkgFileRef.current?.click()} disabled={uploadingPkg}
-                        className="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors touch-manipulation">
-                        {uploadingPkg ? '⏳ Subiendo...' : '📷 Subir imagen (800×600px recomendado)'}
+                        className="w-full py-8 border-2 border-dashed border-db-line rounded-xl text-sm text-db-ink-soft hover:border-db-brand hover:text-db-brand transition-colors touch-manipulation flex flex-col items-center gap-2">
+                        <IconCamera className="w-6 h-6" />
+                        {uploadingPkg ? 'Subiendo...' : 'Subir imagen (800×600px recomendado)'}
                       </button>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">Contenido del paquete</label>
+                    <label className="block text-xs font-semibold text-db-ink mb-2">Contenido del paquete</label>
                     {/* Search to add products */}
                     <div className="relative mb-2">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-db-ink-soft"><IconSearch className="w-3.5 h-3.5" /></span>
                       <input type="text" value={pkgProductSearch} onChange={e => setPkgProductSearch(e.target.value)}
                         placeholder="Buscar producto para agregar..."
-                        className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                      {pkgProductSearch && <button onClick={() => setPkgProductSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg touch-manipulation">×</button>}
+                        className="w-full pl-9 pr-4 py-2 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-brand" />
+                      {pkgProductSearch && <button onClick={() => setPkgProductSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-db-ink-soft text-lg touch-manipulation">×</button>}
                     </div>
                     {pkgSearchResults.length > 0 && (
-                      <div className="border border-gray-200 rounded-xl overflow-hidden mb-3 shadow-sm">
+                      <div className="border border-db-line rounded-xl overflow-hidden mb-3 shadow-sm">
                         {pkgSearchResults.map(p => (
                           <button key={p.id} onClick={() => addPackageItem(p)}
-                            className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-blue-50 border-b border-gray-50 last:border-0 flex items-center justify-between touch-manipulation">
+                            className="w-full text-left px-3 py-2.5 text-sm text-db-ink hover:bg-db-brand-tint border-b border-db-line last:border-0 flex items-center justify-between touch-manipulation">
                             <span>{p.name}</span>
-                            <span className="text-xs text-blue-600 font-medium">+ Agregar</span>
+                            <span className="text-xs text-db-brand font-semibold">+ Agregar</span>
                           </button>
                         ))}
                       </div>
                     )}
 
                     {pkgForm.items.length === 0 ? (
-                      <p className="text-xs text-gray-400 text-center py-3">Busca productos arriba para agregarlos al paquete</p>
+                      <p className="text-xs text-db-ink-soft text-center py-3">Busca productos arriba para agregarlos al paquete</p>
                     ) : (
                       <div className="space-y-2">
                         {pkgForm.items.map((item, i) => (
-                          <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
+                          <div key={i} className="flex items-center gap-2 p-2 bg-db-paper rounded-xl">
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-gray-800 truncate">{item.product_name}</p>
+                              <p className="text-xs font-semibold text-db-ink truncate">{item.product_name}</p>
                               {products.find(p => p.id === item.product_id)?.variants?.length ? (
                                 <select value={item.variant_id || ''} onChange={e => updatePackageItem(i, 'variant_id', e.target.value)}
-                                  className="w-full mt-1 px-2 py-1 border border-gray-300 rounded-lg text-xs focus:outline-none bg-white">
+                                  className="w-full mt-1 px-2 py-1 border border-db-line rounded-lg text-xs focus:outline-none bg-db-surface">
                                   {products.find(p => p.id === item.product_id)?.variants.map(v => <option key={v.id} value={v.id}>{v.color}</option>)}
                                 </select>
                               ) : null}
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <span className="text-xs text-gray-500">Cant:</span>
+                              <span className="text-xs text-db-ink-soft">Cant:</span>
                               <input type="number" value={item.quantity} min={1}
                                 onChange={e => updatePackageItem(i, 'quantity', parseInt(e.target.value) || 1)}
-                                className="w-14 px-2 py-1.5 border border-gray-300 rounded-lg text-xs text-center focus:outline-none" />
+                                className="w-14 px-2 py-1.5 border border-db-line rounded-lg text-xs text-center focus:outline-none font-data" />
                             </div>
                             <button onClick={() => setPkgForm(p => ({ ...p, items: p.items.filter((_, idx) => idx !== i) }))}
-                              className="text-red-400 text-xl flex-shrink-0 touch-manipulation">×</button>
+                              className="text-db-cancelled flex-shrink-0 touch-manipulation"><IconClose className="w-4 h-4" /></button>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
                 </div>
-                <div className="p-5 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white">
+                <div className="p-5 border-t border-db-line flex gap-3 sticky bottom-0 bg-db-surface">
                   <button onClick={savePackage} disabled={saving}
-                    className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm disabled:opacity-50 touch-manipulation">
-                    {saving ? '⏳ Guardando...' : 'Guardar paquete'}
+                    className="flex-1 py-3 bg-db-brand text-white rounded-full font-semibold text-sm disabled:opacity-50 touch-manipulation">
+                    {saving ? 'Guardando...' : 'Guardar paquete'}
                   </button>
                   <button onClick={() => setShowPackageForm(false)}
-                    className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm touch-manipulation">
+                    className="flex-1 py-3 bg-db-paper text-db-ink-soft rounded-full font-semibold text-sm touch-manipulation">
                     Cancelar
                   </button>
                 </div>
@@ -609,18 +614,18 @@ export default function WholesalePage() {
       {/* ── TAB CLEARANCE ── */}
       {activeTab === 'clearance' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="font-semibold text-gray-900 mb-1">Productos en remate</h2>
-            <p className="text-xs text-gray-400 mb-3">Selecciona productos y pon el precio de remate — no afecta el inventario ni el formulario</p>
+          <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-5">
+            <h2 className="font-bold text-db-ink mb-1">Productos en remate</h2>
+            <p className="text-xs text-db-ink-soft mb-3">Selecciona productos y pon el precio de remate — no afecta el inventario ni el formulario</p>
             <div className="relative mb-3">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-db-ink-soft"><IconSearch className="w-3.5 h-3.5" /></span>
               <input type="text" value={clearanceSearch} onChange={e => setClearanceSearch(e.target.value)}
                 placeholder="Buscar producto..."
-                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
-              {clearanceSearch && <button onClick={() => setClearanceSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg touch-manipulation">×</button>}
+                className="w-full pl-9 pr-4 py-2.5 border border-db-line rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-db-accent" />
+              {clearanceSearch && <button onClick={() => setClearanceSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-db-ink-soft text-lg touch-manipulation">×</button>}
             </div>
             {products.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">No hay productos activos</p>
+              <p className="text-sm text-db-ink-soft text-center py-4">No hay productos activos</p>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {filteredClearanceProducts.map(product => {
@@ -632,22 +637,22 @@ export default function WholesalePage() {
                       const isSelected = !!ci
                       return (
                         <div key={key}
-                          className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer touch-manipulation ${isSelected ? 'border-orange-400 bg-orange-50' : 'border-gray-100 hover:border-gray-300'}`}
+                          className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer touch-manipulation ${isSelected ? 'border-db-accent bg-db-accent-tint' : 'border-db-line hover:border-db-accent/50'}`}
                           onClick={() => toggleClearanceItem(product.id, variant.id, product.name, variant.color)}>
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-orange-500 border-orange-500' : 'border-gray-300'}`}>
-                            {isSelected && <span className="text-white text-xs">✓</span>}
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-db-accent border-db-accent' : 'border-db-line'}`}>
+                            {isSelected && <IconCheck className="w-3 h-3 text-white" />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                            <p className="text-xs text-gray-400">{variant.color}</p>
+                            <p className="text-sm font-semibold text-db-ink">{product.name}</p>
+                            <p className="text-xs text-db-ink-soft">{variant.color}</p>
                           </div>
                           {isSelected && (
                             <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                              <span className="text-xs text-gray-500">S/</span>
+                              <span className="text-xs text-db-ink-soft">S/</span>
                               <input type="number" value={ci!.clearance_price || ''}
                                 onChange={e => updateClearancePrice(product.id, variant.id, parseFloat(e.target.value) || 0)}
                                 placeholder="0.00"
-                                className="w-20 px-2 py-1 border border-orange-300 rounded-lg text-xs text-center focus:outline-none bg-white"
+                                className="w-20 px-2 py-1 border border-db-accent rounded-lg text-xs text-center focus:outline-none bg-db-surface font-data"
                                 onClick={e => e.stopPropagation()} />
                             </div>
                           )}
@@ -660,21 +665,21 @@ export default function WholesalePage() {
                     const isSelected = !!ci
                     return (
                       <div key={key}
-                        className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer touch-manipulation ${isSelected ? 'border-orange-400 bg-orange-50' : 'border-gray-100 hover:border-gray-300'}`}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer touch-manipulation ${isSelected ? 'border-db-accent bg-db-accent-tint' : 'border-db-line hover:border-db-accent/50'}`}
                         onClick={() => toggleClearanceItem(product.id, null, product.name, 'Único')}>
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-orange-500 border-orange-500' : 'border-gray-300'}`}>
-                          {isSelected && <span className="text-white text-xs">✓</span>}
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-db-accent border-db-accent' : 'border-db-line'}`}>
+                          {isSelected && <IconCheck className="w-3 h-3 text-white" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{product.name}</p>
+                          <p className="text-sm font-semibold text-db-ink">{product.name}</p>
                         </div>
                         {isSelected && (
                           <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                            <span className="text-xs text-gray-500">S/</span>
+                            <span className="text-xs text-db-ink-soft">S/</span>
                             <input type="number" value={ci!.clearance_price || ''}
                               onChange={e => updateClearancePrice(product.id, null, parseFloat(e.target.value) || 0)}
                               placeholder="0.00"
-                              className="w-20 px-2 py-1 border border-orange-300 rounded-lg text-xs text-center focus:outline-none bg-white"
+                              className="w-20 px-2 py-1 border border-db-accent rounded-lg text-xs text-center focus:outline-none bg-db-surface font-data"
                               onClick={e => e.stopPropagation()} />
                           </div>
                         )}
@@ -682,13 +687,13 @@ export default function WholesalePage() {
                     )
                   }
                 })}
-                {filteredClearanceProducts.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No se encontraron productos</p>}
+                {filteredClearanceProducts.length === 0 && <p className="text-sm text-db-ink-soft text-center py-4">No se encontraron productos</p>}
               </div>
             )}
           </div>
           <button onClick={saveClearance} disabled={saving}
-            className="w-full py-3 bg-orange-500 text-white rounded-xl font-semibold text-sm disabled:opacity-50 touch-manipulation">
-            {saving ? '⏳ Guardando...' : '💾 Guardar remates'}
+            className="w-full py-3 bg-db-accent text-white rounded-full font-semibold text-sm disabled:opacity-50 touch-manipulation">
+            {saving ? 'Guardando...' : 'Guardar remates'}
           </button>
         </div>
       )}

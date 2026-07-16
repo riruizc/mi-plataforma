@@ -103,3 +103,6 @@ export const IconPhone = ({ className }: IconProps) => (
 export const IconClock = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" {...base} className={className}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>
 )
+export const IconFlame = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c1.5 1 2 3 2 4.5a5 5 0 0 1-10 0C7 9 12 8 12 2Z" /></svg>
+)
