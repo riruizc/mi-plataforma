@@ -22,6 +22,11 @@
   --color-db-delivered-bg: #DBF3E7;
   --color-db-cancelled: #C13B3B;
   --color-db-cancelled-bg: #FBE4E4;
+
+  --color-db-sidebar: #10142A;
+  --color-db-sidebar-line: #232849;
+  --color-db-sidebar-hover: #1B2040;
+  --color-db-sidebar-ink: #A9AFCC;
 }
 
 * {

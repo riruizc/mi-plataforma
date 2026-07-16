@@ -3,6 +3,19 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import {
+  IconPackage, IconArchive, IconMap, IconTrendingUp, IconWrench, IconSettings,
+} from '@/lib/icons'
+
+const IconClock = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>
+)
+const IconCheck = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 6 9 17l-5-5" /></svg>
+)
+const IconWallet = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v3" /><path d="M3 7v11a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1h-4.5a2.5 2.5 0 0 0 0 5H21" /></svg>
+)
 
 export default function StoreDashboard() {
   const [store, setStore] = useState<any>(null)
@@ -39,54 +52,61 @@ export default function StoreDashboard() {
   }
 
   const cards = [
-    { label: 'Pedidos hoy', value: stats.todayOrders, icon: '📦', color: 'bg-blue-500' },
-    { label: 'Pendientes', value: stats.pendingOrders, icon: '⏳', color: 'bg-yellow-500' },
-    { label: 'Entregados', value: stats.deliveredOrders, icon: '✅', color: 'bg-green-500' },
-    { label: 'Ingresos hoy', value: `S/ ${stats.todayRevenue.toFixed(2)}`, icon: '💰', color: 'bg-purple-500' },
+    { label: 'Pedidos hoy', value: String(stats.todayOrders), icon: IconPackage, text: 'text-db-brand', bg: 'bg-db-brand-tint' },
+    { label: 'Pendientes', value: String(stats.pendingOrders), icon: IconClock, text: 'text-db-pending', bg: 'bg-db-pending-bg' },
+    { label: 'Entregados', value: String(stats.deliveredOrders), icon: IconCheck, text: 'text-db-delivered', bg: 'bg-db-delivered-bg' },
+    { label: 'Ingresos hoy', value: `S/ ${stats.todayRevenue.toFixed(2)}`, icon: IconWallet, text: 'text-db-accent', bg: 'bg-db-accent-tint' },
+  ]
+
+  const shortcuts = [
+    { label: 'Pedidos', href: '/store/orders', icon: IconPackage },
+    { label: 'Inventario', href: '/store/inventory', icon: IconArchive },
+    { label: 'Rutas', href: '/store/routes', icon: IconMap },
+    { label: 'Resumen', href: '/store/summary', icon: IconTrendingUp },
+    { label: 'Herramientas', href: '/store/tools', icon: IconWrench },
+    { label: 'Ajustes', href: '/store/settings', icon: IconSettings },
   ]
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
+        <h1 className="text-xl lg:text-2xl font-bold text-db-ink">
           {store ? `Bienvenido, ${store.name}` : 'Dashboard'}
         </h1>
-        <p className="text-gray-500 text-sm mt-1">Resumen de tu tienda hoy</p>
+        <p className="text-db-ink-soft text-sm mt-1">Resumen de tu tienda hoy</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
-        {cards.map((card) => (
-          <div key={card.label} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-2xl">{card.icon}</span>
-              <span className={`${card.color} text-white text-xs font-semibold px-2 py-0.5 rounded-full`}>HOY</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        {cards.map((card) => {
+          const Icon = card.icon
+          return (
+            <div key={card.label} className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-4 lg:p-5">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${card.bg} ${card.text}`}>
+                <Icon className="w-4.5 h-4.5" />
+              </div>
+              <p className="text-2xl lg:text-3xl font-bold text-db-ink font-data tabular-nums">{card.value}</p>
+              <p className="text-db-ink-soft text-xs lg:text-sm mt-1">{card.label}</p>
             </div>
-            <p className="text-2xl lg:text-3xl font-bold text-gray-900">{card.value}</p>
-            <p className="text-gray-500 text-xs lg:text-sm mt-1">{card.label}</p>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
-      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-4 lg:p-6">
-        <h2 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">Accesos rápidos</h2>
-        <div className="grid grid-cols-3 lg:grid-cols-3 gap-3">
-          {[
-            { label: 'Pedidos', href: '/store/orders', icon: '📦' },
-            { label: 'Inventario', href: '/store/inventory', icon: '🗃️' },
-            { label: 'Rutas', href: '/store/routes', icon: '🗺️' },
-            { label: 'Resumen', href: '/store/summary', icon: '📈' },
-            { label: 'Herramientas', href: '/store/tools', icon: '🔧' },
-            { label: 'Ajustes', href: '/store/settings', icon: '⚙️' },
-          ].map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex flex-col items-center gap-2 p-3 lg:p-4 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50 active:bg-blue-100 transition-colors text-center touch-manipulation"
-            >
-              <span className="text-2xl">{item.icon}</span>
-              <span className="text-xs lg:text-sm font-medium text-gray-700">{item.label}</span>
-            </Link>
-          ))}
+      <div className="mt-5 bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-bold text-db-ink mb-4">Accesos rápidos</h2>
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
+          {shortcuts.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex flex-col items-center gap-2 p-3 lg:p-4 rounded-2xl border border-db-line hover:border-db-brand hover:bg-db-brand-tint transition-colors text-center touch-manipulation"
+              >
+                <Icon className="w-5 h-5 text-db-brand" />
+                <span className="text-xs lg:text-sm font-semibold text-db-ink">{item.label}</span>
+              </Link>
+            )
+          })}
         </div>
       </div>
     </div>
