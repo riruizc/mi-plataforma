@@ -39,11 +39,25 @@ type Order = {
 
 const STATUS_ORDER: Record<string, number> = { pending: 0, in_route: 1, delivered: 2, cancelled: 3 }
 
-const statusLabel: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-700' },
-  in_route: { label: 'En ruta', color: 'bg-blue-100 text-blue-700' },
-  delivered: { label: 'Entregado', color: 'bg-green-100 text-green-700' },
-  cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700' },
+const statusLabel: Record<string, { label: string; text: string; bg: string; rail: string }> = {
+  pending: { label: 'Pendiente', text: 'text-db-pending', bg: 'bg-db-pending-bg', rail: 'bg-db-pending' },
+  in_route: { label: 'En ruta', text: 'text-db-route', bg: 'bg-db-route-bg', rail: 'bg-db-route' },
+  delivered: { label: 'Entregado', text: 'text-db-delivered', bg: 'bg-db-delivered-bg', rail: 'bg-db-delivered' },
+  cancelled: { label: 'Cancelado', text: 'text-db-cancelled', bg: 'bg-db-cancelled-bg', rail: 'bg-db-cancelled' },
+}
+
+const deliveryIcon = (method: string) => method === 'motorizado'
+  ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5 flex-shrink-0"><circle cx="5.5" cy="17.5" r="2.5" /><circle cx="18.5" cy="17.5" r="2.5" /><path d="M5.5 17.5 9 10h4l2 3.5h3M9 10 7.5 7h-2M13 10l1.5-3" /></svg>
+  : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5 flex-shrink-0"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z" /><path d="M3 8l9 5 9-5M12 13v8" /></svg>
+
+const icons = {
+  receipt: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>,
+  link: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5"><path d="M9 15 15 9M10 6l1-1a4 4 0 0 1 6 6l-1 1M14 18l-1 1a4 4 0 0 1-6-6l1-1" /></svg>,
+  check: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="w-3.5 h-3.5"><path d="M20 6 9 17l-5-5" /></svg>,
+  edit: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-3.5 h-3.5"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>,
+  save: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" /><path d="M17 21v-8H7v8M7 3v5h8" /></svg>,
+  search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>,
+  plus: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="w-3.5 h-3.5"><path d="M12 5v14M5 12h14" /></svg>,
 }
 
 const PAGE_SIZE = 50
@@ -81,6 +95,9 @@ export default function OrdersPage() {
 
   const [deliveringId, setDeliveringId] = useState<string | null>(null)
   const deliveringRef = useRef<Set<string>>(new Set())
+
+  const [amountEdits, setAmountEdits] = useState<Record<string, { total?: string; pending?: string }>>({})
+  const [savingAmountId, setSavingAmountId] = useState<string | null>(null)
 
   useEffect(() => { loadOrders() }, [])
 
@@ -196,6 +213,52 @@ export default function OrdersPage() {
     } finally {
       deliveringRef.current.delete(order.id)
       setDeliveringId(null)
+    }
+  }
+
+  const getAmountEdit = (order: Order, field: 'total' | 'pending') => {
+    const edit = amountEdits[order.id]
+    const draft = field === 'total' ? edit?.total : edit?.pending
+    if (draft !== undefined) return draft
+    return String(field === 'total' ? order.total_amount : order.pending_amount)
+  }
+
+  const setAmountEdit = (orderId: string, field: 'total' | 'pending', value: string) => {
+    setAmountEdits(prev => ({ ...prev, [orderId]: { ...prev[orderId], [field]: value } }))
+  }
+
+  const isAmountDirty = (order: Order) => {
+    const edit = amountEdits[order.id]
+    if (!edit) return false
+    const totalChanged = edit.total !== undefined && parseFloat(edit.total) !== order.total_amount
+    const pendingChanged = edit.pending !== undefined && parseFloat(edit.pending) !== order.pending_amount
+    return totalChanged || pendingChanged
+  }
+
+  const saveAmounts = async (order: Order) => {
+    const edit = amountEdits[order.id]
+    if (!edit || !storeId) return
+    const newTotal = edit.total !== undefined ? parseFloat(edit.total) : order.total_amount
+    const newPending = edit.pending !== undefined ? parseFloat(edit.pending) : order.pending_amount
+    if (!Number.isFinite(newTotal) || !Number.isFinite(newPending) || newTotal < 0 || newPending < 0) {
+      alert('Ingresa montos válidos'); return
+    }
+    setSavingAmountId(order.id)
+    try {
+      const supabase = createClient()
+      await supabase.from('orders').update({ total_amount: newTotal, pending_amount: newPending }).eq('id', order.id).eq('store_id', storeId)
+      // Mismo criterio que en saveEdit: si el pedido ya está entregado, su
+      // transacción de ingreso en Finanzas debe reflejar el nuevo total.
+      if (order.status === 'delivered' && newTotal !== order.total_amount) {
+        await supabase.from('finance_transactions').update({ amount: newTotal })
+          .eq('order_id', order.id).eq('store_id', storeId).eq('source', 'order')
+      }
+      setAmountEdits(prev => { const next = { ...prev }; delete next[order.id]; return next })
+      await loadOrders()
+    } catch (e) {
+      alert('Error al guardar el monto')
+    } finally {
+      setSavingAmountId(null)
     }
   }
 
@@ -446,8 +509,8 @@ export default function OrdersPage() {
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="text-center">
-        <div className="w-8 h-8 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-2" />
-        <p className="text-gray-500 text-sm">Cargando pedidos...</p>
+        <div className="w-8 h-8 border-4 border-db-line border-t-db-brand rounded-full animate-spin mx-auto mb-2" />
+        <p className="text-db-ink-soft text-sm">Cargando pedidos...</p>
       </div>
     </div>
   )
@@ -455,22 +518,25 @@ export default function OrdersPage() {
   return (
     <div>
       {/* HEADER */}
-      <div className="mb-4 flex flex-col gap-3">
+      <div className="mb-5 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Pedidos</h1>
-            <p className="text-gray-500 text-sm mt-0.5">{filtered.length} pedidos</p>
+            <h1 className="text-xl lg:text-2xl font-bold text-db-ink">Pedidos</h1>
+            <p className="text-db-ink-soft text-sm mt-0.5">{filtered.length} pedidos</p>
           </div>
-          <button onClick={() => setShowManual(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-sm">+ Agregar</button>
+          <button onClick={() => setShowManual(true)}
+            className="flex items-center gap-1.5 bg-db-brand hover:bg-db-brand-dark text-white font-semibold px-4 py-2.5 rounded-full text-sm shadow-[0_4px_14px_-4px_rgba(36,81,232,0.55)] transition-colors">
+            {icons.plus}Agregar
+          </button>
         </div>
 
         {/* Búsqueda */}
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-db-ink-soft">{icons.search}</span>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por código, celular, DNI o nombre..."
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">×</button>}
+            className="w-full pl-10 pr-4 py-2.5 rounded-2xl text-sm bg-db-surface border-0 shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] focus:outline-none focus:ring-2 focus:ring-db-brand" />
+          {search && <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-db-ink-soft text-lg leading-none">×</button>}
         </div>
 
         {/* Tabs de estado */}
@@ -483,9 +549,9 @@ export default function OrdersPage() {
             { key: 'all', label: 'Todos' },
           ].map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors touch-manipulation flex items-center gap-1 ${filter === f.key ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors touch-manipulation flex items-center gap-1.5 border ${filter === f.key ? 'bg-db-brand text-white border-db-brand' : 'bg-db-surface text-db-ink-soft border-db-line'}`}>
               {f.label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${filter === f.key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              <span className={`font-data text-[10px] ${filter === f.key ? 'text-white/70' : 'text-db-ink-soft/70'}`}>
                 {counts[f.key as keyof typeof counts]}
               </span>
             </button>
@@ -495,12 +561,12 @@ export default function OrdersPage() {
         {/* Filtro de entrega */}
         <div className="flex gap-1.5">
           {[
-            { key: 'all', label: '🚚 Todos' },
-            { key: 'motorizado', label: '🛵 Motorizado' },
-            { key: 'agencia', label: '📦 Agencia' },
+            { key: 'all', label: 'Todos' },
+            { key: 'motorizado', label: 'Motorizado' },
+            { key: 'agencia', label: 'Agencia' },
           ].map(f => (
             <button key={f.key} onClick={() => setDeliveryFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors touch-manipulation ${deliveryFilter === f.key ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors touch-manipulation border ${deliveryFilter === f.key ? 'bg-db-ink text-white border-db-ink' : 'bg-db-surface text-db-ink-soft border-db-line'}`}>
               {f.label}
             </button>
           ))}
@@ -509,62 +575,104 @@ export default function OrdersPage() {
 
       {/* LISTA */}
       {paginated.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
-          <p className="text-4xl mb-3">📦</p>
-          <p className="text-gray-500">{search ? 'No se encontraron pedidos' : 'No hay pedidos en esta categoría'}</p>
+        <div className="bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-12 text-center">
+          <p className="text-db-ink-soft">{search ? 'No se encontraron pedidos' : 'No hay pedidos en esta categoría'}</p>
         </div>
       ) : (
         <>
           <div className="space-y-3">
-            {paginated.map(order => (
-              <div key={order.id} className={`bg-white rounded-xl shadow-sm border p-4 ${order.status === 'cancelled' ? 'border-red-100 opacity-75' : 'border-gray-100'}`}>
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <span className="font-bold text-gray-900 text-sm">{order.order_code}</span>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusLabel[order.status]?.color}`}>{statusLabel[order.status]?.label}</span>
-                  <span className="text-xs text-gray-400 ml-auto">{new Date(order.created_at).toLocaleDateString('es-PE')}</span>
+            {paginated.map(order => {
+              const s = statusLabel[order.status]
+              return (
+              <div key={order.id} className={`bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-4 ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
+                <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+                  <span className="font-data text-[11.5px] text-db-ink-soft">{order.order_code}</span>
+                  <span className={`ml-auto inline-flex items-center gap-1.5 text-[10.5px] font-bold pl-2 pr-2.5 py-1 rounded-full ${s?.bg} ${s?.text}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${s?.rail}`} />
+                    {s?.label}
+                  </span>
                 </div>
-                <p className="font-semibold text-gray-800 text-sm">{order.customer_name}</p>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                  <p className="text-gray-500 text-xs">📱 {order.customer_phone}</p>
-                  {order.customers?.dni && <p className="text-gray-500 text-xs">🪪 {order.customers.dni}</p>}
+                <p className="font-bold text-db-ink text-[15px]">{order.customer_name}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 mb-2.5 text-xs text-db-ink-soft">
+                  <span className="font-data tabular-nums"><span className="text-[9px] uppercase tracking-wide opacity-70 mr-1">Cel</span>{order.customer_phone}</span>
+                  {order.customers?.dni && <span className="font-data tabular-nums"><span className="text-[9px] uppercase tracking-wide opacity-70 mr-1">DNI</span>{order.customers.dni}</span>}
                 </div>
                 {order.order_items && order.order_items.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1.5">
+                  <div className="flex flex-wrap gap-1.5 mb-2.5">
                     {order.order_items.map((item: any, i: number) => (
-                      <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      <span key={i} className="text-[11px] font-semibold bg-db-brand-tint text-db-brand px-2.5 py-1 rounded-full">
                         {item.product_name} {item.color} x{item.quantity}
                       </span>
                     ))}
                   </div>
                 )}
-                <div className="mt-1.5">
-                  {order.delivery_method === 'motorizado'
-                    ? <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">🛵 Motorizado</span>
-                    : <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">📦 {order.agency_name || 'Agencia'} — {order.destination || 'Sin destino'}</span>
-                  }
+                <div className="flex items-center gap-1.5 text-xs text-db-ink-soft mb-3">
+                  {deliveryIcon(order.delivery_method)}
+                  <span>
+                    {order.delivery_method === 'motorizado'
+                      ? 'Motorizado'
+                      : `${order.agency_name || 'Agencia'} — ${order.destination || 'Sin destino'}`}
+                  </span>
                 </div>
-                <div className="flex gap-4 mt-2 text-xs">
-                  <span className="text-gray-600">Total: <strong>S/ {Number(order.total_amount).toFixed(2)}</strong></span>
-                  <span className="text-orange-600">Por cobrar: <strong>S/ {Number(order.pending_amount).toFixed(2)}</strong></span>
+                <div className="flex flex-wrap items-end gap-2.5 mb-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-db-ink-soft uppercase tracking-wide mb-1">Monto</label>
+                    <div className="flex items-center gap-1 bg-db-surface border border-db-line rounded-xl px-2.5 py-2 shadow-[0_1px_2px_rgba(23,26,43,0.04),0_6px_16px_-10px_rgba(23,26,43,0.3)]">
+                      <span className="text-[11px] text-db-ink-soft">S/</span>
+                      <input type="number" step="0.01" inputMode="decimal"
+                        value={getAmountEdit(order, 'total')}
+                        onChange={e => setAmountEdit(order.id, 'total', e.target.value)}
+                        className="w-[70px] bg-transparent font-data text-sm font-semibold text-db-ink tabular-nums focus:outline-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-db-accent uppercase tracking-wide mb-1">Por cobrar</label>
+                    <div className="flex items-center gap-1 bg-db-accent-tint rounded-xl px-2.5 py-2">
+                      <span className="text-[11px] text-db-accent">S/</span>
+                      <input type="number" step="0.01" inputMode="decimal"
+                        value={getAmountEdit(order, 'pending')}
+                        onChange={e => setAmountEdit(order.id, 'pending', e.target.value)}
+                        className="w-[70px] bg-transparent font-data text-sm font-semibold text-db-accent tabular-nums focus:outline-none" />
+                    </div>
+                  </div>
+                  {isAmountDirty(order) && (
+                    <button onClick={() => saveAmounts(order)} disabled={savingAmountId === order.id}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold bg-db-brand text-white touch-manipulation disabled:opacity-50 shadow-[0_4px_12px_-4px_rgba(36,81,232,0.55)]">
+                      {icons.save}{savingAmountId === order.id ? 'Guardando...' : 'Guardar'}
+                    </button>
+                  )}
                 </div>
                 {order.status !== 'cancelled' && (
-                  <div className="grid grid-cols-2 sm:flex gap-2 mt-3">
-                    <button onClick={() => enviarComprobante(order)} className="px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium touch-manipulation">📄💬 Comprobante</button>
-                    <button onClick={() => { const link = window.location.origin + '/track?code=' + order.order_code; navigator.clipboard.writeText(link).then(() => alert('Link copiado')) }} className="px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-medium touch-manipulation">🔗 Rastreo</button>
+                  <div className="grid grid-cols-2 sm:flex gap-2">
+                    <button onClick={() => enviarComprobante(order)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-db-surface text-db-ink-soft border border-db-line rounded-full text-xs font-semibold touch-manipulation">
+                      {icons.receipt}Comprobante
+                    </button>
+                    <button onClick={() => { const link = window.location.origin + '/track?code=' + order.order_code; navigator.clipboard.writeText(link).then(() => alert('Link copiado')) }}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-db-surface text-db-ink-soft border border-db-line rounded-full text-xs font-semibold touch-manipulation">
+                      {icons.link}Rastreo
+                    </button>
                     {order.status !== 'delivered' && (
-                      <button onClick={() => handleDeliver(order)} disabled={deliveringId === order.id} className="px-3 py-2 rounded-lg text-xs font-medium bg-green-600 text-white touch-manipulation disabled:opacity-50">{deliveringId === order.id ? '...' : '✅ Entregado'}</button>
+                      <button onClick={() => handleDeliver(order)} disabled={deliveringId === order.id}
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold bg-db-delivered text-white touch-manipulation disabled:opacity-50 shadow-[0_4px_12px_-4px_rgba(18,128,90,0.5)]">
+                        {deliveringId === order.id ? '...' : <>{icons.check}Entregado</>}
+                      </button>
                     )}
-                    <select value={order.status} onChange={e => handleStatusChange(order, e.target.value)} className="px-2 py-2 rounded-lg text-xs border border-gray-200 focus:outline-none bg-white">
+                    <select value={order.status} onChange={e => handleStatusChange(order, e.target.value)}
+                      className="px-2.5 py-2 rounded-full text-xs font-semibold border border-db-line focus:outline-none bg-db-surface text-db-ink-soft">
                       <option value="pending">Pendiente</option>
                       <option value="in_route">En ruta</option>
                       <option value="delivered">Entregado</option>
                       <option value="cancelled">Cancelado</option>
                     </select>
-                    <button onClick={() => openEdit(order)} className="px-3 py-2 bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-medium touch-manipulation">✏️ Editar</button>
+                    <button onClick={() => openEdit(order)}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-db-brand-tint text-db-brand rounded-full text-xs font-semibold touch-manipulation sm:ml-auto">
+                      {icons.edit}Editar
+                    </button>
                   </div>
                 )}
               </div>
-            ))}
+            )})}
           </div>
 
           {/* PAGINACIÓN */}

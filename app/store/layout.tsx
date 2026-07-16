@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { sora, plexMono } from '@/lib/fonts'
 
 export default function StoreLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -173,7 +174,7 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
   )
 
   return (
-    <div className="min-h-screen flex bg-gray-100">
+    <div className={`min-h-screen flex bg-db-paper ${sora.variable} ${plexMono.variable} font-display`}>
       <aside className="hidden lg:flex w-64 bg-gray-900 text-white flex-col fixed h-full z-30">
         <SidebarContent />
       </aside>
