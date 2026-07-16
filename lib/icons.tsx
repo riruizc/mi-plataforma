@@ -40,6 +40,9 @@ export const IconMap = ({ className }: IconProps) => (
 export const IconTrendingUp = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" {...base} className={className}><path d="M3 17 9.5 10.5 14 15l7-8" /><path d="M15.5 7H21v5.5" /></svg>
 )
+export const IconTrendingDown = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M3 7 9.5 13.5 14 9l7 8" /><path d="M15.5 17H21v-5.5" /></svg>
+)
 export const IconWrench = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" {...base} className={className}><path d="M14.7 6.3a4 4 0 0 0-5.4 5.1L3 18l3 3 6.6-6.3a4 4 0 0 0 5.1-5.4l-2.8 2.8-2.2-.6-.6-2.2Z" /></svg>
 )
