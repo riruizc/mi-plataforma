@@ -55,3 +55,21 @@ export const IconMenu = ({ className }: IconProps) => (
 export const IconClose = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" {...base} className={className}><path d="M18 6 6 18M6 6l12 12" /></svg>
 )
+export const IconPlus = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} strokeWidth={2.2} className={className}><path d="M12 5v14M5 12h14" /></svg>
+)
+export const IconSearch = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} strokeWidth={2} className={className}><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+)
+export const IconCamera = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M4 8a2 2 0 0 1 2-2h1.2l.9-1.5A2 2 0 0 1 9.8 3.5h4.4a2 2 0 0 1 1.7 1l.9 1.5H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" /><circle cx="12" cy="13" r="3.5" /></svg>
+)
+export const IconEdit = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+)
+export const IconTrash = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-.9 14a2 2 0 0 1-2 1.9H8.9a2 2 0 0 1-2-1.9L6 6h12ZM10 11v6M14 11v6" /></svg>
+)
+export const IconTag = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" {...base} className={className}><path d="m20.6 12-8-8H4v8.6l8 8a1 1 0 0 0 1.4 0l7.2-7.2a1 1 0 0 0 0-1.4Z" /><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" /></svg>
+)
