@@ -80,6 +80,9 @@ export default function OrdersPage() {
   const [manualSaving, setManualSaving] = useState(false)
   const [agencies, setAgencies] = useState<any[]>([])
 
+  const [deliveringId, setDeliveringId] = useState<string | null>(null)
+  const deliveringRef = useRef<Set<string>>(new Set())
+
   useEffect(() => { loadOrders() }, [])
 
   useEffect(() => {
@@ -178,12 +181,23 @@ export default function OrdersPage() {
   }
 
   const handleDeliver = async (order: Order) => {
-    const supabase = createClient()
-    await supabase.from('orders').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', order.id).eq('store_id', storeId)
-    if (order.status !== 'delivered' && storeId) {
-      await supabase.from('finance_transactions').insert({ store_id: storeId, type: 'income', source: 'order', description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id })
+    // Guard contra doble clic/doble tap: sin esto, dos invocaciones casi
+    // simultáneas ven ambas order.status !== 'delivered' (el estado local
+    // aún no se refrescó) y se duplica la transacción de ingreso en Finanzas.
+    if (deliveringRef.current.has(order.id)) return
+    deliveringRef.current.add(order.id)
+    setDeliveringId(order.id)
+    try {
+      const supabase = createClient()
+      await supabase.from('orders').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', order.id).eq('store_id', storeId)
+      if (order.status !== 'delivered' && storeId) {
+        await supabase.from('finance_transactions').insert({ store_id: storeId, type: 'income', source: 'order', description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id })
+      }
+      await loadOrders()
+    } finally {
+      deliveringRef.current.delete(order.id)
+      setDeliveringId(null)
     }
-    loadOrders()
   }
 
   const enviarComprobante = (order: any) => {
@@ -390,9 +404,14 @@ export default function OrdersPage() {
       const { data: existing } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', manualData.phone).maybeSingle()
       let customerId = existing?.id
       if (!customerId) {
-        const { data: newC } = await supabase.from('customers').insert({ store_id: storeId, name: manualData.name, phone: manualData.phone, dni: manualData.dni }).select('id').single()
+        const { data: newC } = await supabase.from('customers').insert({ store_id: storeId, name: manualData.name, phone: manualData.phone, dni: manualData.dni }).select('id').maybeSingle()
         customerId = newC?.id
+        if (!customerId) {
+          const { data: retryC } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', manualData.phone).maybeSingle()
+          customerId = retryC?.id
+        }
       }
+      if (!customerId) { alert('No se pudo crear el cliente, intenta de nuevo'); setManualSaving(false); return }
       const year = new Date().getFullYear()
       const { data: counterData } = await supabase.rpc('increment_order_counter', { p_store_id: storeId })
       const code = storePrefix + '-' + year + '-' + String(counterData).padStart(3, '0')
@@ -533,7 +552,7 @@ export default function OrdersPage() {
                     <button onClick={() => enviarComprobante(order)} className="px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg text-xs font-medium touch-manipulation">📄💬 Comprobante</button>
                     <button onClick={() => { const link = window.location.origin + '/track?code=' + order.order_code; navigator.clipboard.writeText(link).then(() => alert('Link copiado')) }} className="px-3 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg text-xs font-medium touch-manipulation">🔗 Rastreo</button>
                     {order.status !== 'delivered' && (
-                      <button onClick={() => handleDeliver(order)} className="px-3 py-2 rounded-lg text-xs font-medium bg-green-600 text-white touch-manipulation">✅ Entregado</button>
+                      <button onClick={() => handleDeliver(order)} disabled={deliveringId === order.id} className="px-3 py-2 rounded-lg text-xs font-medium bg-green-600 text-white touch-manipulation disabled:opacity-50">{deliveringId === order.id ? '...' : '✅ Entregado'}</button>
                     )}
                     <select value={order.status} onChange={e => handleStatusChange(order, e.target.value)} className="px-2 py-2 rounded-lg text-xs border border-gray-200 focus:outline-none bg-white">
                       <option value="pending">Pendiente</option>

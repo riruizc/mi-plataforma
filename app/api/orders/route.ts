@@ -135,22 +135,30 @@ export async function POST(request: Request) {
         .update({ name: customer.name, dni: customer.dni || null })
         .eq('id', existingCustomer.id)
     } else {
-      const { data: newCustomer, error: insertError } = await supabase
+      const { data: newCustomer } = await supabase
         .from('customers')
         .insert({ store_id: store.id, name: customer.name, phone: customer.phone, dni: customer.dni || null })
         .select('id')
         .maybeSingle()
 
-      if (insertError) {
+      customerId = newCustomer?.id
+      if (!customerId) {
+        // El insert puede "no fallar" pero tampoco devolver la fila (p.ej. si
+        // la política RLS de SELECT es más estricta que la de INSERT, o hubo
+        // una colisión concurrente por teléfono duplicado). Sin este
+        // reintento el pedido se crea sin customer_id ("Sin nombre").
         const { data: retryCustomer } = await supabase
           .from('customers').select('id')
           .eq('store_id', store.id)
           .eq('phone', customer.phone)
           .maybeSingle()
         customerId = retryCustomer?.id
-      } else {
-        customerId = newCustomer?.id
       }
+    }
+
+    if (!customerId) {
+      console.error('No se pudo crear ni encontrar el cliente para el pedido', { storeId: store.id, phone: customer.phone })
+      return NextResponse.json({ error: 'No se pudo procesar tus datos, intenta de nuevo' }, { status: 500 })
     }
 
     // 5. Código de pedido y token de rastreo (generado server-side con crypto seguro)

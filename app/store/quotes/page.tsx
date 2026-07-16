@@ -201,9 +201,14 @@ export default function QuotesPage() {
         const { data: existing } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', quote.customer_phone).maybeSingle()
         customerId = existing?.id
         if (!customerId) {
-          const { data: newC } = await supabase.from('customers').insert({ store_id: storeId, name: quote.customer_name, phone: quote.customer_phone, dni: quote.customer_dni }).select('id').single()
+          const { data: newC } = await supabase.from('customers').insert({ store_id: storeId, name: quote.customer_name, phone: quote.customer_phone, dni: quote.customer_dni }).select('id').maybeSingle()
           customerId = newC?.id
+          if (!customerId) {
+            const { data: retryC } = await supabase.from('customers').select('id').eq('store_id', storeId).eq('phone', quote.customer_phone).maybeSingle()
+            customerId = retryC?.id
+          }
         }
+        if (!customerId) { alert('No se pudo crear el cliente, intenta de nuevo'); setConverting(null); return }
       }
 
       // Crear código de pedido
