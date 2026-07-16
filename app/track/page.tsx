@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useSearchParams } from 'next/navigation'
+import { dmSans } from '@/lib/fonts'
 
 function TrackPageContent() {
   const [code, setCode] = useState('')
@@ -45,8 +46,7 @@ function TrackPageContent() {
   const txtColor = order?.stores?.text_color || '#ffffff'
 
   return (
-    <div className="min-h-screen" style={{ background: '#f9fafb', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
+    <div className={`min-h-screen ${dmSans.className}`} style={{ background: '#f9fafb' }}>
 
       {/* Header */}
       <div className="sticky top-0 z-20" style={{ backgroundColor: themeColor }}>

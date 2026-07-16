@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import jsPDF from 'jspdf'
-import * as XLSX from 'xlsx'
 
 const SHALOM_ORIGINS = [
   'CAJAMARCA / HUALGAYOC / BAMBAMARCA / BAMBAMARCA',
@@ -578,7 +576,7 @@ export default function ToolsPage() {
     loadShalomOrders()
   }
 
-  const generarExcelShalom = () => {
+  const generarExcelShalom = async () => {
     if (!shalomOrigin) { alert('Selecciona la agencia de origen primero'); return }
     const selected = shalomOrders.filter(o => selectedShalom.includes(o.id))
     if (selected.length === 0) { alert('Selecciona al menos un pedido'); return }
@@ -599,6 +597,7 @@ export default function ToolsPage() {
       'CANTIDAD': 1,
     }))
 
+    const XLSX = await import('xlsx')
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Pedidos Shalom')
@@ -625,7 +624,7 @@ export default function ToolsPage() {
   const toggleAgencia = async (agency: Agency) => {
     try {
       const supabase = createClient()
-      await supabase.from('delivery_agencies').update({ is_active: !agency.is_active }).eq('id', agency.id)
+      await supabase.from('delivery_agencies').update({ is_active: !agency.is_active }).eq('id', agency.id).eq('store_id', storeId)
       setAgencies(prev => prev.map(a => a.id === agency.id ? { ...a, is_active: !a.is_active } : a))
     } catch (e) { alert('Error al actualizar') }
   }
@@ -634,7 +633,7 @@ export default function ToolsPage() {
     if (!confirm('¿Eliminar esta agencia?')) return
     try {
       const supabase = createClient()
-      await supabase.from('delivery_agencies').delete().eq('id', id)
+      await supabase.from('delivery_agencies').delete().eq('id', id).eq('store_id', storeId)
       setAgencies(prev => prev.filter(a => a.id !== id))
     } catch (e) { alert('Error al eliminar') }
   }
@@ -643,10 +642,11 @@ export default function ToolsPage() {
     setSelectedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  const generarEtiquetas = () => {
+  const generarEtiquetas = async () => {
     const selected = orders.filter(o => selectedOrders.includes(o.id))
     if (selected.length === 0) { alert('Selecciona al menos un pedido'); return }
 
+    const { default: jsPDF } = await import('jspdf')
     const doc = new jsPDF()
     const cols = 2
     const rows = 4

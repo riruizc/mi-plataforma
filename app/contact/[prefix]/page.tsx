@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { dmSans } from '@/lib/fonts'
 
 export default async function ContactPage({ params }: { params: Promise<{ prefix: string }> }) {
   const { prefix } = await params
@@ -48,8 +49,7 @@ export default async function ContactPage({ params }: { params: Promise<{ prefix
   })()
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-5" style={{ background: bg, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
+    <div className={`min-h-screen flex flex-col items-center justify-center p-5 ${dmSans.className}`} style={{ background: bg }}>
 
       <div className="max-w-sm w-full flex flex-col items-center text-center">
 

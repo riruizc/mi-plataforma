@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import jsPDF from 'jspdf'
 
 type OrderItem = {
   id?: string
@@ -200,7 +199,8 @@ export default function OrdersPage() {
     }
   }
 
-  const enviarComprobante = (order: any) => {
+  const enviarComprobante = async (order: any) => {
+    const { default: jsPDF } = await import('jspdf')
     const doc = new jsPDF()
     const store_name = order.stores?.name || storeName || 'Tienda'
     const fecha = new Date(order.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })

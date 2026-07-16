@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { dmSans } from '@/lib/fonts'
 
 type Store = {
   id: string; name: string; store_prefix: string; theme_color: string
@@ -377,8 +378,7 @@ export default function OrderForm() {
   const secondaryText = '#6b7280'
 
   if (step === 4) return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#f9fafb', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
+    <div className={`min-h-screen flex items-center justify-center p-4 ${dmSans.className}`} style={{ background: '#f9fafb' }}>
       <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-sm">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)' }}>
           <span className="text-3xl">✅</span>
@@ -399,8 +399,7 @@ export default function OrderForm() {
   )
 
   return (
-    <div className="min-h-screen" style={{ background: '#f9fafb', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
+    <div className={`min-h-screen ${dmSans.className}`} style={{ background: '#f9fafb' }}>
       {/* HEADER */}
       <div className="sticky top-0 z-10" style={{ backgroundColor: color }}>
         <div className="max-w-lg mx-auto px-4 pt-3 pb-2">

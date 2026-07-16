@@ -103,7 +103,7 @@ export default function CustomersPage() {
     try {
       const supabase = createClient()
       if (editingCustomer) {
-        await supabase.from('customers').update({ name: form.name, phone: form.phone, dni: form.dni }).eq('id', editingCustomer.id)
+        await supabase.from('customers').update({ name: form.name, phone: form.phone, dni: form.dni }).eq('id', editingCustomer.id).eq('store_id', storeId)
       } else {
         await supabase.from('customers').insert({ store_id: storeId, name: form.name, phone: form.phone, dni: form.dni })
       }
@@ -117,8 +117,8 @@ export default function CustomersPage() {
   const deleteCustomer = async (customer: Customer) => {
     if (!confirm(`¿Eliminar a "${customer.name}"?\n\nSus pedidos se conservarán pero ya no estarán asociados a este cliente.`)) return
     const supabase = createClient()
-    await supabase.from('orders').update({ customer_id: null }).eq('customer_id', customer.id)
-    await supabase.from('customers').delete().eq('id', customer.id)
+    await supabase.from('orders').update({ customer_id: null }).eq('customer_id', customer.id).eq('store_id', storeId)
+    await supabase.from('customers').delete().eq('id', customer.id).eq('store_id', storeId)
     setSelected(null)
     setOrders([])
     loadCustomers()

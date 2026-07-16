@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import jsPDF from 'jspdf'
 
 type QuoteItem = { product_id: string; variant_id: string | null; product_name: string; variant_name: string | null; quantity: number; unit_price: number; subtotal: number }
 type Quote = {
@@ -133,7 +132,8 @@ export default function QuotesPage() {
     finally { setSaving(false) }
   }
 
-  const generatePDF = (quote: Quote) => {
+  const generatePDF = async (quote: Quote) => {
+    const { default: jsPDF } = await import('jspdf')
     const doc = new jsPDF()
     const fecha = new Date(quote.created_at).toLocaleDateString('es-PE')
     const vence = new Date(quote.expires_at).toLocaleDateString('es-PE')
@@ -266,7 +266,7 @@ export default function QuotesPage() {
   const deleteQuote = async (quote: Quote) => {
     if (!confirm(`¿Eliminar la cotización de "${quote.customer_name}"?`)) return
     const supabase = createClient()
-    await supabase.from('quotes').delete().eq('id', quote.id)
+    await supabase.from('quotes').delete().eq('id', quote.id).eq('store_id', storeId)
     loadData()
   }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { dmSans } from '@/lib/fonts'
 
 type Store = { id: string; name: string; phone: string; theme_color: string; button_color?: string; text_color?: string; logo_url: string; store_prefix: string }
 type WholesaleProduct = { product_id: string; base_price: number; product_name: string; image_url?: string | null; variants: { id: string; color: string }[] }
@@ -154,9 +155,8 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
   )
 
   return (
-    <div className="min-h-screen" style={{ background: '#f9fafb', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+    <div className={`min-h-screen ${dmSans.className}`} style={{ background: '#f9fafb' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
         .product-card { transition: transform 0.2s ease; }
         .product-card:active { transform: scale(0.97); }
         .variant-btn { transition: all 0.15s ease; }
