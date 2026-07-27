@@ -587,6 +587,9 @@ export default function OrdersPage() {
               <div key={order.id} className={`bg-db-surface rounded-2xl shadow-[0_1px_2px_rgba(23,26,43,0.04),0_8px_24px_-14px_rgba(23,26,43,0.25)] p-4 ${order.status === 'cancelled' ? 'opacity-60' : ''}`}>
                 <div className="flex items-center gap-2 mb-2.5 flex-wrap">
                   <span className="font-data text-[11.5px] text-db-ink-soft">{order.order_code}</span>
+                  <span className="font-data text-[11px] text-db-ink-soft/70">
+                    {new Date(order.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  </span>
                   <span className={`ml-auto inline-flex items-center gap-1.5 text-[10.5px] font-bold pl-2 pr-2.5 py-1 rounded-full ${s?.bg} ${s?.text}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${s?.rail}`} />
                     {s?.label}
