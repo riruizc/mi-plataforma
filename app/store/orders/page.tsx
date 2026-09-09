@@ -302,7 +302,13 @@ export default function OrdersPage() {
     if (!phone) { alert('Este pedido no tiene número de celular registrado'); return }
     const lineas = items.map((item: any) => '• ' + item.product_name + ' ' + item.color + ' x' + item.quantity + ' - S/ ' + Number(item.subtotal).toFixed(2)).join('%0A')
     const trackingLink = window.location.origin + '/track?code=' + order.order_code
-    const mensaje = '✅ *Pedido confirmado - ' + order.order_code + '*%0A%0A' + 'Hola ' + nombre + '! Aquí está tu comprobante:%0A%0A' + 'Productos:%0A' + lineas + '%0A%0A' + 'Total: *S/ ' + Number(order.total_amount).toFixed(2) + '*%0A' + 'Entrega: ' + (order.delivery_method === 'motorizado' ? 'Motorizado 🛵' : 'Agencia 📦') + (order.destination ? '%0ADirección: ' + order.destination : '') + '%0A%0A🔗 *Rastrea tu pedido:*%0A' + trackingLink + '%0A%0A¡Gracias por tu compra! 🙌'
+    // Si es motorizado y tiene coordenadas, adjuntar enlace de Google Maps con pregunta de confirmación
+    let ubicacionMsg = ''
+    if (order.delivery_method === 'motorizado' && order.lat && order.lng) {
+      const mapsLink = 'https://www.google.com/maps?q=' + order.lat + ',' + order.lng
+      ubicacionMsg = '%0A%0A📍 *Punto de entrega marcado:*%0A' + mapsLink + '%0A%0A¿Está bien este punto de entrega? Si no, por favor envíanos tu ubicación correcta 🙏'
+    }
+    const mensaje = '✅ *Pedido confirmado - ' + order.order_code + '*%0A%0A' + 'Hola ' + nombre + '! Aquí está tu comprobante:%0A%0A' + 'Productos:%0A' + lineas + '%0A%0A' + 'Total: *S/ ' + Number(order.total_amount).toFixed(2) + '*%0A' + 'Entrega: ' + (order.delivery_method === 'motorizado' ? 'Motorizado 🛵' : 'Agencia 📦') + (order.destination ? '%0ADirección: ' + order.destination : '') + ubicacionMsg + '%0A%0A🔗 *Rastrea tu pedido:*%0A' + trackingLink + '%0A%0A¡Gracias por tu compra! 🙌'
     window.open('https://wa.me/51' + phone + '?text=' + mensaje, '_blank')
   }
 
