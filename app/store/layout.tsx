@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
 import { sora, plexMono } from '@/lib/fonts'
 import {
   IconDashboard, IconSettings, IconPackage, IconUsers, IconFileText, IconTruck,
@@ -30,10 +31,13 @@ export default function StoreLayout({ children }: { children: React.ReactNode })
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      const { data: store } = await supabase.from('stores').select('id, status').eq('email', user.email).single()
+      const { store } = await getCurrentStore<{ id: string; status: string }>('id, status')
       if (!store || (store.status !== 'active' && store.status !== 'admin')) { router.push('/pending'); return }
 
-      const { data: feat } = await supabase.from('store_features').select('*').eq('store_id', store.id).single()
+      // maybeSingle: una tienda recién aprobada puede no tener fila en
+      // store_features todavía. Con .single() eso lanzaba PGRST116 en cada
+      // carga del panel y llenaba los logs sin que nadie lo notara.
+      const { data: feat } = await supabase.from('store_features').select('*').eq('store_id', store.id).maybeSingle()
       if (feat) {
         setFeatures({
           settings:    feat.settings    ?? true,

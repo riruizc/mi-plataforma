@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
+import { must, mustAffect } from '@/lib/db'
 import { IconWallet, IconTrendingUp, IconTrendingDown, IconPackage, IconEdit, IconTrash, IconClose } from '@/lib/icons'
 
 type Transaction = {
@@ -46,14 +48,13 @@ export default function FinancesPage() {
   const loadData = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { console.error('[finances]', storeError); return }
       setStoreId(store.id)
 
-      // Cargar capital
-      const { data: fin } = await supabase.from('finances').select('capital').eq('store_id', store.id).single()
+      // Cargar capital. maybeSingle: una tienda que nunca configuró su capital
+      // no tiene fila en `finances`, y .single() lanzaba PGRST116 en cada carga.
+      const { data: fin } = await supabase.from('finances').select('capital').eq('store_id', store.id).maybeSingle()
       const cap = fin?.capital || 0
       setCapital(cap)
       setCapitalInput(String(cap))
@@ -71,32 +72,51 @@ export default function FinancesPage() {
 
   const saveCapital = async () => {
     if (!storeId) return
+    const nuevoCapital = parseFloat(capitalInput)
+    if (!Number.isFinite(nuevoCapital) || nuevoCapital < 0) {
+      alert('Ingresa un capital válido (un número mayor o igual a 0)'); return
+    }
     setSavingCapital(true)
-    const supabase = createClient()
-    await supabase.from('finances').upsert({ store_id: storeId, capital: parseFloat(capitalInput) || 0, updated_at: new Date().toISOString() }, { onConflict: 'store_id' })
-    setCapital(parseFloat(capitalInput) || 0)
-    setCapitalChanged(false)
-    setSavingCapital(false)
+    try {
+      const supabase = createClient()
+      const ok = await must(
+        supabase.from('finances').upsert(
+          { store_id: storeId, capital: nuevoCapital, updated_at: new Date().toISOString() },
+          { onConflict: 'store_id' }
+        ).select('store_id').maybeSingle(),
+        'guardar el capital'
+      )
+      if (!ok) return
+      setCapital(nuevoCapital)
+      setCapitalChanged(false)
+    } finally { setSavingCapital(false) }
   }
 
   const addTransaction = async () => {
-    if (!form.description || !form.amount) { alert('Completa todos los campos'); return }
+    if (!form.description.trim() || !form.amount) { alert('Completa todos los campos'); return }
+    const monto = parseFloat(form.amount)
+    if (!Number.isFinite(monto) || monto <= 0) {
+      alert('El monto debe ser un número mayor que 0'); return
+    }
     if (!storeId) return
     setSaving(true)
     try {
       const supabase = createClient()
-      await supabase.from('finance_transactions').insert({
-        store_id: storeId,
-        type: formType,
-        source: 'manual',
-        description: form.description,
-        amount: parseFloat(form.amount),
-      })
+      const ok = await must(
+        supabase.from('finance_transactions').insert({
+          store_id: storeId,
+          type: formType,
+          source: 'manual',
+          description: form.description.trim(),
+          amount: monto,
+        }).select('id').maybeSingle(),
+        formType === 'income' ? 'registrar el ingreso' : 'registrar el egreso'
+      )
+      if (!ok) return
       setShowForm(false)
       setForm({ description: '', amount: '' })
       loadData()
-    } catch (e: any) { alert('Error: ' + e.message) }
-    finally { setSaving(false) }
+    } finally { setSaving(false) }
   }
 
   const openEdit = (tx: Transaction) => {
@@ -105,22 +125,35 @@ export default function FinancesPage() {
   }
 
   const saveEdit = async () => {
-    if (!editingTx) return
+    if (!editingTx || !storeId) return
+    const monto = parseFloat(editForm.amount)
+    if (!editForm.description.trim()) { alert('La descripción no puede quedar vacía'); return }
+    if (!Number.isFinite(monto) || monto <= 0) { alert('El monto debe ser un número mayor que 0'); return }
     setSavingEdit(true)
-    const supabase = createClient()
-    await supabase.from('finance_transactions').update({
-      description: editForm.description,
-      amount: parseFloat(editForm.amount) || 0,
-    }).eq('id', editingTx.id).eq('store_id', storeId)
-    setEditingTx(null)
-    loadData()
-    setSavingEdit(false)
+    try {
+      const supabase = createClient()
+      const ok = await mustAffect(
+        supabase.from('finance_transactions').update({
+          description: editForm.description.trim(),
+          amount: monto,
+        }).eq('id', editingTx.id).eq('store_id', storeId).select('id').maybeSingle(),
+        'guardar el movimiento'
+      )
+      if (!ok) return
+      setEditingTx(null)
+      loadData()
+    } finally { setSavingEdit(false) }
   }
 
   const deleteTx = async (tx: Transaction) => {
+    if (!storeId) return
     if (!confirm(`¿Eliminar "${tx.description}"?`)) return
     const supabase = createClient()
-    await supabase.from('finance_transactions').delete().eq('id', tx.id).eq('store_id', storeId)
+    const ok = await mustAffect(
+      supabase.from('finance_transactions').delete().eq('id', tx.id).eq('store_id', storeId).select('id').maybeSingle(),
+      'eliminar el movimiento'
+    )
+    if (!ok) return
     loadData()
   }
 

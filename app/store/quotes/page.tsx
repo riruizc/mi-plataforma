@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
+import { mustAffect } from '@/lib/db'
 import { IconFileText, IconSearch, IconPlus, IconClose, IconCheck, IconDownload } from '@/lib/icons'
 
 type QuoteItem = { product_id: string; variant_id: string | null; product_name: string; variant_name: string | null; quantity: number; unit_price: number; subtotal: number }
@@ -51,10 +53,8 @@ export default function QuotesPage() {
   const loadData = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id, name, store_prefix').eq('email', user.email).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string; name: string; store_prefix: string }>('id, name, store_prefix')
+      if (!store) { console.error('[quotes]', storeError); return }
       setStoreId(store.id)
       setStoreName(store.name)
       setStorePrefix(store.store_prefix)
@@ -113,7 +113,7 @@ export default function QuotesPage() {
     try {
       const supabase = createClient()
       const expires = new Date(); expires.setDate(expires.getDate() + 7)
-      await supabase.from('quotes').insert({
+      const { error } = await supabase.from('quotes').insert({
         store_id: storeId,
         customer_name: form.customer_name,
         customer_phone: form.customer_phone,
@@ -127,9 +127,10 @@ export default function QuotesPage() {
         expires_at: expires.toISOString(),
         status: 'active',
       })
+      if (error) { alert('No se pudo crear la cotización: ' + error.message); return }
       setShowForm(false)
       loadData()
-    } catch (e: any) { alert('Error: ' + e.message) }
+    } catch (e: any) { alert('Error: ' + (e?.message ?? 'error inesperado')) }
     finally { setSaving(false) }
   }
 
@@ -265,9 +266,14 @@ export default function QuotesPage() {
   }
 
   const deleteQuote = async (quote: Quote) => {
+    if (!storeId) return
     if (!confirm(`¿Eliminar la cotización de "${quote.customer_name}"?`)) return
     const supabase = createClient()
-    await supabase.from('quotes').delete().eq('id', quote.id).eq('store_id', storeId)
+    const ok = await mustAffect(
+      supabase.from('quotes').delete().eq('id', quote.id).eq('store_id', storeId).select('id').maybeSingle(),
+      'eliminar la cotización'
+    )
+    if (!ok) return
     loadData()
   }
 

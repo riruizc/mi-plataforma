@@ -18,10 +18,22 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')
   if (!q) return NextResponse.json([])
 
-  // Verificar que la request viene de nuestro propio dominio
-  const origin = req.headers.get('origin') || req.headers.get('referer') || ''
-  const allowed = process.env.NEXT_PUBLIC_SITE_URL || 'pedidospe.com'
-  if (!origin.includes(allowed) && !origin.includes('localhost')) {
+  // Verificar que la request viene de nuestro propio dominio.
+  // Se compara el HOST exacto, no con .includes(): antes 'pedidospe.com'
+  // matcheaba también 'pedidospe.com.attacker.io'.
+  // (Sigue siendo falsificable con curl — es un filtro contra el abuso casual,
+  //  no un control de seguridad. El límite real debe ser el rate limit.)
+  const rawOrigin = req.headers.get('origin') || req.headers.get('referer') || ''
+  let host = ''
+  try { host = new URL(rawOrigin).host.toLowerCase() } catch { host = '' }
+
+  const siteHost = (() => {
+    const v = process.env.NEXT_PUBLIC_SITE_URL || 'pedidospe.com'
+    try { return new URL(v.startsWith('http') ? v : `https://${v}`).host.toLowerCase() } catch { return v.toLowerCase() }
+  })()
+
+  const allowedHosts = new Set([siteHost, `www.${siteHost}`, 'localhost:3000', 'localhost'])
+  if (!allowedHosts.has(host)) {
     return NextResponse.json([], { status: 403 })
   }
 

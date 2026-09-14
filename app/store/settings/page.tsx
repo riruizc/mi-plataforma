@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
+import { mustAffect } from '@/lib/db'
 import { IconLink, IconArchive, IconFactory, IconMessageCircle, IconMapPin, IconCamera, IconPalette, IconEye, IconCheck, IconPackage } from '@/lib/icons'
 
 export default function SettingsPage() {
@@ -44,10 +46,8 @@ export default function SettingsPage() {
 
   const loadStore = async () => {
     try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data } = await supabase.from('stores').select('*').eq('email', (user.email ?? '').toLowerCase()).single()
+      const { store: data, error: storeError } = await getCurrentStore<any>('*')
+      if (!data) console.error('[settings]', storeError)
       if (data) {
         setStore(data)
         setFormActive(data.form_active !== false)
@@ -84,93 +84,107 @@ export default function SettingsPage() {
       const ext = file.name.split('.').pop()
       const path = 'store-' + store.id + '.' + ext
       const { error } = await supabase.storage.from('logos').upload(path, file, { upsert: true })
-      if (error) { alert('Error al subir el logo'); return }
+      if (error) { alert('Error al subir el logo: ' + error.message); return }
       const { data: urlData } = supabase.storage.from('logos').getPublicUrl(path)
-      await supabase.from('stores').update({ logo_url: urlData.publicUrl }).eq('id', store.id)
+      const saved = await mustAffect(
+        supabase.from('stores').update({ logo_url: urlData.publicUrl }).eq('id', store.id).select('id').maybeSingle(),
+        'guardar el logo'
+      )
+      if (!saved) return
       setStore((prev: any) => ({ ...prev, logo_url: urlData.publicUrl }))
       alert('Logo actualizado')
-    } catch (e) { alert('Error al subir el logo') }
+    } catch (e: any) { alert('Error al subir el logo: ' + (e?.message ?? '')) }
     finally { setUploading(false) }
+  }
+
+  /**
+   * Guarda un parche sobre la fila de la tienda y confirma que realmente se
+   * escribió. El `.select().maybeSingle()` es imprescindible: un UPDATE que la
+   * RLS bloquea devuelve `error: null` con 0 filas afectadas, que sin esto es
+   * indistinguible del éxito — el usuario veía "Cambios guardados
+   * correctamente" y al recargar no estaba nada.
+   */
+  const patchStore = async (patch: Record<string, any>, ctx: string) => {
+    if (!store) return false
+    const supabase = createClient()
+    const saved = await mustAffect(
+      supabase.from('stores').update(patch).eq('id', store.id).select('id').maybeSingle(),
+      ctx
+    )
+    return !!saved
   }
 
   const saveSettings = async () => {
     if (!store) return
     setSaving(true); setSuccess(false)
     try {
-      const supabase = createClient()
-      await supabase.from('stores').update({
+      const ok = await patchStore({
         name: formData.name, phone: formData.phone, owner_name: formData.owner_name,
         theme_color: formData.theme_color,
         button_color: buttonColor,
         text_color: textColor,
-      }).eq('id', store.id)
-      setStore((prev: any) => ({ ...prev, ...formData }))
+      }, 'guardar los ajustes')
+      if (!ok) return
+      setStore((prev: any) => ({ ...prev, ...formData, button_color: buttonColor, text_color: textColor }))
       setSuccess(true); setTimeout(() => setSuccess(false), 3000)
-    } catch (e) { alert('Error al guardar') }
-    finally { setSaving(false) }
+    } finally { setSaving(false) }
   }
 
   const saveCoords = async () => {
     if (!store) return
+    const lat = formData.origin_lat ? parseFloat(formData.origin_lat) : null
+    const lng = formData.origin_lng ? parseFloat(formData.origin_lng) : null
+    if ((formData.origin_lat && !Number.isFinite(lat as number)) || (formData.origin_lng && !Number.isFinite(lng as number))) {
+      alert('Las coordenadas deben ser números. Ej: -8.1116 y -79.0286'); return
+    }
+    if (lat !== null && (lat < -90 || lat > 90)) { alert('La latitud debe estar entre -90 y 90'); return }
+    if (lng !== null && (lng < -180 || lng > 180)) { alert('La longitud debe estar entre -180 y 180'); return }
+
     setSavingCoords(true); setSuccessCoords(false)
     try {
-      const supabase = createClient()
-      await supabase.from('stores').update({
-        origin_lat: formData.origin_lat ? parseFloat(formData.origin_lat) : null,
-        origin_lng: formData.origin_lng ? parseFloat(formData.origin_lng) : null,
-      }).eq('id', store.id)
-      setStore((prev: any) => ({ ...prev, origin_lat: formData.origin_lat, origin_lng: formData.origin_lng }))
+      const ok = await patchStore({ origin_lat: lat, origin_lng: lng }, 'guardar las coordenadas')
+      if (!ok) return
+      setStore((prev: any) => ({ ...prev, origin_lat: lat, origin_lng: lng }))
       setSuccessCoords(true); setTimeout(() => setSuccessCoords(false), 3000)
-    } catch (e) { alert('Error al guardar coordenadas') }
-    finally { setSavingCoords(false) }
+    } finally { setSavingCoords(false) }
   }
 
   const saveContactSettings = async () => {
     if (!store) return
     setSavingContact(true); setSuccessContact(false)
     try {
-      const supabase = createClient()
-      await supabase.from('stores').update(contactData).eq('id', store.id)
+      const ok = await patchStore(contactData, 'guardar el panel de contacto')
+      if (!ok) return
       setStore((prev: any) => ({ ...prev, ...contactData }))
       setSuccessContact(true); setTimeout(() => setSuccessContact(false), 3000)
-    } catch (e) { alert('Error al guardar') }
-    finally { setSavingContact(false) }
+    } finally { setSavingContact(false) }
   }
 
   const toggleFormActive = async () => {
     if (!store) return
     setTogglingForm(true)
     try {
-      const supabase = createClient()
       const newValue = !formActive
-      await supabase.from('stores').update({ form_active: newValue }).eq('id', store.id)
-      setFormActive(newValue)
-    } catch (e) { alert('Error al cambiar estado') }
-    finally { setTogglingForm(false) }
+      if (await patchStore({ form_active: newValue }, 'cambiar el estado del formulario')) setFormActive(newValue)
+    } finally { setTogglingForm(false) }
   }
 
   const toggleCatalogActive = async () => {
     if (!store) return
     setTogglingCatalog(true)
     try {
-      const supabase = createClient()
       const newValue = !catalogActive
-      await supabase.from('stores').update({ catalog_active: newValue }).eq('id', store.id)
-      setCatalogActive(newValue)
-    } catch (e) { alert('Error al cambiar estado') }
-    finally { setTogglingCatalog(false) }
+      if (await patchStore({ catalog_active: newValue }, 'cambiar el estado del catálogo')) setCatalogActive(newValue)
+    } finally { setTogglingCatalog(false) }
   }
 
   const toggleWholesaleActive = async () => {
     if (!store) return
     setTogglingWholesale(true)
     try {
-      const supabase = createClient()
       const newValue = !wholesaleActive
-      await supabase.from('stores').update({ wholesale_active: newValue }).eq('id', store.id)
-      setWholesaleActive(newValue)
-    } catch (e) { alert('Error al cambiar estado') }
-    finally { setTogglingWholesale(false) }
+      if (await patchStore({ wholesale_active: newValue }, 'cambiar el estado del catálogo mayorista')) setWholesaleActive(newValue)
+    } finally { setTogglingWholesale(false) }
   }
 
   const formLink = typeof window !== 'undefined' && store ? `${window.location.origin}/order/${store.store_prefix}` : ''

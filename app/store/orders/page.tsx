@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
 
 type OrderItem = {
   id?: string
@@ -94,7 +95,10 @@ export default function OrdersPage() {
   const [agencies, setAgencies] = useState<any[]>([])
 
   const [deliveringId, setDeliveringId] = useState<string | null>(null)
-  const deliveringRef = useRef<Set<string>>(new Set())
+  // Guard compartido por entregar / cambiar estado / cancelar. Sin él, dos
+  // invocaciones casi simultáneas ven ambas el mismo `order.status` del estado
+  // local (que aún no se refrescó) y duplican el ingreso en Finanzas.
+  const mutatingRef = useRef<Set<string>>(new Set())
 
   const [amountEdits, setAmountEdits] = useState<Record<string, { total?: string; pending?: string }>>({})
   const [savingAmountId, setSavingAmountId] = useState<string | null>(null)
@@ -128,10 +132,8 @@ export default function OrdersPage() {
   const loadOrders = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      const { data: store } = await supabase.from('stores').select('id, name, store_prefix').eq('email', user.email).single()
-      if (!store) { setLoading(false); return }
+      const { store, error: storeError } = await getCurrentStore<{ id: string; name: string; store_prefix: string }>('id, name, store_prefix')
+      if (!store) { console.error('[orders]', storeError); setLoading(false); return }
       setStoreId(store.id)
       setStoreName(store.name)
       setStorePrefix(store.store_prefix)
@@ -166,55 +168,113 @@ export default function OrdersPage() {
   const removeFinanceTransaction = async (orderId: string) => {
     if (!storeId) return
     const supabase = createClient()
-    await supabase.from('finance_transactions').delete().eq('order_id', orderId).eq('store_id', storeId).eq('source', 'order')
+    const { error } = await supabase.from('finance_transactions').delete()
+      .eq('order_id', orderId).eq('store_id', storeId).eq('source', 'order')
+    if (error) {
+      console.error('[orders] removeFinanceTransaction:', error)
+      alert('El pedido se actualizó, pero no se pudo quitar el ingreso de Finanzas. Revísalo manualmente.')
+    }
+  }
+
+  /**
+   * Registra el ingreso de un pedido entregado.
+   *
+   * Tolera el código 23505 (violación de UNIQUE) porque el índice
+   * `finance_tx_one_per_order` garantiza un solo ingreso por pedido: si salta,
+   * significa que el ingreso YA estaba registrado, que es justo lo que
+   * queremos. No es un error que deba ver el usuario.
+   */
+  const registrarIngreso = async (order: Order, amount: number) => {
+    if (!storeId) return
+    const supabase = createClient()
+    const { error } = await supabase.from('finance_transactions').insert({
+      store_id: storeId, type: 'income', source: 'order',
+      description: `Pedido ${order.order_code}`, amount, order_id: order.id,
+    })
+    if (error && error.code !== '23505') {
+      console.error('[orders] registrarIngreso:', error)
+      alert('El pedido se marcó como entregado, pero no se registró en Finanzas. Revísalo manualmente.')
+    }
   }
 
   const handleCancel = async (order: Order) => {
+    if (order.status === 'cancelled') return
     if (!confirm('¿Cancelar este pedido? Se reintegrará el stock de los productos.')) return
-    const supabase = createClient()
-    await supabase.from('orders').update({ status: 'cancelled' }).eq('id', order.id).eq('store_id', storeId)
-    if (order.status === 'delivered') await removeFinanceTransaction(order.id)
-    if (order.order_items && order.order_items.length > 0) {
-      for (const item of order.order_items) {
-        if (item.variant_id) await supabase.rpc('increment_stock', { p_variant_id: item.variant_id, p_qty: item.quantity })
-      }
-    }
-    loadOrders()
-  }
-
-  const handleStatusChange = async (order: Order, newStatus: string) => {
-    if (newStatus === 'cancelled') { handleCancel(order); return }
-    const supabase = createClient()
-    const updateData: any = { status: newStatus }
-    if (newStatus === 'delivered') updateData.delivered_at = new Date().toISOString()
-    await supabase.from('orders').update(updateData).eq('id', order.id).eq('store_id', storeId)
-    if (newStatus === 'delivered' && order.status !== 'delivered' && storeId) {
-      await supabase.from('finance_transactions').insert({ store_id: storeId, type: 'income', source: 'order', description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id })
-    } else if (newStatus !== 'delivered' && order.status === 'delivered') {
-      await removeFinanceTransaction(order.id)
-    }
-    loadOrders()
-  }
-
-  const handleDeliver = async (order: Order) => {
-    // Guard contra doble clic/doble tap: sin esto, dos invocaciones casi
-    // simultáneas ven ambas order.status !== 'delivered' (el estado local
-    // aún no se refrescó) y se duplica la transacción de ingreso en Finanzas.
-    if (deliveringRef.current.has(order.id)) return
-    deliveringRef.current.add(order.id)
+    if (!storeId) return
+    if (mutatingRef.current.has(order.id)) return
+    mutatingRef.current.add(order.id)
     setDeliveringId(order.id)
     try {
       const supabase = createClient()
-      await supabase.from('orders').update({ status: 'delivered', delivered_at: new Date().toISOString() }).eq('id', order.id).eq('store_id', storeId)
-      if (order.status !== 'delivered' && storeId) {
-        await supabase.from('finance_transactions').insert({ store_id: storeId, type: 'income', source: 'order', description: `Pedido ${order.order_code}`, amount: order.total_amount, order_id: order.id })
+      // El .neq() hace la transición atómica: si otra pestaña o un doble clic
+      // ya canceló el pedido, este UPDATE afecta 0 filas y devuelve null. Sin
+      // esto, el stock se reintegraba dos veces e inflaba el inventario.
+      // Además se libera el monto por cobrar: un pedido cancelado no se cobra.
+      const { data: cancelled, error } = await supabase.from('orders')
+        .update({ status: 'cancelled', pending_amount: 0 })
+        .eq('id', order.id).eq('store_id', storeId).neq('status', 'cancelled')
+        .select('id').maybeSingle()
+
+      if (error) { alert('No se pudo cancelar el pedido: ' + error.message); return }
+      if (!cancelled) { await loadOrders(); return }   // ya estaba cancelado: no re-stockear
+
+      if (order.status === 'delivered') await removeFinanceTransaction(order.id)
+
+      for (const item of (order.order_items || [])) {
+        if (!item.variant_id) continue
+        const { error: stockErr } = await supabase.rpc('increment_stock', { p_variant_id: item.variant_id, p_qty: item.quantity })
+        if (stockErr) console.error('[orders] increment_stock:', stockErr)
       }
       await loadOrders()
     } finally {
-      deliveringRef.current.delete(order.id)
+      mutatingRef.current.delete(order.id)
       setDeliveringId(null)
     }
   }
+
+  /**
+   * Transición de estado, con la inserción/eliminación del ingreso asociada.
+   *
+   * Comparte guard con handleDeliver y handleCancel a través de `mutatingRef`,
+   * para que no puedan pisarse entre sí (p. ej. cancelar mientras se entrega).
+   */
+  const applyStatus = async (order: Order, newStatus: string) => {
+    if (!storeId) return
+    if (newStatus === order.status) return
+    if (mutatingRef.current.has(order.id)) return
+    mutatingRef.current.add(order.id)
+    setDeliveringId(order.id)
+    try {
+      const supabase = createClient()
+      const updateData: any = { status: newStatus }
+      if (newStatus === 'delivered') updateData.delivered_at = new Date().toISOString()
+
+      const { data: updated, error } = await supabase.from('orders')
+        .update(updateData)
+        .eq('id', order.id).eq('store_id', storeId).neq('status', newStatus)
+        .select('id, total_amount').maybeSingle()
+
+      if (error) { alert('No se pudo cambiar el estado: ' + error.message); return }
+      if (!updated) { await loadOrders(); return }   // otra pestaña ya lo hizo
+
+      if (newStatus === 'delivered') {
+        await registrarIngreso(order, Number(updated.total_amount))
+      } else if (order.status === 'delivered') {
+        await removeFinanceTransaction(order.id)
+      }
+      await loadOrders()
+    } finally {
+      mutatingRef.current.delete(order.id)
+      setDeliveringId(null)
+    }
+  }
+
+  const handleStatusChange = (order: Order, newStatus: string) => {
+    if (newStatus === 'cancelled') { handleCancel(order); return }
+    applyStatus(order, newStatus)
+  }
+
+  const handleDeliver = (order: Order) => applyStatus(order, 'delivered')
 
   const getAmountEdit = (order: Order, field: 'total' | 'pending') => {
     const edit = amountEdits[order.id]
@@ -243,20 +303,34 @@ export default function OrdersPage() {
     if (!Number.isFinite(newTotal) || !Number.isFinite(newPending) || newTotal < 0 || newPending < 0) {
       alert('Ingresa montos válidos'); return
     }
+    if (newPending > newTotal) {
+      alert('El monto por cobrar no puede ser mayor que el total del pedido'); return
+    }
     setSavingAmountId(order.id)
     try {
       const supabase = createClient()
-      await supabase.from('orders').update({ total_amount: newTotal, pending_amount: newPending }).eq('id', order.id).eq('store_id', storeId)
+      // .select().maybeSingle() es obligatorio: un UPDATE bloqueado por RLS
+      // devuelve error:null con 0 filas, indistinguible del éxito.
+      const { data: updated, error } = await supabase.from('orders')
+        .update({ total_amount: newTotal, pending_amount: newPending })
+        .eq('id', order.id).eq('store_id', storeId)
+        .select('id').maybeSingle()
+
+      if (error) { alert('No se pudo guardar el monto: ' + error.message); return }
+      if (!updated) { alert('No se pudo guardar el monto: no se encontró el pedido o no tienes permiso.'); return }
+
       // Mismo criterio que en saveEdit: si el pedido ya está entregado, su
       // transacción de ingreso en Finanzas debe reflejar el nuevo total.
       if (order.status === 'delivered' && newTotal !== order.total_amount) {
-        await supabase.from('finance_transactions').update({ amount: newTotal })
+        const { error: txErr } = await supabase.from('finance_transactions').update({ amount: newTotal })
           .eq('order_id', order.id).eq('store_id', storeId).eq('source', 'order')
+        if (txErr) {
+          console.error('[orders] sync finanzas:', txErr)
+          alert('El monto del pedido se guardó, pero Finanzas no se actualizó. Revísalo manualmente.')
+        }
       }
       setAmountEdits(prev => { const next = { ...prev }; delete next[order.id]; return next })
       await loadOrders()
-    } catch (e) {
-      alert('Error al guardar el monto')
     } finally {
       setSavingAmountId(null)
     }
@@ -300,16 +374,36 @@ export default function OrdersPage() {
     const nombre = order.customers?.name || 'Cliente'
     const phone = (order.customers?.phone || '').replace(/\D/g, '')
     if (!phone) { alert('Este pedido no tiene número de celular registrado'); return }
-    const lineas = items.map((item: any) => '• ' + item.product_name + ' ' + item.color + ' x' + item.quantity + ' - S/ ' + Number(item.subtotal).toFixed(2)).join('%0A')
-    const trackingLink = window.location.origin + '/track?code=' + order.order_code
+    // El mensaje se arma con saltos de línea reales y se codifica UNA vez al
+    // final con encodeURIComponent. Antes se concatenaba '%0A' a mano sin
+    // codificar el resto: un '&' en la dirección (Av. Perú & Los Olivos)
+    // cortaba el parámetro ?text= y el cliente recibía el mensaje a medias,
+    // sin total ni link de rastreo. Un '#' truncaba todo lo que seguía.
+    const lineas = items
+      .map((item: any) => `• ${item.product_name} ${item.color} x${item.quantity} - S/ ${Number(item.subtotal).toFixed(2)}`)
+      .join('\n')
+    const trackingLink = window.location.origin + '/track?code=' + encodeURIComponent(order.order_code)
+
     // Si es motorizado y tiene coordenadas, adjuntar enlace de Google Maps con pregunta de confirmación
     let ubicacionMsg = ''
     if (order.delivery_method === 'motorizado' && order.lat && order.lng) {
-      const mapsLink = 'https://www.google.com/maps?q=' + order.lat + ',' + order.lng
-      ubicacionMsg = '%0A%0A📍 *Punto de entrega marcado:*%0A' + mapsLink + '%0A%0A¿Está bien este punto de entrega? Si no, por favor envíanos tu ubicación correcta 🙏'
+      const mapsLink = `https://www.google.com/maps?q=${order.lat},${order.lng}`
+      ubicacionMsg = `\n\n📍 *Punto de entrega marcado:*\n${mapsLink}` +
+        `\n\n¿Está bien este punto de entrega? Si no, por favor envíanos tu ubicación correcta 🙏`
     }
-    const mensaje = '✅ *Pedido confirmado - ' + order.order_code + '*%0A%0A' + 'Hola ' + nombre + '! Aquí está tu comprobante:%0A%0A' + 'Productos:%0A' + lineas + '%0A%0A' + 'Total: *S/ ' + Number(order.total_amount).toFixed(2) + '*%0A' + 'Entrega: ' + (order.delivery_method === 'motorizado' ? 'Motorizado 🛵' : 'Agencia 📦') + (order.destination ? '%0ADirección: ' + order.destination : '') + ubicacionMsg + '%0A%0A🔗 *Rastrea tu pedido:*%0A' + trackingLink + '%0A%0A¡Gracias por tu compra! 🙌'
-    window.open('https://wa.me/51' + phone + '?text=' + mensaje, '_blank')
+
+    const mensaje =
+      `✅ *Pedido confirmado - ${order.order_code}*\n\n` +
+      `Hola ${nombre}! Aquí está tu comprobante:\n\n` +
+      `Productos:\n${lineas}\n\n` +
+      `Total: *S/ ${Number(order.total_amount).toFixed(2)}*\n` +
+      `Entrega: ${order.delivery_method === 'motorizado' ? 'Motorizado 🛵' : 'Agencia 📦'}` +
+      (order.destination ? `\nDirección: ${order.destination}` : '') +
+      ubicacionMsg +
+      `\n\n🔗 *Rastrea tu pedido:*\n${trackingLink}` +
+      `\n\n¡Gracias por tu compra! 🙌`
+
+    window.open(`https://wa.me/51${phone}?text=${encodeURIComponent(mensaje)}`, '_blank')
   }
 
   const openEdit = async (order: any) => {
@@ -429,8 +523,56 @@ export default function OrdersPage() {
       // Si el pedido ya estaba entregado, su transacción en Finanzas quedó
       // creada con el total anterior — hay que mantenerla en sync.
       if (editOrder.status === 'delivered' && newTotal !== editOrder.total_amount) {
-        await supabase.from('finance_transactions').update({ amount: newTotal })
+        const { error: txErr } = await supabase.from('finance_transactions').update({ amount: newTotal })
           .eq('order_id', editOrder.id).eq('store_id', storeId).eq('source', 'order')
+        if (txErr) {
+          console.error('[orders] sync finanzas:', txErr)
+          alert('El pedido se guardó, pero Finanzas no se actualizó con el nuevo total. Revísalo manualmente.')
+        }
+      }
+
+      // ── Reemplazo de items ────────────────────────────────────────────────
+      // ORDEN IMPORTANTE: primero se escriben los items, y solo si eso funciona
+      // se mueve el stock. Antes era al revés — se descontaba stock, se
+      // borraban los items y recién después se insertaban los nuevos, sin
+      // comprobar ningún error. Si el INSERT fallaba, el pedido quedaba SIN
+      // PRODUCTOS con el stock ya movido, y de forma totalmente silenciosa.
+      //
+      // PENDIENTE (C8 de la auditoría): esto sigue sin ser atómico. El fix
+      // definitivo es la RPC `replace_order_items`, que hace borrado, inserción
+      // y ajuste de stock en una sola transacción. Mientras no exista en la
+      // base, este orden minimiza el daño y avisa cuando algo sale mal.
+      const { error: delErr } = await supabase.from('order_items').delete().eq('order_id', editOrder.id)
+      if (delErr) {
+        alert('No se pudieron actualizar los productos del pedido: ' + delErr.message +
+              '\n\nNo se modificó el stock. Vuelve a intentarlo.')
+        return
+      }
+
+      if (editItems.length > 0) {
+        const { error: insErr } = await supabase.from('order_items').insert(
+          editItems.map(item => ({
+            order_id: editOrder.id,
+            product_id: item.product_id || null,
+            variant_id: item.variant_id || null,
+            product_name: item.product_name,
+            color: item.color,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.unit_price * item.quantity,
+          }))
+        )
+        if (insErr) {
+          console.error('[orders] insert order_items:', insErr)
+          alert(
+            '⚠️ ATENCIÓN: los productos anteriores se borraron pero los nuevos no se guardaron.\n\n' +
+            'Error: ' + insErr.message + '\n\n' +
+            `El pedido ${editOrder.order_code} quedó SIN PRODUCTOS. Vuelve a agregarlos ` +
+            'antes de cerrar. El stock NO se modificó.'
+          )
+          await loadOrders()
+          return   // no tocar el stock: los items no son los que creemos
+        }
       }
 
       // Reconciliar stock: la cantidad de cada variante puede haber cambiado
@@ -449,16 +591,21 @@ export default function OrdersPage() {
       const allVariantIds = new Set([...originalQtyByVariant.keys(), ...newQtyByVariant.keys()])
       for (const variantId of allVariantIds) {
         const delta = (newQtyByVariant.get(variantId) || 0) - (originalQtyByVariant.get(variantId) || 0)
-        if (delta > 0) await supabase.rpc('decrement_stock', { p_variant_id: variantId, p_qty: delta })
-        else if (delta < 0) await supabase.rpc('increment_stock', { p_variant_id: variantId, p_qty: -delta })
+        if (delta === 0) continue
+        const { error: stockErr } = delta > 0
+          ? await supabase.rpc('decrement_stock', { p_variant_id: variantId, p_qty: delta })
+          : await supabase.rpc('increment_stock', { p_variant_id: variantId, p_qty: -delta })
+        if (stockErr) {
+          console.error('[orders] reconciliar stock:', stockErr)
+          alert('El pedido se guardó, pero el stock de una variante no se pudo ajustar. Revisa el inventario.')
+        }
       }
 
-      await supabase.from('order_items').delete().eq('order_id', editOrder.id)
-      if (editItems.length > 0) {
-        await supabase.from('order_items').insert(editItems.map(item => ({ order_id: editOrder.id, product_id: item.product_id || null, variant_id: item.variant_id || null, product_name: item.product_name, color: item.color, quantity: item.quantity, unit_price: item.unit_price, subtotal: item.unit_price * item.quantity })))
-      }
       await loadOrders(); closeEdit()
-    } catch (e) { alert('Error al guardar los cambios') }
+    } catch (e: any) {
+      console.error('[orders] saveEdit:', e)
+      alert('Error al guardar los cambios: ' + (e?.message ?? 'error inesperado'))
+    }
     finally { setEditSaving(false) }
   }
 
@@ -628,7 +775,7 @@ export default function OrdersPage() {
                     <label className="block text-[10px] font-bold text-db-ink-soft uppercase tracking-wide mb-1">Monto</label>
                     <div className="flex items-center gap-1 bg-db-surface border border-db-line rounded-xl px-2.5 py-2 shadow-[0_1px_2px_rgba(23,26,43,0.04),0_6px_16px_-10px_rgba(23,26,43,0.3)]">
                       <span className="text-[11px] text-db-ink-soft">S/</span>
-                      <input type="number" step="0.01" inputMode="decimal"
+                      <input type="number" step="0.01" inputMode="decimal" data-bare
                         value={getAmountEdit(order, 'total')}
                         onChange={e => setAmountEdit(order.id, 'total', e.target.value)}
                         className="w-[70px] bg-transparent font-data text-sm font-semibold text-db-ink tabular-nums focus:outline-none" />
@@ -638,7 +785,7 @@ export default function OrdersPage() {
                     <label className="block text-[10px] font-bold text-db-accent uppercase tracking-wide mb-1">Por cobrar</label>
                     <div className="flex items-center gap-1 bg-db-accent-tint rounded-xl px-2.5 py-2">
                       <span className="text-[11px] text-db-accent">S/</span>
-                      <input type="number" step="0.01" inputMode="decimal"
+                      <input type="number" step="0.01" inputMode="decimal" data-bare
                         value={getAmountEdit(order, 'pending')}
                         onChange={e => setAmountEdit(order.id, 'pending', e.target.value)}
                         className="w-[70px] bg-transparent font-data text-sm font-semibold text-db-accent tabular-nums focus:outline-none" />

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
+import { must, mustAffect } from '@/lib/db'
 import { IconTruck, IconPlus, IconClose, IconEdit, IconTrash, IconUsers, IconMapPin, IconMail, IconCheck } from '@/lib/icons'
 
 type Supplier = {
@@ -39,10 +41,8 @@ export default function SuppliersPage() {
   const loadData = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { console.error('[suppliers]', storeError); return }
       setStoreId(store.id)
 
       const { data: suppliersData } = await supabase.from('suppliers').select('*').eq('store_id', store.id).order('name')
@@ -87,20 +87,29 @@ export default function SuppliersPage() {
     setSaving(true)
     try {
       const supabase = createClient()
-      if (editingSupplier) {
-        await supabase.from('suppliers').update({ ...form }).eq('id', editingSupplier.id).eq('store_id', storeId)
-      } else {
-        await supabase.from('suppliers').insert({ store_id: storeId, ...form })
-      }
+      const ok = editingSupplier
+        ? await mustAffect(
+            supabase.from('suppliers').update({ ...form })
+              .eq('id', editingSupplier.id).eq('store_id', storeId).select('id').maybeSingle(),
+            'guardar el proveedor')
+        : await must(
+            supabase.from('suppliers').insert({ store_id: storeId, ...form }).select('id').maybeSingle(),
+            'crear el proveedor')
+      if (!ok) return
       setShowForm(false)
       loadData()
-    } catch (e: any) { alert('Error: ' + e.message) }
-    finally { setSaving(false) }
+    } finally { setSaving(false) }
   }
 
   const toggleActive = async (supplier: Supplier) => {
+    if (!storeId) return
     const supabase = createClient()
-    await supabase.from('suppliers').update({ is_active: !supplier.is_active }).eq('id', supplier.id).eq('store_id', storeId)
+    const ok = await mustAffect(
+      supabase.from('suppliers').update({ is_active: !supplier.is_active })
+        .eq('id', supplier.id).eq('store_id', storeId).select('id').maybeSingle(),
+      supplier.is_active ? 'desactivar el proveedor' : 'activar el proveedor'
+    )
+    if (!ok) return
     loadData()
   }
 
@@ -115,17 +124,24 @@ export default function SuppliersPage() {
   }
 
   const toggleProductSupplier = async (product: Product, supplierId: string) => {
+    if (!storeId) return
     setAssigningProducts(true)
-    const supabase = createClient()
-    const newSupplierId = product.supplier_id === supplierId ? null : supplierId
-    await supabase.from('products').update({ supplier_id: newSupplierId }).eq('id', product.id).eq('store_id', storeId)
-    await loadData()
-    // Refrescar selected
-    if (selected) {
-      const updated = suppliers.find(s => s.id === selected.id)
-      if (updated) setSelected({ ...updated, products: products.filter(p => p.supplier_id === selected.id) })
-    }
-    setAssigningProducts(false)
+    try {
+      const supabase = createClient()
+      const newSupplierId = product.supplier_id === supplierId ? null : supplierId
+      const ok = await mustAffect(
+        supabase.from('products').update({ supplier_id: newSupplierId })
+          .eq('id', product.id).eq('store_id', storeId).select('id').maybeSingle(),
+        'asignar el producto al proveedor'
+      )
+      if (!ok) return
+      await loadData()
+      // Refrescar selected
+      if (selected) {
+        const updated = suppliers.find(s => s.id === selected.id)
+        if (updated) setSelected({ ...updated, products: products.filter(p => p.supplier_id === selected.id) })
+      }
+    } finally { setAssigningProducts(false) }
   }
 
   if (loading) return (

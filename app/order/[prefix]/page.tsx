@@ -8,7 +8,7 @@ import { dmSans } from '@/lib/fonts'
 type Store = {
   id: string; name: string; store_prefix: string; theme_color: string
   button_color?: string; text_color?: string
-  logo_url: string; uses_agency_delivery: boolean; order_counter: number; form_active: boolean
+  logo_url: string; form_active: boolean
 }
 type Product = {
   id: string; name: string; category: string; sale_price: number
@@ -193,18 +193,32 @@ export default function OrderForm() {
   const [customer, setCustomer] = useState({ dni: '', name: '', phone: '' })
   const [delivery, setDelivery] = useState({ method: 'motorizado', destination: '', reference: '', lat: '', lng: '', agency_name: '' })
 
+  // Antes este timer vivía en (window as any)._geocodeTimer: estado global
+  // compartido y sin limpieza al desmontar, así que un debounce en vuelo
+  // llamaba a setAddressSuggestions sobre un componente ya desmontado.
+  const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => { loadStore() }, [prefix])
+
+  useEffect(() => () => { if (geocodeTimer.current) clearTimeout(geocodeTimer.current) }, [])
 
   const loadStore = async () => {
     try {
       const supabase = createClient()
-      const { data: storeData } = await supabase
+      // Columnas explícitas, nunca '*': esta página es pública y sin auth.
+      // Con select('*') se enviaban al navegador de cualquier visitante el
+      // email del dueño, origin_lat/lng (la dirección física del negocio),
+      // expires_at y order_counter (el volumen de ventas de la tienda).
+      // maybeSingle en vez de single: si un prefijo estuviera duplicado,
+      // .single() lanza PGRST116 y la tienda aparecía como "no encontrada".
+      const { data: storeData, error: storeError } = await supabase
         .from('stores')
-        .select('*, button_color, text_color')
+        .select('id, name, store_prefix, theme_color, button_color, text_color, logo_url, form_active')
         .eq('store_prefix', prefix)
         .eq('status', 'active')
-        .single()
+        .maybeSingle()
 
+      if (storeError) { console.error('[order] store:', storeError); setLoading(false); return }
       if (!storeData) { setLoading(false); return }
 
       if (storeData.form_active === false) {
@@ -215,7 +229,9 @@ export default function OrderForm() {
 
       const [{ data: prods }, { data: agencyData }, { data: combosData }] =
         await Promise.all([
-          supabase.from('products').select('*, product_variants(*)').eq('store_id', storeData.id).eq('is_active', true).eq('show_in_form', true),
+          // Sin '*': traía cost_price, o sea el precio de compra de la tienda,
+          // visible para cualquier cliente que abriera las DevTools.
+          supabase.from('products').select('id, name, category, sale_price, image_url, product_variants(id, color, stock)').eq('store_id', storeData.id).eq('is_active', true).eq('show_in_form', true),
           supabase.from('delivery_agencies').select('*').eq('store_id', storeData.id).eq('is_active', true),
           supabase.from('combos').select('*').eq('store_id', storeData.id).eq('is_active', true).order('name'),
         ])
@@ -465,7 +481,10 @@ export default function OrderForm() {
         </div>
       )}
 
-      <div className="max-w-lg mx-auto px-4 py-5 pb-32" style={{ color: "white" }}>
+      {/* El color por defecto es el texto oscuro de la página, no blanco: el
+          fondo es #f9fafb y cualquier texto sin `style` propio quedaba
+          invisible (blanco sobre blanco). */}
+      <div className="max-w-lg mx-auto px-4 py-5 pb-32" style={{ color: primaryText }}>
 
         {/* PASO 1 */}
         {step === 1 && (
@@ -663,8 +682,8 @@ export default function OrderForm() {
                       const value = e.target.value
                       setDelivery((prev) => ({ ...prev, destination: value }))
                       if (value.length < 8) { setAddressSuggestions([]); return }
-                      clearTimeout((window as any)._geocodeTimer)
-                      ;(window as any)._geocodeTimer = setTimeout(async () => {
+                      if (geocodeTimer.current) clearTimeout(geocodeTimer.current)
+                      geocodeTimer.current = setTimeout(async () => {
                         try {
                           const res = await fetch('/api/geocode?q=' + encodeURIComponent(value))
                           if (!res.ok) { setAddressSuggestions([]); return }

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
+import { mustAffect } from '@/lib/db'
 import { IconGift, IconPlus, IconClose, IconEdit, IconSearch } from '@/lib/icons'
 
 type Variant = { id: string; color: string; stock: number }
@@ -28,10 +30,8 @@ export default function CombosPage() {
   const loadData = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { console.error('[combos]', storeError); return }
       setStoreId(store.id)
 
       const { data: prods } = await supabase
@@ -125,20 +125,34 @@ export default function CombosPage() {
         const { data: newCombo } = await supabase.from('combos').insert({ store_id: storeId, name: form.name, description: form.description, price: parseFloat(form.price), is_active: true }).select('id').single()
         comboId = newCombo?.id
       }
-      if (comboId) {
-        await supabase.from('combo_items').insert(
-          selectedItems.map(i => ({ combo_id: comboId, product_id: i.product_id, variant_id: i.variant_id || null, quantity: i.quantity }))
-        )
+      if (!comboId) { alert('No se pudo guardar el combo'); return }
+
+      const { error: itemsError } = await supabase.from('combo_items').insert(
+        selectedItems.map(i => ({ combo_id: comboId, product_id: i.product_id, variant_id: i.variant_id || null, quantity: i.quantity }))
+      )
+      if (itemsError) {
+        // Al editar, los items viejos ya se borraron más arriba: si el insert
+        // falla, el combo se queda sin contenido. Hay que decirlo, no callarlo.
+        alert('No se pudieron guardar los productos del combo: ' + itemsError.message +
+              (editingCombo ? '\n\nEl combo quedó sin productos. Vuelve a agregarlos.' : ''))
+        loadData()
+        return
       }
       setShowForm(false)
       loadData()
-    } catch (e: any) { alert('Error: ' + e.message) }
+    } catch (e: any) { alert('Error: ' + (e?.message ?? 'error inesperado')) }
     finally { setSaving(false) }
   }
 
   const toggleActive = async (combo: Combo) => {
+    if (!storeId) return
     const supabase = createClient()
-    await supabase.from('combos').update({ is_active: !combo.is_active }).eq('id', combo.id).eq('store_id', storeId)
+    const ok = await mustAffect(
+      supabase.from('combos').update({ is_active: !combo.is_active })
+        .eq('id', combo.id).eq('store_id', storeId).select('id').maybeSingle(),
+      combo.is_active ? 'desactivar el combo' : 'activar el combo'
+    )
+    if (!ok) return
     loadData()
   }
 

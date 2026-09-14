@@ -89,7 +89,19 @@ export default function DespachoPage() {
   const layersRef = useRef<any[]>([])
 
   useEffect(() => { loadData() }, [])
-  useEffect(() => { if (!loading) setTimeout(() => initMap(), 200) }, [loading])
+
+  // El setTimeout se guarda para poder cancelarlo, y el mapa se destruye al
+  // desmontar: si no, cada visita deja una instancia de Leaflet con fugas.
+  useEffect(() => {
+    if (loading) return
+    const t = setTimeout(() => initMap(), 200)
+    return () => {
+      clearTimeout(t)
+      markersRef.current.forEach(m => m.remove()); markersRef.current = []
+      layersRef.current.forEach(l => l.remove()); layersRef.current = []
+      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null }
+    }
+  }, [loading])
 
   const loadData = async () => {
     try {

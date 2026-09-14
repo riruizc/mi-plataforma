@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
 import { IconFactory, IconSettings, IconGift, IconFlame, IconSearch, IconPlus, IconClose, IconEdit, IconTrash, IconCheck, IconCamera } from '@/lib/icons'
 
 type Product = { id: string; name: string; category: string; sale_price: number; variants: { id: string; color: string }[] }
@@ -40,10 +41,8 @@ export default function WholesalePage() {
   const loadData = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id, phone').eq('email', user.email).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { console.error('[wholesale]', storeError); return }
       setStoreId(store.id)
 
       const [{ data: prods }, { data: wConfig }, { data: wRanges }, { data: wProds }, { data: wPkgs }, { data: wClear }] = await Promise.all([
@@ -102,8 +101,13 @@ export default function WholesalePage() {
       const { error: e1 } = await supabase.from('wholesale_config').upsert({ store_id: storeId, min_units: minUnits }, { onConflict: 'store_id' })
       if (e1) throw new Error('Config: ' + e1.message)
 
-      // Ranges: delete all then insert fresh
-      await supabase.from('wholesale_discount_ranges').delete().eq('store_id', storeId)
+      // Ranges: delete all then insert fresh.
+      // PENDIENTE (A4 de la auditoría): esto no es atómico. Si el insert falla
+      // tras el delete, la tienda se queda sin rangos de descuento y el
+      // catálogo mayorista público pasa a mostrar el precio base sin descuento.
+      // El fix definitivo es la RPC `save_wholesale_config`.
+      const { error: delRangesErr } = await supabase.from('wholesale_discount_ranges').delete().eq('store_id', storeId)
+      if (delRangesErr) throw new Error('Rangos: ' + delRangesErr.message)
       if (ranges.length > 0) {
         const { error: e2 } = await supabase.from('wholesale_discount_ranges').insert(
           ranges.map((r, i) => ({ store_id: storeId, min_units: r.min_units, max_units: r.max_units, discount_pct: r.discount_pct, sort_order: i }))
@@ -112,7 +116,8 @@ export default function WholesalePage() {
       }
 
       // Wholesale products: delete all then insert selected
-      await supabase.from('wholesale_products').delete().eq('store_id', storeId)
+      const { error: delProdsErr } = await supabase.from('wholesale_products').delete().eq('store_id', storeId)
+      if (delProdsErr) throw new Error('Productos: ' + delProdsErr.message)
       if (wholesaleProducts.length > 0) {
         const { error: e3 } = await supabase.from('wholesale_products').insert(
           wholesaleProducts.map(wp => ({ store_id: storeId, product_id: wp.product_id, base_price: wp.base_price || 0, is_active: true }))
@@ -212,12 +217,16 @@ export default function WholesalePage() {
       const supabase = createClient()
       let pkgId = editingPackage?.id
       if (editingPackage) {
-        const { error } = await supabase.from('wholesale_packages').update({
+        // El .eq('store_id') es el segundo filtro de aislamiento multi-tenant.
+        // Era el único módulo del panel que lo omitía y dependía solo de la RLS.
+        const { data: updated, error } = await supabase.from('wholesale_packages').update({
           name: pkgForm.name, description: pkgForm.description, price: pkgForm.price,
           image_url: pkgForm.image_url, is_active: pkgForm.is_active
-        }).eq('id', editingPackage.id)
+        }).eq('id', editingPackage.id).eq('store_id', storeId).select('id').maybeSingle()
         if (error) throw error
-        await supabase.from('wholesale_package_items').delete().eq('package_id', editingPackage.id)
+        if (!updated) throw new Error('No se encontró el paquete o no tienes permiso para editarlo')
+        const { error: delErr } = await supabase.from('wholesale_package_items').delete().eq('package_id', editingPackage.id)
+        if (delErr) throw delErr
       } else {
         const { data: newPkg, error } = await supabase.from('wholesale_packages').insert({
           store_id: storeId, name: pkgForm.name, description: pkgForm.description,
@@ -239,10 +248,17 @@ export default function WholesalePage() {
   }
 
   const deletePackage = async (pkgId: string) => {
+    if (!storeId) return
     if (!confirm('¿Eliminar este paquete?')) return
     const supabase = createClient()
-    await supabase.from('wholesale_package_items').delete().eq('package_id', pkgId)
-    await supabase.from('wholesale_packages').delete().eq('id', pkgId)
+
+    const { error: itemsErr } = await supabase.from('wholesale_package_items').delete().eq('package_id', pkgId)
+    if (itemsErr) { alert('No se pudo eliminar el contenido del paquete: ' + itemsErr.message); return }
+
+    const { data: deleted, error } = await supabase.from('wholesale_packages')
+      .delete().eq('id', pkgId).eq('store_id', storeId).select('id').maybeSingle()
+    if (error) { alert('No se pudo eliminar el paquete: ' + error.message); return }
+    if (!deleted) { alert('No se pudo eliminar el paquete: no se encontró o no tienes permiso.'); return }
     loadData()
   }
 
@@ -267,7 +283,8 @@ export default function WholesalePage() {
     setSaving(true)
     try {
       const supabase = createClient()
-      await supabase.from('wholesale_clearance').delete().eq('store_id', storeId)
+      const { error: delErr } = await supabase.from('wholesale_clearance').delete().eq('store_id', storeId)
+      if (delErr) throw new Error('No se pudieron limpiar los remates anteriores: ' + delErr.message)
       const valid = clearanceItems.filter(c => c.clearance_price > 0)
       if (valid.length > 0) {
         const { error } = await supabase.from('wholesale_clearance').insert(

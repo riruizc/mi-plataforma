@@ -21,25 +21,69 @@ export default function RequestsPage() {
   }
 
   const handleApprove = async (store: Store) => {
-    const storePrefix = prefix[store.id]?.toUpperCase()
-    if (!storePrefix || storePrefix.length < 2) { alert('Ingresa un prefijo de al menos 2 letras'); return }
+    const storePrefix = prefix[store.id]?.toUpperCase().trim()
+    // El prefijo va en la URL pública y es la raíz de todos los order_code,
+    // así que se restringe a A-Z0-9. Un espacio o un acento rompía los links.
+    if (!storePrefix || !/^[A-Z0-9]{2,5}$/.test(storePrefix)) {
+      alert('El prefijo debe tener entre 2 y 5 letras o números, sin espacios ni acentos.')
+      return
+    }
     setProcessing(store.id)
-    const supabase = createClient()
-    const expires = new Date()
-    expires.setDate(expires.getDate() + 30)
-    const { error } = await supabase.from('stores').update({ status: 'active', store_prefix: storePrefix, expires_at: expires.toISOString() }).eq('id', store.id)
-    if (error) { alert('Error al aprobar: ' + error.message) }
-    else { await supabase.from('store_features').insert({ store_id: store.id }); loadRequests() }
-    setProcessing(null)
+    try {
+      const supabase = createClient()
+
+      // Un prefijo repetido deja a AMBAS tiendas sin páginas públicas: /order,
+      // /catalog, /wholesale y /contact resuelven con .single(), que lanza
+      // PGRST116 con más de una fila. Antes no se verificaba nada.
+      const { data: taken, error: checkError } = await supabase
+        .from('stores').select('id, name')
+        .ilike('store_prefix', storePrefix)
+        .neq('id', store.id)
+        .maybeSingle()
+      if (checkError) { alert('No se pudo verificar el prefijo: ' + checkError.message); return }
+      if (taken) { alert(`El prefijo "${storePrefix}" ya lo usa la tienda "${taken.name}". Elige otro.`); return }
+
+      const expires = new Date()
+      expires.setDate(expires.getDate() + 30)
+      const { data: approved, error } = await supabase.from('stores')
+        .update({ status: 'active', store_prefix: storePrefix, expires_at: expires.toISOString() })
+        .eq('id', store.id).select('id').maybeSingle()
+
+      if (error) {
+        // 23505 = el índice único stores_prefix_unique atrapó una carrera
+        // entre dos aprobaciones simultáneas con el mismo prefijo.
+        alert(error.code === '23505'
+          ? `El prefijo "${storePrefix}" acaba de ser tomado por otra tienda. Elige otro.`
+          : 'Error al aprobar: ' + error.message)
+        return
+      }
+      if (!approved) { alert('No se pudo aprobar la tienda: no se encontró o no tienes permiso.'); return }
+
+      const { error: featError } = await supabase.from('store_features').insert({ store_id: store.id })
+      // 23505 aquí solo significa que la fila de features ya existía.
+      if (featError && featError.code !== '23505') {
+        console.error('[admin/requests] store_features:', featError)
+        alert('La tienda se aprobó, pero no se pudieron crear sus módulos. Configúralos desde Tiendas → Módulos.')
+      }
+      loadRequests()
+    } finally {
+      setProcessing(null)
+    }
   }
 
   const handleReject = async (storeId: string) => {
     if (!confirm('¿Seguro que quieres rechazar esta solicitud?')) return
     setProcessing(storeId)
-    const supabase = createClient()
-    await supabase.from('stores').update({ status: 'inactive' }).eq('id', storeId)
-    loadRequests()
-    setProcessing(null)
+    try {
+      const supabase = createClient()
+      const { data: rejected, error } = await supabase.from('stores')
+        .update({ status: 'inactive' }).eq('id', storeId).select('id').maybeSingle()
+      if (error) { alert('Error al rechazar: ' + error.message); return }
+      if (!rejected) { alert('No se pudo rechazar: no se encontró la solicitud o no tienes permiso.'); return }
+      loadRequests()
+    } finally {
+      setProcessing(null)
+    }
   }
 
   if (loading) return (

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
 import { IconPackage, IconCheck, IconClock, IconTrendingUp } from '@/lib/icons'
 
 type Order = {
@@ -23,10 +24,8 @@ export default function SummaryPage() {
   const loadOrders = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { console.error('[summary]', storeError); return }
       const { data } = await supabase
         .from('orders')
         .select('*, order_items(*)')

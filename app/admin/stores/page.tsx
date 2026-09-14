@@ -58,7 +58,10 @@ export default function StoresPage() {
   const toggleStatus = async (store: Store) => {
     const newStatus = store.status === 'active' ? 'inactive' : 'active'
     const supabase = createClient()
-    await supabase.from('stores').update({ status: newStatus }).eq('id', store.id)
+    const { data, error } = await supabase.from('stores')
+      .update({ status: newStatus }).eq('id', store.id).select('id').maybeSingle()
+    if (error) { alert('No se pudo cambiar el estado: ' + error.message); return }
+    if (!data) { alert('No se pudo cambiar el estado: no se encontró la tienda o no tienes permiso.'); return }
     loadStores()
   }
 
@@ -71,7 +74,10 @@ export default function StoresPage() {
     const base = currentExpiry && currentExpiry > now ? currentExpiry : now
     const expires = new Date(base)
     expires.setDate(expires.getDate() + days)
-    await supabase.from('stores').update({ expires_at: expires.toISOString() }).eq('id', store.id)
+    const { data, error } = await supabase.from('stores')
+      .update({ expires_at: expires.toISOString() }).eq('id', store.id).select('id').maybeSingle()
+    if (error) { alert('No se pudo extender el plan: ' + error.message); return }
+    if (!data) { alert('No se pudo extender el plan: no se encontró la tienda o no tienes permiso.'); return }
     loadStores()
   }
 

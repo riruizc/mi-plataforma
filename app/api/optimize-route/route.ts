@@ -20,7 +20,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { jobs, origin } = await req.json()
+    // Validación de entrada. Antes se accedía directo a origin.lng y a
+    // jobs.map(): un body sin `origin` o con `jobs` no-array tumbaba la
+    // función, y no había ningún tope de paradas, así que cualquier usuario
+    // autenticado podía quemar la cuota de OpenRouteService con un solo POST.
+    const body = await req.json().catch(() => null)
+    const jobs = Array.isArray(body?.jobs) ? body.jobs : null
+    const origin = body?.origin
+
+    const isCoord = (v: any) =>
+      v != null &&
+      Number.isFinite(Number(v.lat)) && Number.isFinite(Number(v.lng)) &&
+      Math.abs(Number(v.lat)) <= 90 && Math.abs(Number(v.lng)) <= 180
+
+    const MAX_PARADAS = 60
+    if (!jobs || jobs.length === 0 || jobs.length > MAX_PARADAS) {
+      return NextResponse.json({ error: `Selecciona entre 1 y ${MAX_PARADAS} paradas` }, { status: 400 })
+    }
+    if (!isCoord(origin)) {
+      return NextResponse.json({ error: 'Falta el punto de salida o sus coordenadas son inválidas' }, { status: 400 })
+    }
+    if (!jobs.every(isCoord)) {
+      return NextResponse.json({ error: 'Uno de los pedidos tiene coordenadas inválidas' }, { status: 400 })
+    }
+
     const apiKey = process.env.ORS_API_KEY
     if (!apiKey) return NextResponse.json({ error: 'Sin API key' }, { status: 500 })
 
@@ -86,7 +109,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ orderedIds, totalKm, geometry })
   } catch (e: any) {
-    console.error(e)
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    // Nunca devolver e.message al cliente: filtra detalles internos
+    // (rutas de archivos, nombres de tablas, mensajes de Postgres).
+    console.error('[optimize-route]', e)
+    return NextResponse.json({ error: 'No se pudo optimizar la ruta' }, { status: 500 })
   }
 }

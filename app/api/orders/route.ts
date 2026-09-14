@@ -37,15 +37,17 @@ export async function POST(request: Request) {
     // 2. Recalcular cada línea de producto contra el precio real en la DB
     const resolvedItems: { product_id: string; variant_id: string | null; product_name: string; color: string; quantity: number; unit_price: number }[] = []
 
+    const MAX_QTY_POR_LINEA = 500
+
     for (const c of (cart || [])) {
       const quantity = Number(c.quantity)
-      if (!c.product_id || !Number.isFinite(quantity) || quantity <= 0) {
-        return NextResponse.json({ error: 'Producto inválido en el carrito' }, { status: 400 })
+      if (!c.product_id || !Number.isInteger(quantity) || quantity <= 0 || quantity > MAX_QTY_POR_LINEA) {
+        return NextResponse.json({ error: 'Cantidad inválida en el carrito' }, { status: 400 })
       }
 
       const { data: product } = await supabase
         .from('products')
-        .select('id, name, sale_price, product_variants(id, color)')
+        .select('id, name, sale_price, product_variants(id, color, stock)')
         .eq('id', c.product_id)
         .eq('store_id', store.id)
         .eq('is_active', true)
@@ -61,6 +63,15 @@ export async function POST(request: Request) {
         const variant = (product.product_variants || []).find((v: any) => v.id === c.variant_id)
         if (!variant) {
           return NextResponse.json({ error: 'Una variante del carrito ya no está disponible' }, { status: 400 })
+        }
+        // Validación de stock: antes no existía. El front filtra las variantes
+        // con stock > 0 pero no limita la cantidad, así que un cliente podía
+        // pedir 100 unidades de un producto con stock 1 y decrement_stock
+        // dejaba el inventario en negativo.
+        if (Number(variant.stock) < quantity) {
+          return NextResponse.json({
+            error: `Solo quedan ${variant.stock} unidades de ${product.name} (${variant.color})`,
+          }, { status: 409 })
         }
         variantId = variant.id
         color = variant.color
@@ -81,8 +92,8 @@ export async function POST(request: Request) {
 
     for (const c of (comboCart || [])) {
       const quantity = Number(c.quantity)
-      if (!c.combo_id || !Number.isFinite(quantity) || quantity <= 0) {
-        return NextResponse.json({ error: 'Combo inválido en el carrito' }, { status: 400 })
+      if (!c.combo_id || !Number.isInteger(quantity) || quantity <= 0 || quantity > MAX_QTY_POR_LINEA) {
+        return NextResponse.json({ error: 'Cantidad inválida de combos en el carrito' }, { status: 400 })
       }
 
       const { data: combo } = await supabase

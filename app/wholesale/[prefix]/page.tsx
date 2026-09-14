@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { dmSans } from '@/lib/fonts'
 
-type Store = { id: string; name: string; phone: string; theme_color: string; button_color?: string; text_color?: string; logo_url: string; store_prefix: string }
+// `phone` es nullable en la BD (el registro no lo pide como obligatorio).
+// Declararlo como `string` hacía que TypeScript no detectara el .replace()
+// sobre null en sendWhatsApp, que tumbaba la página con el carrito lleno.
+type Store = { id: string; name: string; phone: string | null; theme_color: string; button_color?: string; text_color?: string; logo_url: string; store_prefix: string }
 type WholesaleProduct = { product_id: string; base_price: number; product_name: string; image_url?: string | null; variants: { id: string; color: string }[] }
 type DiscountRange = { min_units: number; max_units: number | null; discount_pct: number }
 type Package = { id: string; name: string; description: string; price: number; image_url: string; items: { product_name: string; color: string; quantity: number }[] }
@@ -117,7 +120,11 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
 
   const sendWhatsApp = () => {
     if (!store || cart.length === 0) return
-    const phone = store.phone.replace(/\D/g, '')
+    const phone = (store.phone || '').replace(/\D/g, '')
+    if (!phone) {
+      alert('Esta tienda todavía no configuró su número de WhatsApp. Contáctala por otro medio.')
+      return
+    }
     const lines: string[] = []
     const unitItems = cart.filter(c => c.type === 'unit')
     const pkgItems = cart.filter(c => c.type === 'package')

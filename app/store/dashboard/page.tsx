@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
 import {
   IconPackage, IconArchive, IconMap, IconTrendingUp, IconWrench, IconSettings,
   IconClock, IconCheck, IconWallet,
@@ -16,10 +17,8 @@ export default function StoreDashboard() {
 
   const loadData = async () => {
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: storeData } = await supabase.from('stores').select('*').eq('email', user.email).single()
-    if (!storeData) return
+    const { store: storeData, error: storeError } = await getCurrentStore<{ id: string; name: string }>('id, name')
+    if (!storeData) { console.error('[dashboard]', storeError); return }
     setStore(storeData)
     // Límites del día en hora local (no UTC), para que "hoy" coincida con
     // el calendario del usuario y no cambie ~5 horas antes de medianoche.
@@ -27,17 +26,24 @@ export default function StoreDashboard() {
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const startOfTomorrow = new Date(startOfToday)
     startOfTomorrow.setDate(startOfTomorrow.getDate() + 1)
-    const { data: orders } = await supabase
+    // Los cancelados no cuentan como pedidos del día ni como ingreso.
+    const { data: orders, error } = await supabase
       .from('orders').select('status, total_amount')
       .eq('store_id', storeData.id)
+      .neq('status', 'cancelled')
       .gte('created_at', startOfToday.toISOString())
       .lt('created_at', startOfTomorrow.toISOString())
+    if (error) { console.error('[dashboard] stats:', error); return }
     if (orders) {
       setStats({
         todayOrders: orders.length,
         pendingOrders: orders.filter(o => o.status === 'pending').length,
         deliveredOrders: orders.filter(o => o.status === 'delivered').length,
-        todayRevenue: orders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
+        // Coherente con Resumen y Finanzas: solo lo entregado es ingreso.
+        // Antes sumaba todos los pedidos del día, incluidos los cancelados.
+        todayRevenue: orders
+          .filter(o => o.status === 'delivered')
+          .reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
       })
     }
   }

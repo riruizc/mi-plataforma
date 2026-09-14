@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
+import { must, mustAffect } from '@/lib/db'
 import { IconTarget, IconPlus, IconClose, IconEdit, IconTrash, IconCheck, IconWallet } from '@/lib/icons'
 
 type Goal = {
@@ -30,10 +32,8 @@ export default function GoalsPage() {
   const loadData = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { console.error('[goals]', storeError); return }
       setStoreId(store.id)
 
       // Cargar metas
@@ -76,42 +76,50 @@ export default function GoalsPage() {
       const current = parseFloat(form.current_amount) || 0
       const is_completed = current >= target
 
-      if (editingGoal) {
-        await supabase.from('goals').update({
-          title: form.title,
-          description: form.description,
-          target_amount: target,
-          current_amount: current,
-          is_completed,
-        }).eq('id', editingGoal.id).eq('store_id', storeId)
-      } else {
-        await supabase.from('goals').insert({
-          store_id: storeId,
-          title: form.title,
-          description: form.description,
-          target_amount: target,
-          current_amount: current,
-          is_completed,
-        })
+      const payload = {
+        title: form.title,
+        description: form.description,
+        target_amount: target,
+        current_amount: current,
+        is_completed,
       }
+      const ok = editingGoal
+        ? await mustAffect(
+            supabase.from('goals').update(payload)
+              .eq('id', editingGoal.id).eq('store_id', storeId).select('id').maybeSingle(),
+            'guardar la meta')
+        : await must(
+            supabase.from('goals').insert({ store_id: storeId, ...payload }).select('id').maybeSingle(),
+            'crear la meta')
+      if (!ok) return
       setShowForm(false)
       loadData()
-    } catch (e: any) { alert('Error: ' + e.message) }
-    finally { setSaving(false) }
+    } finally { setSaving(false) }
   }
 
   const useFinances = async (goal: Goal) => {
+    if (!storeId) return
     if (!confirm(`¿Usar la ganancia real (S/ ${gananciaReal.toFixed(2)}) como progreso de "${goal.title}"?`)) return
     const supabase = createClient()
     const is_completed = gananciaReal >= goal.target_amount
-    await supabase.from('goals').update({ current_amount: gananciaReal, is_completed }).eq('id', goal.id).eq('store_id', storeId)
+    const ok = await mustAffect(
+      supabase.from('goals').update({ current_amount: gananciaReal, is_completed })
+        .eq('id', goal.id).eq('store_id', storeId).select('id').maybeSingle(),
+      'actualizar el progreso de la meta'
+    )
+    if (!ok) return
     loadData()
   }
 
   const deleteGoal = async (goal: Goal) => {
+    if (!storeId) return
     if (!confirm(`¿Eliminar la meta "${goal.title}"?`)) return
     const supabase = createClient()
-    await supabase.from('goals').delete().eq('id', goal.id).eq('store_id', storeId)
+    const ok = await mustAffect(
+      supabase.from('goals').delete().eq('id', goal.id).eq('store_id', storeId).select('id').maybeSingle(),
+      'eliminar la meta'
+    )
+    if (!ok) return
     loadData()
   }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
 import { IconMap, IconPackage, IconDownload, IconCheck, IconStar, IconMessageCircle, IconMapPin } from '@/lib/icons'
 
 type OrderItem = {
@@ -48,15 +49,26 @@ export default function RoutesPage() {
   const routeLayerRef = useRef<any>(null)
 
   useEffect(() => { loadOrders() }, [])
-  useEffect(() => { if (!loading) initMap() }, [loading])
+
+  // Sin este cleanup, cada visita a Rutas dejaba viva una instancia de Leaflet
+  // con sus listeners de resize/scroll y sus tiles. Navegar Rutas → Pedidos →
+  // Rutas varias veces terminaba tumbando la pestaña en móvil.
+  useEffect(() => {
+    if (loading) return
+    initMap()
+    return () => {
+      markersRef.current.forEach(m => m.remove())
+      markersRef.current = []
+      if (routeLayerRef.current) { routeLayerRef.current.remove(); routeLayerRef.current = null }
+      if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null }
+    }
+  }, [loading])
 
   const loadOrders = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id, origin_lat, origin_lng').eq('email', (user.email ?? '').toLowerCase()).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string; origin_lat: number | null; origin_lng: number | null }>('id, origin_lat, origin_lng')
+      if (!store) { console.error('[routes]', storeError); return }
       setStoreId(store.id)
       if (store.origin_lat && store.origin_lng) setStoreOrigin({ lat: store.origin_lat, lng: store.origin_lng })
       const { data } = await supabase.from('orders').select('*, order_items(*), customers(name, phone, dni), stores(name)').eq('store_id', store.id).in('status', ['pending', 'in_route']).eq('delivery_method', 'motorizado').order('created_at', { ascending: false })
@@ -148,11 +160,6 @@ export default function RoutesPage() {
     let usedLocalOptimization = false
 
     try {
-      const coordPoints = [
-        ...(storeOrigin ? [`${storeOrigin.lng},${storeOrigin.lat}`] : []),
-        ...ordersWithLocation.map(o => `${o.lng},${o.lat}`),
-      ]
-
       if (ordersWithLocation.length >= 1 && storeOrigin) {
         try {
           setOptimizingMsg('Optimizando con ORS...')
@@ -231,7 +238,7 @@ export default function RoutesPage() {
         markersRef.current.push(L.marker([order.lat!, order.lng!], { icon }).addTo(map).bindPopup(`<b>#${i + 1} — ${order.order_code}</b><br>${order.customer_name}`))
       })
 
-      alert('⚠️ OSRM no disponible. Se usó optimización por distancia directa — la ruta puede no ser perfecta.')
+      alert('⚠️ El optimizador de rutas (OpenRouteService) no está disponible. Se ordenaron las paradas por distancia directa — la ruta puede no ser la más corta.')
     }
 
     try {

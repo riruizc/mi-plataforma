@@ -98,17 +98,58 @@ export default function RiderRoutePage() {
     }
   }
 
+  /**
+   * Marca un pedido como entregado Y registra el ingreso en Finanzas.
+   *
+   * El registro del ingreso faltaba por completo: el panel de la tienda sí lo
+   * hace (store/orders → handleDeliver), pero esta página no, así que TODA
+   * entrega hecha por el motorizado —el flujo normal del negocio— desaparecía
+   * de Finanzas. El dueño veía el pedido como entregado, pero sus ingresos
+   * quedaban sistemáticamente por debajo de lo real, sin ninguna señal.
+   *
+   * El .neq('status','delivered') hace la transición atómica: si el motorizado
+   * toca el botón dos veces o tiene dos pestañas abiertas, el segundo UPDATE
+   * afecta 0 filas y no se duplica el ingreso.
+   */
   const marcarEntregado = async (orderId: string) => {
+    if (delivering) return
+    const order = orders.find(o => o.id === orderId)
+    if (!order || order.status === 'delivered') return
+
     setDelivering(orderId)
     try {
       const supabase = createClient()
-      await supabase
+
+      const { data: updated, error } = await supabase
         .from('orders')
         .update({ status: 'delivered', delivered_at: new Date().toISOString() })
         .eq('id', orderId)
+        .neq('status', 'delivered')
+        .select('id, store_id, order_code, total_amount')
+        .maybeSingle()
+
+      if (error) { alert('Error al actualizar el pedido: ' + error.message); return }
+      if (!updated) {
+        // Ya estaba entregado (otra pestaña o un doble toque). Sincronizar la UI.
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'delivered' } : o))
+        return
+      }
+
+      const { error: txError } = await supabase.from('finance_transactions').insert({
+        store_id: updated.store_id,
+        type: 'income',
+        source: 'order',
+        description: `Pedido ${updated.order_code}`,
+        amount: updated.total_amount,
+        order_id: updated.id,
+      })
+      // 23505 = el índice `finance_tx_one_per_order` ya tenía el ingreso.
+      // No es un error: significa que la contabilidad ya estaba correcta.
+      if (txError && txError.code !== '23505') {
+        console.error('[route] finance_transactions:', txError)
+      }
+
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'delivered' } : o))
-    } catch (e) {
-      alert('Error al actualizar el pedido')
     } finally {
       setDelivering(null)
     }

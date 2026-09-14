@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
+import { must, mustAffect } from '@/lib/db'
 import { IconUsers, IconPlus, IconSearch, IconEdit, IconTrash, IconClose, IconStar, IconMessageCircle } from '@/lib/icons'
 
 type Customer = {
@@ -41,10 +43,8 @@ export default function CustomersPage() {
   const loadCustomers = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { console.error('[customers]', storeError); return }
       setStoreId(store.id)
 
       const { data: customerData } = await supabase.from('customers').select('*').eq('store_id', store.id).order('updated_at', { ascending: false })
@@ -77,7 +77,13 @@ export default function CustomersPage() {
     setLoadingOrders(true)
     try {
       const supabase = createClient()
-      const { data } = await supabase.from('orders').select('*, order_items(*)').eq('customer_id', customer.id).order('created_at', { ascending: false })
+      // El segundo filtro por store_id es defensa en profundidad: sin él, la
+      // consulta dependía solo de la RLS para no cruzar tiendas.
+      const { data, error } = await supabase.from('orders')
+        .select('*, order_items(*)')
+        .eq('customer_id', customer.id).eq('store_id', storeId)
+        .order('created_at', { ascending: false })
+      if (error) console.error('[customers] historial:', error)
       setOrders(data || [])
     } catch (e) { console.error(e) }
     finally { setLoadingOrders(false) }
@@ -103,23 +109,38 @@ export default function CustomersPage() {
     setSaving(true)
     try {
       const supabase = createClient()
-      if (editingCustomer) {
-        await supabase.from('customers').update({ name: form.name, phone: form.phone, dni: form.dni }).eq('id', editingCustomer.id).eq('store_id', storeId)
-      } else {
-        await supabase.from('customers').insert({ store_id: storeId, name: form.name, phone: form.phone, dni: form.dni })
-      }
+      const ok = editingCustomer
+        ? await mustAffect(
+            supabase.from('customers').update({ name: form.name, phone: form.phone, dni: form.dni })
+              .eq('id', editingCustomer.id).eq('store_id', storeId).select('id').maybeSingle(),
+            'guardar el cliente')
+        : await must(
+            supabase.from('customers').insert({ store_id: storeId, name: form.name, phone: form.phone, dni: form.dni })
+              .select('id').maybeSingle(),
+            'crear el cliente')
+      if (!ok) return
       setShowForm(false)
       setEditingCustomer(null)
       loadCustomers()
-    } catch (e: any) { alert('Error: ' + e.message) }
-    finally { setSaving(false) }
+    } finally { setSaving(false) }
   }
 
   const deleteCustomer = async (customer: Customer) => {
+    if (!storeId) return
     if (!confirm(`¿Eliminar a "${customer.name}"?\n\nSus pedidos se conservarán pero ya no estarán asociados a este cliente.`)) return
     const supabase = createClient()
-    await supabase.from('orders').update({ customer_id: null }).eq('customer_id', customer.id).eq('store_id', storeId)
-    await supabase.from('customers').delete().eq('id', customer.id).eq('store_id', storeId)
+
+    // Primero desasociar los pedidos: si esto falla, la FK impediría borrar al
+    // cliente y antes nadie se enteraba de por qué no desaparecía de la lista.
+    const { error: ordersErr } = await supabase.from('orders')
+      .update({ customer_id: null }).eq('customer_id', customer.id).eq('store_id', storeId)
+    if (ordersErr) { alert('No se pudo desasociar sus pedidos: ' + ordersErr.message); return }
+
+    const ok = await mustAffect(
+      supabase.from('customers').delete().eq('id', customer.id).eq('store_id', storeId).select('id').maybeSingle(),
+      'eliminar el cliente'
+    )
+    if (!ok) return
     setSelected(null)
     setOrders([])
     loadCustomers()

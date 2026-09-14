@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
+import { mustAffect } from '@/lib/db'
 import { IconArchive, IconWallet, IconCamera, IconPlus, IconSearch, IconEdit, IconTrash, IconClose, IconPackage, IconTag } from '@/lib/icons'
 
 type Variant = { id?: string; color: string; stock: number }
@@ -70,10 +72,8 @@ export default function InventoryPage() {
   const loadProducts = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', (user.email ?? '').toLowerCase()).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { console.error('[inventory]', storeError); return }
       setStoreId(store.id)
       const { data } = await supabase.from('products').select('*, product_variants(*)').eq('store_id', store.id).order('created_at', { ascending: false })
       setProducts((data || []).map((p: any) => ({
@@ -158,7 +158,10 @@ export default function InventoryPage() {
       const supabase = createClient()
       for (const adj of stockAdjustments) {
         if (adj.adjust === 0 || !adj.variantId) continue
-        await supabase.from('product_variants').update({ stock: Math.max(0, adj.stock + adj.adjust) }).eq('id', adj.variantId).eq('store_id', storeId)
+        const { error } = await supabase.from('product_variants')
+          .update({ stock: Math.max(0, adj.stock + adj.adjust) })
+          .eq('id', adj.variantId).eq('store_id', storeId)
+        if (error) { alert(`No se pudo actualizar el stock de "${adj.color}": ${error.message}`); return }
       }
       setShowStockModal(false); setScannedProduct(null); loadProducts()
     } catch (e: any) { alert('Error: ' + e.message) }
@@ -192,10 +195,8 @@ export default function InventoryPage() {
     setSaving(true)
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { alert('No hay sesión activa'); setSaving(false); return }
-      const { data: store } = await supabase.from('stores').select('id').eq('email', (user.email ?? '').toLowerCase()).single()
-      if (!store) { alert('No se encontró la tienda'); setSaving(false); return }
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { alert(storeError || 'No se encontró la tienda'); setSaving(false); return }
 
       // Separar datos de producto (sin store_id para el update)
       const productUpdate = {
@@ -319,16 +320,67 @@ export default function InventoryPage() {
   }
 
   const toggleActive = async (product: Product) => {
+    if (!storeId) return
     const supabase = createClient()
-    await supabase.from('products').update({ is_active: !product.is_active }).eq('id', product.id).eq('store_id', storeId)
+    const ok = await mustAffect(
+      supabase.from('products').update({ is_active: !product.is_active })
+        .eq('id', product.id).eq('store_id', storeId).select('id').maybeSingle(),
+      product.is_active ? 'desactivar el producto' : 'activar el producto'
+    )
+    if (!ok) return
     loadProducts()
   }
 
-  const handleDelete = async (productId: string) => {
-    if (!confirm('¿Eliminar este producto?')) return
+  /**
+   * Elimina un producto, respetando la FK order_items.variant_id →
+   * product_variants.id.
+   *
+   * Antes se hacían los dos DELETE sin comprobar el error: si el producto
+   * tenía ventas en el historial, la FK los rechazaba (código 23503), nadie
+   * se enteraba, y el producto seguía apareciendo en la lista tras recargar
+   * sin ninguna explicación. Ahora se detecta antes y se ofrece desactivarlo,
+   * que es la salida correcta cuando hay historial que conservar.
+   */
+  const handleDelete = async (product: Product) => {
+    if (!storeId) return
+    if (!confirm(`¿Eliminar "${product.name}"?`)) return
     const supabase = createClient()
-    await supabase.from('product_variants').delete().eq('product_id', productId).eq('store_id', storeId)
-    await supabase.from('products').delete().eq('id', productId).eq('store_id', storeId)
+
+    const variantIds = (product.variants || []).map(v => v.id).filter(Boolean) as string[]
+
+    if (variantIds.length > 0) {
+      const { data: refs, error: refErr } = await supabase
+        .from('order_items').select('id').in('variant_id', variantIds).limit(1)
+      if (refErr) { alert('No se pudo verificar el historial de ventas: ' + refErr.message); return }
+
+      if (refs && refs.length > 0) {
+        const desactivar = confirm(
+          `"${product.name}" tiene ventas en el historial, así que no se puede eliminar ` +
+          'sin romper esos pedidos.\n\n' +
+          '¿Quieres desactivarlo? Dejará de aparecer en el formulario, el catálogo y el mayorista, ' +
+          'pero el historial se conserva.'
+        )
+        if (!desactivar) return
+        const ok = await mustAffect(
+          supabase.from('products').update({
+            is_active: false, show_in_form: false, show_in_catalog: false, show_in_wholesale: false,
+          }).eq('id', product.id).eq('store_id', storeId).select('id').maybeSingle(),
+          'desactivar el producto'
+        )
+        if (ok) loadProducts()
+        return
+      }
+
+      const { error: varErr } = await supabase.from('product_variants')
+        .delete().in('id', variantIds).eq('store_id', storeId)
+      if (varErr) { alert('No se pudieron eliminar las variantes: ' + varErr.message); return }
+    }
+
+    const ok = await mustAffect(
+      supabase.from('products').delete().eq('id', product.id).eq('store_id', storeId).select('id').maybeSingle(),
+      'eliminar el producto'
+    )
+    if (!ok) return
     loadProducts()
   }
 
@@ -534,7 +586,7 @@ export default function InventoryPage() {
                     <button onClick={() => toggleActive(product)} className={`px-3 py-1.5 rounded-full text-xs font-semibold touch-manipulation ${product.is_active ? 'bg-db-paper text-db-ink-soft' : 'bg-db-delivered-bg text-db-delivered'}`}>
                       {product.is_active ? 'Desactivar' : 'Activar'}
                     </button>
-                    <button onClick={() => handleDelete(product.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-db-cancelled-bg text-db-cancelled touch-manipulation"><IconTrash className="w-3.5 h-3.5" />Eliminar</button>
+                    <button onClick={() => handleDelete(product)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-db-cancelled-bg text-db-cancelled touch-manipulation"><IconTrash className="w-3.5 h-3.5" />Eliminar</button>
                   </div>
                 </div>
               ))}

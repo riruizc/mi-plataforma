@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentStore } from '@/lib/store'
 import { IconTruck, IconTag, IconGift, IconClose, IconCheck, IconMapPin, IconDownload, IconTrash, IconPackage } from '@/lib/icons'
 
 const SHALOM_ORIGINS = [
@@ -532,10 +533,8 @@ export default function ToolsPage() {
   const loadData = async () => {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: store } = await supabase.from('stores').select('id').eq('email', user.email).single()
-      if (!store) return
+      const { store, error: storeError } = await getCurrentStore<{ id: string }>('id')
+      if (!store) { console.error('[tools]', storeError); return }
       setStoreId(store.id)
 
       const { data: agencyData } = await supabase.from('delivery_agencies').select('*').eq('store_id', store.id).order('agency_name')
