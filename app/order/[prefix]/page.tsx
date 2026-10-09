@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { dmSans } from '@/lib/fonts'
 import { buildOrderMessage, buildWhatsAppUrl, isValidPeruMobile } from '@/lib/whatsapp'
+import { buscarDestinos, claveDestino, textoDestino, type DestinoDetalle } from '@/lib/destinos'
 
 type Store = {
   id: string; name: string; store_prefix: string; theme_color: string
@@ -23,7 +24,9 @@ type ComboItem = { product_id: string; variant_id: string | null; quantity: numb
 type Combo = {
   id: string; name: string; description: string; price: number; is_active: boolean; items: ComboItem[]
 }
-type Agency = { id: string; agency_name: string; destinations: string[]; is_active: boolean }
+// El detalle de destinos NO viaja en esta carga: son ~500 sedes por agencia y
+// la mayoría de clientes pide por motorizado. Se trae solo al elegir agencia.
+type Agency = { id: string; agency_name: string; offers_air: boolean }
 /** Clave de sessionStorage donde se rescata el pedido recién enviado. */
 const WA_STORAGE_KEY = (prefix: string) => `pedidospe:wa:${prefix}`
 
@@ -34,61 +37,122 @@ type ComboCartItem = {
   combo_id: string; combo_name: string; quantity: number; unit_price: number; items: ComboItem[]
 }
 
-function AgencyDestinationSearch({ destinations, value, onChange, themeColor }: {
-  destinations: string[]; value: string; onChange: (val: string) => void; themeColor: string
+/**
+ * Buscador de sedes de agencia.
+ *
+ * El cliente SOLO puede elegir una sede de la lista: escribir filtra, pero no
+ * permite enviar texto libre. Antes `onChange` se disparaba con cada tecla, así
+ * que un destino inventado llegaba al pedido tal cual.
+ *
+ * Cuando la agencia no tiene sedes configuradas, el formulario usa el input
+ * libre de siempre (ver más abajo, fuera de este componente).
+ */
+function AgencyDestinationSearch({ destinos, offersAir, seleccion, onSelect, onClear, loading, themeColor, textColor }: {
+  destinos: DestinoDetalle[]
+  offersAir: boolean
+  /** Sede elegida y si va por aéreo. `null` mientras no haya elección. */
+  seleccion: { destino: DestinoDetalle; aereo: boolean } | null
+  onSelect: (destino: DestinoDetalle, aereo: boolean) => void
+  onClear: () => void
+  loading: boolean
+  themeColor: string
+  textColor: string
 }) {
-  const [query, setQuery] = useState(value || '')
+  const [query, setQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
 
-  const filtered = query.trim().length >= 2
-    ? destinations.filter(d => d.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
-    : []
+  const filtered = buscarDestinos(destinos, query, 20)
 
-  const handleSelect = (dest: string) => {
-    setQuery(dest)
-    onChange(dest)
-    setShowSuggestions(false)
+  if (loading) return (
+    <div className="w-full px-3 py-3 rounded-xl text-sm text-gray-500 flex items-center gap-2"
+      style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.1)' }}>
+      <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
+      Cargando destinos...
+    </div>
+  )
+
+  // ── Sede ya elegida: tarjeta con su dirección ───────────────────────────
+  if (seleccion) {
+    const { destino, aereo } = seleccion
+    const puedeAereo = offersAir && destino.aereo
+    return (
+      <div className="rounded-xl p-3" style={{ background: 'rgba(0,0,0,0.04)', border: `1.5px solid ${themeColor}` }}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-sm text-gray-900">{destino.sede}</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {destino.distrito}, {destino.provincia} · {destino.departamento}
+            </p>
+            {destino.direccion && <p className="text-xs text-gray-700 mt-1">{destino.direccion}</p>}
+            {destino.referencia && <p className="text-xs text-gray-400 mt-0.5">Ref: {destino.referencia}</p>}
+          </div>
+          <button type="button" onClick={onClear}
+            className="text-gray-400 text-xl leading-none flex-shrink-0 touch-manipulation px-1">×</button>
+        </div>
+
+        {/* Solo se ofrece aéreo si la agencia lo activó Y la sede lo acepta. */}
+        {puedeAereo && (
+          <div className="mt-3 pt-3" style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+            <p className="text-xs font-medium mb-2 text-gray-600">Tipo de envío</p>
+            <div className="flex gap-2">
+              {([false, true] as const).map(esAereo => (
+                <button key={String(esAereo)} type="button"
+                  onClick={() => onSelect(destino, esAereo)}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold border-2 transition-all touch-manipulation"
+                  style={aereo === esAereo
+                    ? { borderColor: themeColor, background: themeColor, color: textColor }
+                    : { borderColor: '#e5e7eb', color: '#6b7280', background: '#fff' }}>
+                  {esAereo ? 'Aéreo' : 'Terrestre'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
 
-  const handleChange = (val: string) => {
-    setQuery(val)
-    onChange(val)
-    setShowSuggestions(true)
-  }
-
+  // ── Buscador ────────────────────────────────────────────────────────────
   return (
     <div className="relative">
       <input
         type="text"
         value={query}
-        onChange={e => handleChange(e.target.value)}
+        onChange={e => { setQuery(e.target.value); setShowSuggestions(true) }}
         onFocus={() => setShowSuggestions(true)}
         onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-        placeholder="Escribe tu destino..."
-        className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
+        placeholder="Busca por distrito, sede o dirección..."
+        className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900"
+        style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
       />
       {query && (
-        <button type="button" onClick={() => { setQuery(''); onChange(''); }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">×</button>
+        <button type="button" onClick={() => setQuery('')}
+          className="absolute right-3 top-[22px] -translate-y-1/2 text-gray-400 text-xl">×</button>
       )}
+
       {showSuggestions && filtered.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-52 overflow-y-auto">
-          {filtered.map((dest, i) => (
-            <button key={i} type="button" onMouseDown={() => handleSelect(dest)}
-              className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100 last:border-0 touch-manipulation">
-              📍 {dest}
+        <div className="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-64 overflow-y-auto">
+          {filtered.map((d, i) => (
+            <button key={claveDestino(d) + i} type="button"
+              onMouseDown={() => { onSelect(d, false); setQuery(''); setShowSuggestions(false) }}
+              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0 touch-manipulation">
+              <p className="text-sm font-semibold text-gray-800">{d.sede}</p>
+              <p className="text-xs text-gray-500">{d.distrito}, {d.provincia} · {d.departamento}</p>
+              {d.direccion && <p className="text-xs text-gray-400 truncate">{d.direccion}</p>}
             </button>
           ))}
         </div>
       )}
+
       {showSuggestions && query.trim().length >= 2 && filtered.length === 0 && (
         <div className="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow mt-1 px-4 py-3">
           <p className="text-sm text-gray-400">No se encontraron destinos</p>
         </div>
       )}
-      {query.trim().length < 2 && !value && (
-        <p className="text-xs text-gray-400 mt-1">Escribe al menos 2 letras para buscar</p>
-      )}
+
+      <p className="text-xs text-gray-400 mt-1">
+        Debes elegir una sede de la lista
+      </p>
     </div>
   )
 }
@@ -208,6 +272,14 @@ export default function OrderForm() {
   const [waBlocked, setWaBlocked] = useState(false)
   const [phoneError, setPhoneError] = useState('')
 
+  // Destinos de la agencia elegida. Se cargan bajo demanda (ver cargarDestinos).
+  const [agencyDestinos, setAgencyDestinos] = useState<DestinoDetalle[]>([])
+  const [loadingDestinos, setLoadingDestinos] = useState(false)
+  // Sede elegida + si va por aéreo. `delivery.destination` se deriva de aquí.
+  const [destinoSel, setDestinoSel] = useState<{ destino: DestinoDetalle; aereo: boolean } | null>(null)
+  // true = la agencia no tiene sedes configuradas: se permite texto libre.
+  const [destinoLibre, setDestinoLibre] = useState(false)
+
   // Antes este timer vivía en (window as any)._geocodeTimer: estado global
   // compartido y sin limpieza al desmontar, así que un debounce en vuelo
   // llamaba a setAddressSuggestions sobre un componente ya desmontado.
@@ -275,7 +347,9 @@ export default function OrderForm() {
           // Sin '*': traía cost_price, o sea el precio de compra de la tienda,
           // visible para cualquier cliente que abriera las DevTools.
           supabase.from('products').select('id, name, category, sale_price, image_url, product_variants(id, color, stock)').eq('store_id', storeData.id).eq('is_active', true).eq('show_in_form', true),
-          supabase.from('delivery_agencies').select('*').eq('store_id', storeData.id).eq('is_active', true),
+          // Sin destinations ni destinations_detail: son cientos de filas que
+          // la mayoría de clientes (los de motorizado) nunca va a usar.
+          supabase.from('delivery_agencies').select('id, agency_name, offers_air').eq('store_id', storeData.id).eq('is_active', true),
           supabase.from('combos').select('*').eq('store_id', storeData.id).eq('is_active', true).order('name'),
         ])
 
@@ -311,6 +385,59 @@ export default function OrderForm() {
     } finally {
       setLoading(false)
     }
+  }
+
+  /**
+   * Trae los destinos de una agencia la primera vez que el cliente la elige.
+   *
+   * Mantener esto fuera de la carga inicial evita descargar ~500 sedes a quien
+   * pide por motorizado, que es la mayoría.
+   */
+  const cargarDestinos = async (agencyName: string) => {
+    setDestinoSel(null)
+    setAgencyDestinos([])
+    setDestinoLibre(false)
+    setDelivery(prev => ({ ...prev, agency_name: agencyName, destination: '' }))
+    if (!agencyName || !store) return
+
+    setLoadingDestinos(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('delivery_agencies')
+        .select('destinations, destinations_detail')
+        .eq('store_id', store.id)
+        .eq('agency_name', agencyName)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (error) { console.error('[order] destinos:', error); setDestinoLibre(true); return }
+
+      const detalle = (data?.destinations_detail || []) as DestinoDetalle[]
+      const activos = detalle.filter(d => d?.activo)
+
+      if (activos.length > 0) {
+        setAgencyDestinos(activos)
+      } else {
+        // Agencia aún sin importar su CSV: si tiene la lista de texto antigua
+        // no se puede mostrar el detalle, así que se deja escribir libremente,
+        // igual que antes de este cambio.
+        setDestinoLibre(true)
+      }
+    } finally {
+      setLoadingDestinos(false)
+    }
+  }
+
+  /** Aplica la sede elegida al pedido, con el texto canónico de siempre. */
+  const elegirDestino = (destino: DestinoDetalle, aereo: boolean) => {
+    setDestinoSel({ destino, aereo })
+    setDelivery(prev => ({ ...prev, destination: textoDestino(destino, aereo) }))
+  }
+
+  const limpiarDestino = () => {
+    setDestinoSel(null)
+    setDelivery(prev => ({ ...prev, destination: '' }))
   }
 
   const categories = ['Todos', ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
@@ -376,6 +503,12 @@ export default function OrderForm() {
       return
     }
     if (delivery.method === 'agencia' && !delivery.agency_name) { alert('Selecciona una agencia'); return }
+    // Si la agencia tiene sedes configuradas hay que elegir una de la lista:
+    // escribir solo sirve para filtrar. El servidor valida lo mismo.
+    if (delivery.method === 'agencia' && !destinoLibre && !destinoSel) {
+      alert('Elige la sede de la agencia donde recogerás tu pedido')
+      return
+    }
     if (!delivery.destination) { alert('Indica tu dirección o destino de entrega'); return }
     setSubmitting(true)
     try {
@@ -801,13 +934,21 @@ export default function OrderForm() {
               <div>
                 <label className="block text-sm font-medium mb-2" style={{ color: secondaryText }}>Método de entrega</label>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setDelivery((prev) => ({ ...prev, method: 'motorizado', agency_name: '', destination: '', lat: '', lng: '' }))}
+                  <button type="button" onClick={() => {
+                      // Al volver a motorizado se descarta la sede elegida: si no,
+                      // quedaría un destino de agencia pegado a un pedido a domicilio.
+                      setDestinoSel(null); setAgencyDestinos([]); setDestinoLibre(false)
+                      setDelivery((prev) => ({ ...prev, method: 'motorizado', agency_name: '', destination: '', lat: '', lng: '' }))
+                    }}
                     className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all touch-manipulation`}
                     style={delivery.method === 'motorizado' ? { borderColor: btnColor, background: btnColor + '15', color: primaryText } : { borderColor: cardBorder, color: secondaryText }}>
                     🛵 Motorizado
                   </button>
                   {agencies.length > 0 && (
-                    <button type="button" onClick={() => setDelivery((prev) => ({ ...prev, method: 'agencia', lat: '', lng: '' }))}
+                    <button type="button" onClick={() => {
+                        setDestinoSel(null); setAgencyDestinos([]); setDestinoLibre(false)
+                        setDelivery((prev) => ({ ...prev, method: 'agencia', destination: '', lat: '', lng: '' }))
+                      }}
                       className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all touch-manipulation`}
                     style={delivery.method === 'agencia' ? { borderColor: btnColor, background: btnColor + '15', color: primaryText } : { borderColor: cardBorder, color: secondaryText }}>
                       📦 Agencia
@@ -853,7 +994,7 @@ export default function OrderForm() {
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Agencia <span className="text-red-500">*</span></label>
-                    <select value={delivery.agency_name || ''} onChange={(e) => setDelivery((prev) => ({ ...prev, agency_name: e.target.value, destination: '' }))}
+                    <select value={delivery.agency_name || ''} onChange={(e) => cargarDestinos(e.target.value)}
                       className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}>
                       <option value="">Selecciona una agencia</option>
                       {agencies.map((a) => <option key={a.id} value={a.agency_name}>{a.agency_name}</option>)}
@@ -862,17 +1003,22 @@ export default function OrderForm() {
                   {delivery.agency_name && (
                     <div>
                       <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Destino <span className="text-red-500">*</span></label>
-                      {agencies.find((a) => a.agency_name === delivery.agency_name)?.destinations?.length ? (
-                        <AgencyDestinationSearch
-                          destinations={agencies.find((a) => a.agency_name === delivery.agency_name)?.destinations || []}
-                          value={delivery.destination}
-                          onChange={(val) => setDelivery((prev) => ({ ...prev, destination: val }))}
-                          themeColor={btnColor}
-                        />
-                      ) : (
+                      {destinoLibre ? (
+                        // Agencia sin sedes configuradas: texto libre, como siempre.
                         <input type="text" value={delivery.destination} onChange={(e) => setDelivery((prev) => ({ ...prev, destination: e.target.value }))}
                           className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
                           placeholder="Ciudad o distrito de destino" />
+                      ) : (
+                        <AgencyDestinationSearch
+                          destinos={agencyDestinos}
+                          offersAir={!!agencies.find((a) => a.agency_name === delivery.agency_name)?.offers_air}
+                          seleccion={destinoSel}
+                          onSelect={elegirDestino}
+                          onClear={limpiarDestino}
+                          loading={loadingDestinos}
+                          themeColor={btnColor}
+                          textColor={txtColor}
+                        />
                       )}
                     </div>
                   )}
