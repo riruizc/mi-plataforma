@@ -353,7 +353,16 @@ export default function OrderForm() {
           supabase.from('combos').select('*').eq('store_id', storeData.id).eq('is_active', true).order('name'),
         ])
 
-      setAgencies(agencyData || [])
+      // Una tienda puede tener dos filas con el mismo nombre de agencia (una
+      // lista vieja y otra nueva). Se muestra una sola opción en el
+      // desplegable; `cargarDestinos` ya une los destinos de ambas.
+      const porNombre = new Map<string, Agency>()
+      for (const a of (agencyData || [])) {
+        const previa = porNombre.get(a.agency_name)
+        if (previa) previa.offers_air = previa.offers_air || a.offers_air
+        else porNombre.set(a.agency_name, { ...a })
+      }
+      setAgencies([...porNombre.values()])
       setProducts((prods || []).map((p: any) => ({ ...p, variants: (p.product_variants || []).filter((v: any) => v.stock > 0) })))
 
       const comboIds = (combosData || []).map((c: any) => c.id)
@@ -403,18 +412,30 @@ export default function OrderForm() {
     setLoadingDestinos(true)
     try {
       const supabase = createClient()
-      const { data, error } = await supabase
+      // Sin .maybeSingle(): la tienda puede tener dos filas con el mismo nombre
+      // de agencia, y entonces maybeSingle devuelve error y el cliente se queda
+      // sin poder elegir sede. Se unen los destinos de todas las coincidencias.
+      const { data: filas, error } = await supabase
         .from('delivery_agencies')
         .select('destinations, destinations_detail')
         .eq('store_id', store.id)
         .eq('agency_name', agencyName)
         .eq('is_active', true)
-        .maybeSingle()
 
       if (error) { console.error('[order] destinos:', error); setDestinoLibre(true); return }
 
-      const detalle = (data?.destinations_detail || []) as DestinoDetalle[]
-      const activos = detalle.filter(d => d?.activo)
+      // Dedupe por sede: si dos filas traen la misma, se conserva una sola.
+      const vistos = new Set<string>()
+      const activos: DestinoDetalle[] = []
+      for (const fila of (filas || [])) {
+        for (const d of ((fila.destinations_detail || []) as DestinoDetalle[])) {
+          if (!d?.activo) continue
+          const k = claveDestino(d)
+          if (vistos.has(k)) continue
+          vistos.add(k)
+          activos.push(d)
+        }
+      }
 
       if (activos.length > 0) {
         setAgencyDestinos(activos)

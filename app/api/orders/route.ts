@@ -40,24 +40,33 @@ export async function POST(request: Request) {
     // navegador, así que se podía enviar cualquier texto — o una agencia que
     // ni siquiera existía. No toca precios ni stock.
     if (delivery.method === 'agencia') {
-      const { data: agency } = await supabase
+      // Sin .maybeSingle(): una tienda puede tener dos filas con el mismo
+      // agency_name (p. ej. una lista vieja y otra nueva). maybeSingle
+      // devuelve error cuando hay más de una, y eso rechazaría TODOS los
+      // pedidos de esa agencia. Se aceptan todas las coincidencias y se unen
+      // sus destinos.
+      const { data: agencyRows } = await supabase
         .from('delivery_agencies')
         .select('id, agency_name, destinations, destinations_detail, offers_air')
         .eq('store_id', store.id)
         .eq('agency_name', delivery.agency_name || '')
         .eq('is_active', true)
-        .maybeSingle()
 
-      if (!agency) {
+      if (!agencyRows || agencyRows.length === 0) {
         return NextResponse.json({ error: 'La agencia seleccionada no está disponible' }, { status: 400 })
       }
 
       // Lista blanca de destinos. Se prefiere el detalle; si la agencia aún no
       // fue importada, se cae a la columna `destinations` de siempre.
-      const detalle = (agency.destinations_detail || []) as DestinoDetalle[]
-      const permitidos = detalle.length > 0
-        ? destinosPermitidos(detalle, !!agency.offers_air)
-        : new Set<string>((agency.destinations || []) as string[])
+      const permitidos = new Set<string>()
+      for (const fila of agencyRows) {
+        const detalle = (fila.destinations_detail || []) as DestinoDetalle[]
+        if (detalle.length > 0) {
+          for (const d of destinosPermitidos(detalle, !!fila.offers_air)) permitidos.add(d)
+        } else {
+          for (const d of ((fila.destinations || []) as string[])) permitidos.add(d)
+        }
+      }
 
       // Una agencia sin destinos configurados sigue aceptando texto libre,
       // igual que hoy.
