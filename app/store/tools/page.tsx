@@ -517,6 +517,8 @@ export default function ToolsPage() {
   const [tab, setTab] = useState<'agencias' | 'etiquetas'>('agencias')
   const [newAgency, setNewAgency] = useState({ name: '', destinations: '' })
   const [saving, setSaving] = useState(false)
+  // Filtro de impresión de etiquetas. Arranca siempre en «Todos».
+  const [labelFilter, setLabelFilter] = useState<'all' | 'motorizado' | 'agencia'>('all')
 
   // Shalom Pro
   const [showShalomPro, setShowShalomPro] = useState(false)
@@ -642,8 +644,40 @@ export default function ToolsPage() {
     setSelectedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
+  /** Pedidos visibles en la pestaña de etiquetas según el filtro activo. */
+  const ordersParaEtiquetas = orders.filter(o =>
+    labelFilter === 'all' ? true : o.delivery_method === labelFilter
+  )
+
+  /**
+   * Al cambiar el filtro se poda la selección a lo que queda visible: si no,
+   * se podrían imprimir etiquetas de pedidos que ya no se ven en pantalla.
+   */
+  const cambiarLabelFilter = (f: 'all' | 'motorizado' | 'agencia') => {
+    setLabelFilter(f)
+    const visibles = new Set(
+      orders.filter(o => f === 'all' ? true : o.delivery_method === f).map(o => o.id)
+    )
+    setSelectedOrders(prev => prev.filter(id => visibles.has(id)))
+  }
+
+  /**
+   * Escalas de letra que se prueban en cascada hasta que el contenido entra
+   * en la etiqueta. Antes el destino se cortaba a 42 caracteres y a 2 líneas,
+   * y los productos a 38 con «...»; ahora nada se corta: si no entra, baja la
+   * letra. Solo en el caso extremo (la escala más pequeña y aún sin espacio)
+   * se resume el sobrante de productos.
+   */
+  const ESCALAS_ETIQUETA = [
+    { code: 11,   info: 7.5, prod: 7,   lhInfo: 4.2, lhProd: 4.0 },
+    { code: 10.5, info: 7,   prod: 6.5, lhInfo: 3.9, lhProd: 3.7 },
+    { code: 10,   info: 6.5, prod: 6,   lhInfo: 3.6, lhProd: 3.4 },
+    { code: 10,   info: 6,   prod: 5.5, lhInfo: 3.3, lhProd: 3.1 },
+  ]
+  const MAX_LINEAS_DESTINO = 3
+
   const generarEtiquetas = async () => {
-    const selected = orders.filter(o => selectedOrders.includes(o.id))
+    const selected = ordersParaEtiquetas.filter(o => selectedOrders.includes(o.id))
     if (selected.length === 0) { alert('Selecciona al menos un pedido'); return }
 
     const { default: jsPDF } = await import('jspdf')
@@ -658,6 +692,62 @@ export default function ToolsPage() {
     const gapX = 10
     const gapY = 4
 
+    // Ancho útil para el texto, descontando el margen interno de 4mm a cada lado.
+    const usableW = labelW - 8
+    // El pie va anclado abajo para que todas las etiquetas se vean iguales
+    // aunque el contenido de arriba varíe.
+    const yEntrega = 57
+    const yPorCobrar = 64
+    // El contenido fluido no puede pasar de aquí sin chocar con el pie.
+    const limiteContenido = 54
+
+    /**
+     * Calcula, para una escala dada, cómo quedaría repartido el contenido y
+     * hasta qué altura llegaría. No dibuja nada: solo mide.
+     */
+    const calcularLayout = (order: Order, cfg: typeof ESCALAS_ETIQUETA[number]) => {
+      doc.setFont('helvetica', 'normal')
+
+      doc.setFontSize(cfg.info)
+      const destLines: string[] = doc.splitTextToSize(
+        'Destino: ' + (order.destination || '-'), usableW
+      )
+
+      doc.setFontSize(cfg.prod)
+      const items = order.order_items || []
+      const prodLines: string[] = []
+      if (items.length === 0) {
+        prodLines.push('Sin productos registrados')
+      } else {
+        for (const item of items) {
+          const colorStr = item.color && item.color !== 'Único' ? ` ${item.color}` : ''
+          const linea = `• ${item.product_name}${colorStr} x${item.quantity}`
+          // splitTextToSize parte por palabras: el producto pasa a una segunda
+          // línea en vez de cortarse a media palabra.
+          prodLines.push(...doc.splitTextToSize(linea, usableW - 2))
+        }
+      }
+
+      // Se replica la misma aritmética que usa el dibujado, para que la
+      // medición y el render no puedan desincronizarse.
+      let cy = 7                            // línea base del código de pedido
+      cy += cfg.lhInfo + 1.8                // cliente
+      cy += cfg.lhInfo                      // cel + DNI
+      cy += 0.8
+      const destMostradas = destLines.slice(0, MAX_LINEAS_DESTINO)
+      cy += destMostradas.length * cfg.lhInfo
+      cy += 1.4                             // separador
+      cy += 3.4                             // título «Productos:»
+      cy += prodLines.length * cfg.lhProd
+
+      return {
+        destLines: destMostradas,
+        destCompleto: destLines.length <= MAX_LINEAS_DESTINO,
+        prodLines,
+        alturaFinal: cy,
+      }
+    }
+
     selected.forEach((order, index) => {
       if (index > 0 && index % perPage === 0) doc.addPage()
       const pos = index % perPage
@@ -666,66 +756,86 @@ export default function ToolsPage() {
       const x = marginX + col * (labelW + gapX)
       const y = marginY + row * (labelH + gapY)
 
+      // Se elige la primera escala en la que TODO entra: el destino completo
+      // en 3 líneas o menos, y los productos sin recortar.
+      let cfg = ESCALAS_ETIQUETA[ESCALAS_ETIQUETA.length - 1]
+      let layout = calcularLayout(order, cfg)
+      for (const candidata of ESCALAS_ETIQUETA) {
+        const prueba = calcularLayout(order, candidata)
+        if (prueba.alturaFinal <= limiteContenido && prueba.destCompleto) {
+          cfg = candidata
+          layout = prueba
+          break
+        }
+      }
+
+      // Último recurso: ni en la escala más pequeña entra todo. Se resume el
+      // sobrante de productos — nunca el destino, que es lo que la agencia necesita.
+      let prodLines = layout.prodLines
+      if (layout.alturaFinal > limiteContenido) {
+        const sobrante = Math.ceil((layout.alturaFinal - limiteContenido) / cfg.lhProd) + 1
+        const visibles = Math.max(1, prodLines.length - sobrante)
+        const ocultas = prodLines.length - visibles
+        prodLines = prodLines.slice(0, visibles)
+        if (ocultas > 0) prodLines.push(`  + ${ocultas} línea(s) más`)
+      }
+
       doc.setDrawColor(180, 180, 180)
       doc.setLineWidth(0.3)
       doc.rect(x, y, labelW, labelH)
 
+      let cy = y + 7
+
       // Código de pedido
-      doc.setFontSize(11)
+      doc.setFontSize(cfg.code)
       doc.setFont('helvetica', 'bold')
-      doc.text(order.order_code, x + 4, y + 8)
+      doc.text(order.order_code, x + 4, cy)
+      cy += cfg.lhInfo + 1.8
 
       // Datos del cliente
-      doc.setFontSize(7.5)
+      doc.setFontSize(cfg.info)
       doc.setFont('helvetica', 'normal')
-      doc.text('Cliente: ' + (order.customers?.name || '-'), x + 4, y + 15)
-      doc.text('Cel: ' + (order.customers?.phone || '-') + '   DNI: ' + (order.customers?.dni || '-'), x + 4, y + 21)
+      doc.text('Cliente: ' + (order.customers?.name || '-'), x + 4, cy)
+      cy += cfg.lhInfo
+      doc.text('Cel: ' + (order.customers?.phone || '-') + '   DNI: ' + (order.customers?.dni || '-'), x + 4, cy)
+      cy += cfg.lhInfo + 0.8
 
-      // Destino
-      const dest = order.destination ? order.destination.substring(0, 42) : '-'
-      const destLines = doc.splitTextToSize('Destino: ' + dest, labelW - 8)
-      doc.text(destLines.slice(0, 2), x + 4, y + 27)
+      // Destino completo, con los saltos de línea que necesite
+      layout.destLines.forEach(linea => {
+        doc.text(linea, x + 4, cy)
+        cy += cfg.lhInfo
+      })
 
-      // Línea separadora
+      // Línea separadora, ahora a la altura que corresponda
+      cy += 1.4
       doc.setDrawColor(220, 220, 220)
-      doc.line(x + 4, y + 34, x + labelW - 4, y + 34)
+      doc.line(x + 4, cy, x + labelW - 4, cy)
+      cy += 3.4
 
       // Productos
-      doc.setFontSize(7)
+      doc.setFontSize(cfg.prod)
       doc.setFont('helvetica', 'bold')
-      doc.text('Productos:', x + 4, y + 39)
+      doc.text('Productos:', x + 4, cy)
+      cy += cfg.lhProd
       doc.setFont('helvetica', 'normal')
+      prodLines.forEach(linea => {
+        doc.text(linea, x + 4, cy)
+        cy += cfg.lhProd
+      })
 
-      const items = order.order_items || []
-      let itemY = y + 44
-      const maxItems = 3
-
-      if (items.length === 0) {
-        doc.text('Sin productos registrados', x + 4, itemY)
-      } else {
-        items.slice(0, maxItems).forEach((item, i) => {
-          const colorStr = item.color && item.color !== 'Único' ? ` ${item.color}` : ''
-          const line = `• ${item.product_name}${colorStr} x${item.quantity}`
-          const truncated = line.length > 38 ? line.substring(0, 36) + '...' : line
-          doc.text(truncated, x + 4, itemY + i * 5)
-        })
-        if (items.length > maxItems) {
-          doc.text(`  + ${items.length - maxItems} producto(s) más`, x + 4, itemY + maxItems * 5)
-        }
-      }
-
-      // Por cobrar
-      // Método de entrega
+      // ── Pie anclado ──────────────────────────────────────────────────────
+      // Sin emojis: la fuente del PDF no puede dibujarlos y salían como
+      // «Ø=Üæ  S h a l o m», con las letras separadas.
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(7.5)
       const deliveryText = order.delivery_method === 'motorizado'
-        ? '🛵 Motorizado'
-        : '📦 ' + (order.agency_name || 'Agencia')
-      doc.text(deliveryText, x + 4, y + 57)
+        ? 'Motorizado'
+        : 'Agencia: ' + (order.agency_name || '-')
+      doc.text(deliveryText, x + 4, y + yEntrega)
 
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(9)
-      doc.text('Por cobrar: S/ ' + Number(order.pending_amount).toFixed(2), x + 4, y + 64)
+      doc.text('Por cobrar: S/ ' + Number(order.pending_amount).toFixed(2), x + 4, y + yPorCobrar)
     })
 
     doc.save('etiquetas.pdf')
@@ -948,8 +1058,28 @@ export default function ToolsPage() {
               )}
             </div>
 
+            {/* Filtro de impresión: evita tener que ir destildando a mano
+                cuando solo quieres las etiquetas de agencia o de motorizado. */}
+            <div className="flex gap-1.5 mb-3 flex-wrap">
+              {([
+                { key: 'all', label: 'Todos' },
+                { key: 'motorizado', label: 'Solo motorizado' },
+                { key: 'agencia', label: 'Solo agencia' },
+              ] as const).map(f => {
+                const n = orders.filter(o => f.key === 'all' ? true : o.delivery_method === f.key).length
+                return (
+                  <button key={f.key} onClick={() => cambiarLabelFilter(f.key)}
+                    className={'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ' +
+                      (labelFilter === f.key ? 'bg-db-brand text-white border-db-brand' : 'bg-db-surface text-db-ink-soft border-db-line')}>
+                    {f.label}
+                    <span className={'font-data text-[10px] ' + (labelFilter === f.key ? 'text-white/70' : 'text-db-ink-soft/70')}>{n}</span>
+                  </button>
+                )
+              })}
+            </div>
+
             <div className="flex gap-2 mb-3">
-              <button onClick={() => setSelectedOrders(orders.map(o => o.id))}
+              <button onClick={() => setSelectedOrders(ordersParaEtiquetas.map(o => o.id))}
                 className="text-xs px-3 py-1.5 border border-db-line rounded-full text-db-ink-soft font-semibold">
                 Seleccionar todos
               </button>
@@ -959,14 +1089,16 @@ export default function ToolsPage() {
               </button>
             </div>
 
-            {orders.length === 0 ? (
+            {ordersParaEtiquetas.length === 0 ? (
               <div className="text-center py-6">
                 <IconPackage className="w-7 h-7 mx-auto mb-2 text-db-ink-soft opacity-40" />
-                <p className="text-db-ink-soft text-sm">No hay pedidos activos</p>
+                <p className="text-db-ink-soft text-sm">
+                  {labelFilter === 'all' ? 'No hay pedidos activos' : 'No hay pedidos con este tipo de entrega'}
+                </p>
               </div>
             ) : (
               <div className="space-y-2 max-h-64 sm:max-h-96 overflow-y-auto">
-                {orders.map(order => (
+                {ordersParaEtiquetas.map(order => (
                   <div key={order.id} onClick={() => toggleOrderSelect(order.id)}
                     className={'flex items-center justify-between p-3 rounded-xl cursor-pointer ' + (selectedOrders.includes(order.id) ? 'bg-db-brand-tint ring-2 ring-db-brand' : 'bg-db-paper')}>
                     <div className="flex-1 min-w-0">
