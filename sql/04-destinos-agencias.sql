@@ -99,8 +99,10 @@ SELECT
   agency_name,
   is_active,
   offers_air,
-  COALESCE(array_length(destinations, 1), 0)   AS destinos_texto_actuales,
-  jsonb_array_length(destinations_detail)      AS destinos_con_detalle
+  -- `destinations` es jsonb (un array JSON de textos), NO text[]: por eso se
+  -- cuenta con jsonb_array_length y no con array_length.
+  COALESCE(jsonb_array_length(destinations), 0) AS destinos_texto_actuales,
+  jsonb_array_length(destinations_detail)       AS destinos_con_detalle
 FROM delivery_agencies
 ORDER BY agency_name;
 
