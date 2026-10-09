@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
+import { destinosPermitidos, type DestinoDetalle } from '@/lib/destinos'
 
 export async function POST(request: Request) {
   try {
@@ -32,6 +33,40 @@ export async function POST(request: Request) {
 
     if (!store) {
       return NextResponse.json({ error: 'Tienda no encontrada' }, { status: 404 })
+    }
+
+    // 1b. Entrega por agencia: la agencia y el destino se validan contra la
+    // configuración real de la tienda. Antes se insertaban tal cual venían del
+    // navegador, así que se podía enviar cualquier texto — o una agencia que
+    // ni siquiera existía. No toca precios ni stock.
+    if (delivery.method === 'agencia') {
+      const { data: agency } = await supabase
+        .from('delivery_agencies')
+        .select('id, agency_name, destinations, destinations_detail, offers_air')
+        .eq('store_id', store.id)
+        .eq('agency_name', delivery.agency_name || '')
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (!agency) {
+        return NextResponse.json({ error: 'La agencia seleccionada no está disponible' }, { status: 400 })
+      }
+
+      // Lista blanca de destinos. Se prefiere el detalle; si la agencia aún no
+      // fue importada, se cae a la columna `destinations` de siempre.
+      const detalle = (agency.destinations_detail || []) as DestinoDetalle[]
+      const permitidos = detalle.length > 0
+        ? destinosPermitidos(detalle, !!agency.offers_air)
+        : new Set<string>((agency.destinations || []) as string[])
+
+      // Una agencia sin destinos configurados sigue aceptando texto libre,
+      // igual que hoy.
+      if (permitidos.size > 0 && !permitidos.has(String(delivery.destination).trim())) {
+        return NextResponse.json(
+          { error: 'El destino seleccionado no es válido para esta agencia' },
+          { status: 400 }
+        )
+      }
     }
 
     // 2. Recalcular cada línea de producto contra el precio real en la DB

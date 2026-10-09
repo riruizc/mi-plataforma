@@ -1,8 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getCurrentStore } from '@/lib/store'
+import {
+  compararDestinos, destinosPlanos, filaCsvADestino, textoDestino,
+  type DestinoDetalle, type DiffDestinos,
+} from '@/lib/destinos'
 import { IconTruck, IconTag, IconGift, IconClose, IconCheck, IconMapPin, IconDownload, IconTrash, IconPackage } from '@/lib/icons'
 
 const SHALOM_ORIGINS = [
@@ -495,6 +499,17 @@ const SHALOM_ORIGINS = [
 
 type Agency = {
   id: string; agency_name: string; destinations: string[]; is_active: boolean
+  destinations_detail?: DestinoDetalle[] | null
+  offers_air?: boolean
+}
+
+/** Vista previa de una importación, antes de confirmarla. */
+type PreviewImport = {
+  agency: Agency
+  fileName: string
+  diff: DiffDestinos
+  /** Filas del CSV que no se pudieron leer (faltaban columnas obligatorias). */
+  invalidas: number
 }
 
 type OrderItem = {
@@ -519,6 +534,12 @@ export default function ToolsPage() {
   const [saving, setSaving] = useState(false)
   // Filtro de impresión de etiquetas. Arranca siempre en «Todos».
   const [labelFilter, setLabelFilter] = useState<'all' | 'motorizado' | 'agencia'>('all')
+
+  // Importador de destinos
+  const [preview, setPreview] = useState<PreviewImport | null>(null)
+  const [importando, setImportando] = useState(false)
+  const csvInputRef = useRef<HTMLInputElement>(null)
+  const agenciaImportRef = useRef<Agency | null>(null)
 
   // Shalom Pro
   const [showShalomPro, setShowShalomPro] = useState(false)
@@ -638,6 +659,112 @@ export default function ToolsPage() {
       await supabase.from('delivery_agencies').delete().eq('id', id).eq('store_id', storeId)
       setAgencies(prev => prev.filter(a => a.id !== id))
     } catch (e) { alert('Error al eliminar') }
+  }
+
+  // ── Importador de destinos ────────────────────────────────────────────────
+
+  /** Abre el selector de archivo recordando para qué agencia es. */
+  const pedirCsv = (agency: Agency) => {
+    agenciaImportRef.current = agency
+    if (csvInputRef.current) csvInputRef.current.value = ''
+    csvInputRef.current?.click()
+  }
+
+  /**
+   * Lee el CSV y arma la vista previa. No guarda nada todavía.
+   *
+   * El archivo se lee como texto y se le quita el BOM: Excel guarda los CSV
+   * en UTF-8 con BOM, y ese carácter invisible se pega al primer encabezado
+   * («﻿departamento»), que entonces no coincide con ninguna columna conocida.
+   */
+  const leerCsv = async (file: File) => {
+    const agency = agenciaImportRef.current
+    if (!agency) return
+    setImportando(true)
+    try {
+      const XLSX = await import('xlsx')
+      let texto = await file.text()
+      if (texto.charCodeAt(0) === 0xFEFF) texto = texto.slice(1)
+
+      const wb = XLSX.read(texto, { type: 'string', raw: true })
+      const hoja = wb.Sheets[wb.SheetNames[0]]
+      if (!hoja) { alert('El archivo no tiene datos'); return }
+
+      const filas = XLSX.utils.sheet_to_json<Record<string, unknown>>(hoja, { defval: '' })
+      if (filas.length === 0) { alert('El archivo no tiene filas'); return }
+
+      const entrantes: DestinoDetalle[] = []
+      let invalidas = 0
+      for (const fila of filas) {
+        const d = filaCsvADestino(fila)
+        if (d) entrantes.push(d)
+        else invalidas++
+      }
+
+      if (entrantes.length === 0) {
+        alert(
+          'No se pudo leer ningún destino.\n\n' +
+          'El archivo debe tener las columnas: departamento, provincia, distrito, ' +
+          'sede, direccion, referencia, aereo'
+        )
+        return
+      }
+
+      const diff = compararDestinos(agency.destinations_detail || [], entrantes)
+      setPreview({ agency, fileName: file.name, diff, invalidas })
+    } catch (e: any) {
+      console.error('[tools] leerCsv:', e)
+      alert('No se pudo leer el archivo: ' + (e?.message ?? 'formato no reconocido'))
+    } finally {
+      setImportando(false)
+    }
+  }
+
+  /** Guarda la importación ya revisada. */
+  const confirmarImport = async () => {
+    if (!preview || !storeId) return
+    setImportando(true)
+    try {
+      const supabase = createClient()
+      const detalle = preview.diff.resultado
+      // `destinations` se regenera para que todo lo que hoy la lee siga
+      // funcionando sin saber que existe el detalle.
+      const planos = destinosPlanos(detalle, !!preview.agency.offers_air)
+
+      const { data, error } = await supabase.from('delivery_agencies')
+        .update({ destinations_detail: detalle, destinations: planos })
+        .eq('id', preview.agency.id).eq('store_id', storeId)
+        .select('id').maybeSingle()
+
+      if (error) { alert('No se pudieron guardar los destinos: ' + error.message); return }
+      if (!data) { alert('No se pudieron guardar los destinos: no se encontró la agencia.'); return }
+
+      setPreview(null)
+      await loadData()
+      alert(`Destinos actualizados: ${detalle.filter(d => d.activo).length} activos.`)
+    } finally {
+      setImportando(false)
+    }
+  }
+
+  /** Interruptor «Ofrecer envío aéreo» por agencia. */
+  const toggleAereo = async (agency: Agency) => {
+    if (!storeId) return
+    const nuevo = !agency.offers_air
+    const supabase = createClient()
+    const detalle = (agency.destinations_detail || []) as DestinoDetalle[]
+    // Al cambiar el interruptor hay que regenerar `destinations`, porque las
+    // variantes « - AEREO» dependen de él.
+    const planos = detalle.length > 0 ? destinosPlanos(detalle, nuevo) : agency.destinations
+
+    const { data, error } = await supabase.from('delivery_agencies')
+      .update({ offers_air: nuevo, destinations: planos })
+      .eq('id', agency.id).eq('store_id', storeId)
+      .select('id').maybeSingle()
+
+    if (error) { alert('No se pudo cambiar el envío aéreo: ' + error.message); return }
+    if (!data) { alert('No se pudo cambiar el envío aéreo: no se encontró la agencia.'); return }
+    loadData()
   }
 
   const toggleOrderSelect = (id: string) => {
@@ -1021,23 +1148,143 @@ export default function ToolsPage() {
                           {agency.is_active ? 'Activa' : 'Inactiva'}
                         </span>
                       </div>
-                      {agency.destinations?.length > 0
-                        ? <p className="text-xs text-db-ink-soft mt-1">Destinos: {agency.destinations.join(', ')}</p>
-                        : <p className="text-xs text-db-ink-soft mt-1">Destino libre</p>
-                      }
+                      {(() => {
+                        const detalle = (agency.destinations_detail || []) as DestinoDetalle[]
+                        const activos = detalle.filter(d => d?.activo).length
+                        const aereas = detalle.filter(d => d?.activo && d.aereo).length
+                        if (activos > 0) return (
+                          <p className="text-xs text-db-ink-soft mt-1">
+                            <strong className="font-data">{activos}</strong> sedes con detalle
+                            {aereas > 0 && <> · <strong className="font-data">{aereas}</strong> aceptan aéreo</>}
+                          </p>
+                        )
+                        if (agency.destinations?.length > 0) return (
+                          <p className="text-xs text-db-ink-soft mt-1">
+                            <strong className="font-data">{agency.destinations.length}</strong> destinos sin detalle — usa «Actualizar destinos»
+                          </p>
+                        )
+                        return <p className="text-xs text-db-ink-soft mt-1">Destino libre</p>
+                      })()}
+
+                      {/* Solo tiene sentido ofrecer aéreo si hay sedes que lo acepten. */}
+                      {(agency.destinations_detail || []).some((d: DestinoDetalle) => d?.activo && d.aereo) && (
+                        <label className="flex items-center gap-2 mt-2 cursor-pointer w-fit">
+                          <button type="button" onClick={() => toggleAereo(agency)}
+                            className={'relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ' + (agency.offers_air ? 'bg-db-delivered' : 'bg-db-line')}>
+                            <span className={'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ' + (agency.offers_air ? 'translate-x-4' : 'translate-x-0.5')} />
+                          </button>
+                          <span className="text-xs text-db-ink-soft">Ofrecer envío aéreo</span>
+                        </label>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => toggleAgencia(agency)}
-                        className={'px-3 py-1.5 rounded-full text-xs font-semibold border ' + (agency.is_active ? 'border-db-line text-db-ink-soft' : 'border-db-delivered text-db-delivered')}>
-                        {agency.is_active ? 'Desactivar' : 'Activar'}
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      <button onClick={() => pedirCsv(agency)} disabled={importando}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-db-brand-tint text-db-brand disabled:opacity-50 touch-manipulation">
+                        <IconDownload className="w-3.5 h-3.5 rotate-180" />Actualizar destinos
                       </button>
-                      <button onClick={() => eliminarAgencia(agency.id)}
-                        className="p-1.5 rounded-full border border-db-cancelled text-db-cancelled"><IconTrash className="w-3.5 h-3.5" /></button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => toggleAgencia(agency)}
+                          className={'px-3 py-1.5 rounded-full text-xs font-semibold border ' + (agency.is_active ? 'border-db-line text-db-ink-soft' : 'border-db-delivered text-db-delivered')}>
+                          {agency.is_active ? 'Desactivar' : 'Activar'}
+                        </button>
+                        <button onClick={() => eliminarAgencia(agency.id)}
+                          className="p-1.5 rounded-full border border-db-cancelled text-db-cancelled"><IconTrash className="w-3.5 h-3.5" /></button>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Selector de archivo oculto, compartido por todas las agencias. */}
+      <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) leerCsv(f) }} />
+
+      {/* ── VISTA PREVIA DE LA IMPORTACIÓN ────────────────────────────────── */}
+      {preview && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-db-surface rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[92vh] flex flex-col shadow-2xl">
+            <div className="p-5 border-b border-db-line flex items-start justify-between gap-3 flex-shrink-0">
+              <div className="min-w-0">
+                <h3 className="font-bold text-db-ink">Revisar destinos de {preview.agency.agency_name}</h3>
+                <p className="text-xs text-db-ink-soft mt-0.5 truncate">{preview.fileName}</p>
+              </div>
+              <button onClick={() => setPreview(null)} className="text-db-ink-soft flex-shrink-0"><IconClose className="w-5 h-5" /></button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-5 space-y-4">
+              {/* Resumen */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-db-delivered-bg rounded-xl p-3 text-center">
+                  <p className="text-xl font-bold text-db-delivered font-data">{preview.diff.nuevos.length}</p>
+                  <p className="text-[11px] text-db-delivered">nuevos</p>
+                </div>
+                <div className="bg-db-paper rounded-xl p-3 text-center">
+                  <p className="text-xl font-bold text-db-ink font-data">{preview.diff.iguales.length}</p>
+                  <p className="text-[11px] text-db-ink-soft">se mantienen</p>
+                </div>
+                <div className="bg-db-accent-tint rounded-xl p-3 text-center">
+                  <p className="text-xl font-bold text-db-accent font-data">{preview.diff.retirados.length}</p>
+                  <p className="text-[11px] text-db-accent">se desactivan</p>
+                </div>
+              </div>
+
+              {preview.invalidas > 0 && (
+                <div className="bg-db-cancelled-bg rounded-xl p-3">
+                  <p className="text-xs text-db-cancelled">
+                    {preview.invalidas} fila(s) del archivo se ignoraron por no tener
+                    departamento, provincia, distrito o sede.
+                  </p>
+                </div>
+              )}
+
+              {/* Listas completas, para revisar cambios de nombre */}
+              {preview.diff.nuevos.length > 0 && (
+                <div>
+                  <p className="text-sm font-bold text-db-delivered mb-2">
+                    Nuevos ({preview.diff.nuevos.length})
+                  </p>
+                  <div className="space-y-1 max-h-56 overflow-y-auto bg-db-paper rounded-xl p-2">
+                    {preview.diff.nuevos.map((d, i) => (
+                      <p key={i} className="text-[11px] text-db-ink font-data leading-snug">
+                        {textoDestino(d)}{d.aereo ? '  (acepta aéreo)' : ''}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {preview.diff.retirados.length > 0 && (
+                <div>
+                  <p className="text-sm font-bold text-db-accent mb-2">
+                    Ya no están — se desactivan, no se borran ({preview.diff.retirados.length})
+                  </p>
+                  <div className="space-y-1 max-h-56 overflow-y-auto bg-db-accent-tint rounded-xl p-2">
+                    {preview.diff.retirados.map((d, i) => (
+                      <p key={i} className="text-[11px] text-db-ink font-data leading-snug">{textoDestino(d)}</p>
+                    ))}
+                  </div>
+                  <p className="text-xs text-db-ink-soft mt-1.5">
+                    Si alguno es en realidad un cambio de nombre, aparecerá también en «Nuevos».
+                    Los pedidos antiguos que lo usaron no se ven afectados.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 border-t border-db-line flex gap-3 flex-shrink-0">
+              <button onClick={confirmarImport} disabled={importando}
+                className="flex-1 py-3 bg-db-brand text-white rounded-full font-semibold text-sm disabled:opacity-50 touch-manipulation">
+                {importando ? 'Guardando...' : 'Aplicar cambios'}
+              </button>
+              <button onClick={() => setPreview(null)} disabled={importando}
+                className="flex-1 py-3 bg-db-paper text-db-ink-soft rounded-full font-semibold text-sm touch-manipulation">
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
