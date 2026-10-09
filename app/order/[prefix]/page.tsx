@@ -4,11 +4,15 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { dmSans } from '@/lib/fonts'
+import { buildOrderMessage, buildWhatsAppUrl, isValidPeruMobile } from '@/lib/whatsapp'
 
 type Store = {
   id: string; name: string; store_prefix: string; theme_color: string
   button_color?: string; text_color?: string
   logo_url: string; form_active: boolean
+  // Número de WhatsApp de la tienda, al que el cliente envía su pedido.
+  // Es nullable en la BD: el registro no lo exige.
+  phone: string | null
 }
 type Product = {
   id: string; name: string; category: string; sale_price: number
@@ -20,6 +24,9 @@ type Combo = {
   id: string; name: string; description: string; price: number; is_active: boolean; items: ComboItem[]
 }
 type Agency = { id: string; agency_name: string; destinations: string[]; is_active: boolean }
+/** Clave de sessionStorage donde se rescata el pedido recién enviado. */
+const WA_STORAGE_KEY = (prefix: string) => `pedidospe:wa:${prefix}`
+
 type CartItem = {
   product_id: string; variant_id: string; product_name: string; color: string; quantity: number; unit_price: number
 }
@@ -193,6 +200,14 @@ export default function OrderForm() {
   const [customer, setCustomer] = useState({ dni: '', name: '', phone: '' })
   const [delivery, setDelivery] = useState({ method: 'motorizado', destination: '', reference: '', lat: '', lng: '', agency_name: '' })
 
+  // Enlace wa.me del pedido ya registrado. Se guarda también en sessionStorage
+  // para que el botón siga disponible si el cliente recarga la pantalla final.
+  const [waUrl, setWaUrl] = useState<string | null>(null)
+  // true cuando el navegador bloqueó la apertura automática: entonces se
+  // resalta el botón manual, que al venir de un toque nunca se bloquea.
+  const [waBlocked, setWaBlocked] = useState(false)
+  const [phoneError, setPhoneError] = useState('')
+
   // Antes este timer vivía en (window as any)._geocodeTimer: estado global
   // compartido y sin limpieza al desmontar, así que un debounce en vuelo
   // llamaba a setAddressSuggestions sobre un componente ya desmontado.
@@ -201,6 +216,31 @@ export default function OrderForm() {
   useEffect(() => { loadStore() }, [prefix])
 
   useEffect(() => () => { if (geocodeTimer.current) clearTimeout(geocodeTimer.current) }, [])
+
+  // Si el cliente recarga la pantalla final, el estado de React se pierde y con
+  // él el botón de WhatsApp — aunque el pedido ya esté guardado. Se rescata de
+  // sessionStorage (por pestaña, se borra al cerrarla).
+  //
+  // El límite de 30 minutos evita que una pestaña vieja resucite el pedido
+  // anterior cuando el cliente vuelve a entrar a hacer uno nuevo.
+  useEffect(() => {
+    if (!prefix) return
+    try {
+      const guardado = sessionStorage.getItem(WA_STORAGE_KEY(prefix))
+      if (!guardado) return
+      const { orderCode: code, waUrl: url, ts } = JSON.parse(guardado)
+      if (!code || !ts || Date.now() - ts > 30 * 60 * 1000) {
+        sessionStorage.removeItem(WA_STORAGE_KEY(prefix))
+        return
+      }
+      setOrderCode(code)
+      setWaUrl(url ?? null)
+      setStep(4)
+    } catch {
+      // sessionStorage puede fallar en modo privado o con JSON corrupto.
+      // No es crítico: solo se pierde el rescate del botón.
+    }
+  }, [prefix])
 
   const loadStore = async () => {
     try {
@@ -213,7 +253,10 @@ export default function OrderForm() {
       // .single() lanza PGRST116 y la tienda aparecía como "no encontrada".
       const { data: storeData, error: storeError } = await supabase
         .from('stores')
-        .select('id, name, store_prefix, theme_color, button_color, text_color, logo_url, form_active')
+        // `phone` es el número al que el cliente manda su pedido por WhatsApp.
+        // No es un dato privado: ya se expone en /contact y /wholesale, donde
+        // cumple exactamente la misma función. No se añade ninguna otra columna.
+        .select('id, name, store_prefix, theme_color, button_color, text_color, logo_url, form_active, phone')
         .eq('store_prefix', prefix)
         .eq('status', 'active')
         .maybeSingle()
@@ -327,7 +370,11 @@ export default function OrderForm() {
   const handleSubmit = async () => {
     if (!store) return
     if (cart.length === 0 && comboCart.length === 0) { alert('Agrega al menos un producto o combo'); return }
-    if (!customer.name || !customer.phone) { alert('Completa tu nombre y celular'); return }
+    if (!customer.name) { alert('Completa tu nombre'); return }
+    if (!isValidPeruMobile(customer.phone)) {
+      alert('Ingresa un número de WhatsApp válido: 9 dígitos que empiecen con 9')
+      return
+    }
     if (delivery.method === 'agencia' && !delivery.agency_name) { alert('Selecciona una agencia'); return }
     if (!delivery.destination) { alert('Indica tu dirección o destino de entrega'); return }
     setSubmitting(true)
@@ -344,12 +391,44 @@ export default function OrderForm() {
         }),
       })
       const data = await res.json()
+
+      // El pedido manda: si no se guardó, NO se abre WhatsApp y el cliente
+      // conserva su carrito para reintentar.
       if (!res.ok || !data.order_code) {
         alert(data.error || 'Error al enviar el pedido, intenta de nuevo')
         return
       }
+
+      // ── El pedido YA está guardado. A partir de aquí, WhatsApp es un extra:
+      // nada de lo que siga puede hacer fracasar el pedido. ───────────────
       setOrderCode(data.order_code)
+
+      const mensaje = buildOrderMessage({
+        orderCode: data.order_code,
+        customer,
+        cart,
+        comboCart,
+        delivery,
+      })
+      const url = buildWhatsAppUrl(store.phone, mensaje)
+      setWaUrl(url)
       setStep(4)
+
+      if (url) {
+        try {
+          sessionStorage.setItem(
+            WA_STORAGE_KEY(prefix),
+            JSON.stringify({ orderCode: data.order_code, waUrl: url, ts: Date.now() })
+          )
+        } catch { /* modo privado: solo se pierde el rescate tras recargar */ }
+
+        // Intento de apertura automática. Al venir después de un `await`, el
+        // navegador ya no lo considera un gesto directo del usuario y puede
+        // bloquearlo. Si pasa, se marca para resaltar el botón manual — ése
+        // sí nace de un toque y nunca se bloquea.
+        const ventana = window.open(url, '_blank')
+        if (!ventana || ventana.closed) setWaBlocked(true)
+      }
     } catch (e) { console.error(e); alert('Error al enviar el pedido, intenta de nuevo') }
     finally { setSubmitting(false) }
   }
@@ -404,12 +483,45 @@ export default function OrderForm() {
         <div className="bg-gray-100 rounded-2xl px-4 py-4 mb-4">
           <span className="text-xl font-bold tracking-widest font-mono" style={{ color: btnColor }}>{orderCode}</span>
         </div>
-        <p className="text-xs mb-6" style={{ color: secondaryText }}>Guarda este código para rastrear tu pedido</p>
-        <a href={`/track?code=${orderCode}`}
-          className="w-full py-4 rounded-2xl font-bold block text-center text-base touch-manipulation"
-          style={{ background: btnColor, color: txtColor }}>
-          Rastrear mi pedido →
-        </a>
+
+        {waUrl ? (
+          <>
+            <p className="text-sm mb-4" style={{ color: secondaryText }}>
+              {waBlocked
+                ? 'Toca el botón para enviarnos tu pedido por WhatsApp:'
+                : 'Ya casi. Envíanos tu pedido por WhatsApp para confirmarlo:'}
+            </p>
+            {/* Verde WhatsApp: el mismo que ya usa el catálogo mayorista.
+                Es la acción que el cliente debe reconocer al instante. */}
+            <a href={waUrl} target="_blank" rel="noopener noreferrer"
+              className="w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 text-center text-base touch-manipulation text-white mb-3"
+              style={{ background: '#25d366', boxShadow: '0 4px 20px rgba(37,211,102,0.35)' }}>
+              <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+              Enviar mi pedido por WhatsApp
+            </a>
+            {!waBlocked && (
+              <p className="text-xs mb-4" style={{ color: secondaryText }}>
+                Si WhatsApp no se abrió solo, toca el botón
+              </p>
+            )}
+            <a href={`/track?code=${orderCode}`}
+              className="w-full py-3 rounded-2xl font-semibold block text-center text-sm touch-manipulation"
+              style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: secondaryText }}>
+              Rastrear mi pedido →
+            </a>
+          </>
+        ) : (
+          <>
+            <p className="text-xs mb-6" style={{ color: secondaryText }}>Guarda este código para rastrear tu pedido</p>
+            <a href={`/track?code=${orderCode}`}
+              className="w-full py-4 rounded-2xl font-bold block text-center text-base touch-manipulation"
+              style={{ background: btnColor, color: txtColor }}>
+              Rastrear mi pedido →
+            </a>
+          </>
+        )}
       </div>
     </div>
   )
@@ -633,16 +745,46 @@ export default function OrderForm() {
                   className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }} placeholder="Juan Pérez" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Celular <span className="text-red-500">*</span></label>
-                <input type="text" inputMode="numeric" value={customer.phone}
-                  onChange={(e) => { const val = e.target.value.replace(/\D/g, ''); if (val.length <= 9) setCustomer({ ...customer, phone: val }) }}
-                  className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
+                <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Número de WhatsApp <span className="text-red-500">*</span></label>
+                <input type="tel" inputMode="numeric" value={customer.phone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '')
+                    if (val.length <= 9) {
+                      setCustomer({ ...customer, phone: val })
+                      // El error se limpia al escribir y se vuelve a evaluar
+                      // solo cuando el número ya está completo, para no regañar
+                      // al cliente mientras teclea.
+                      if (val.length === 0) setPhoneError('')
+                      else if (!val.startsWith('9')) setPhoneError('El número debe empezar con 9')
+                      else if (val.length === 9) setPhoneError('')
+                      else setPhoneError('')
+                    }
+                  }}
+                  onBlur={() => {
+                    if (customer.phone && !isValidPeruMobile(customer.phone)) {
+                      setPhoneError('Debe tener 9 dígitos y empezar con 9')
+                    }
+                  }}
+                  className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900"
+                  style={{ background: "rgba(0,0,0,0.06)", border: `1px solid ${phoneError ? '#ef4444' : 'rgba(0,0,0,0.15)'}` }}
                   placeholder="999 999 999" maxLength={9} />
+                {phoneError
+                  ? <p className="text-xs mt-1" style={{ color: '#ef4444' }}>{phoneError}</p>
+                  : <p className="text-xs mt-1" style={{ color: secondaryText }}>Ingresa el número de WhatsApp desde el que nos estás escribiendo</p>}
               </div>
             </div>
             <div className="flex gap-3 mt-4">
               <button onClick={() => setStep(1)} className="flex-1 py-3 rounded-xl font-semibold touch-manipulation" style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: secondaryText }}>← Atrás</button>
-              <button onClick={() => { if (!customer.name || !customer.phone) { alert('Nombre y celular son obligatorios'); return } setStep(3) }}
+              <button onClick={() => {
+                  if (!customer.name.trim()) { alert('Tu nombre es obligatorio'); return }
+                  if (!isValidPeruMobile(customer.phone)) {
+                    setPhoneError('Debe tener 9 dígitos y empezar con 9')
+                    alert('Ingresa un número de WhatsApp válido: 9 dígitos que empiecen con 9')
+                    return
+                  }
+                  setPhoneError('')
+                  setStep(3)
+                }}
                 className="flex-1 py-3 rounded-xl font-bold touch-manipulation active:opacity-80"
                 style={{ backgroundColor: btnColor, color: txtColor }}>
                 Continuar →
