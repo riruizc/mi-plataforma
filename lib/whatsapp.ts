@@ -88,49 +88,64 @@ export function buildOrderMessage(input: MensajePedidoInput): string {
   const { orderCode, customer, cart, comboCart, delivery } = input
   const lineas: string[] = []
 
-  lineas.push(`🛒 Nuevo pedido ${orderCode}`)
+  // Lo escribe el cliente desde su propio WhatsApp, así que va en primera
+  // persona y sin emojis: en algunos teléfonos no se renderizaban y salían
+  // como rombos sueltos, ensuciando el mensaje.
+  lineas.push('Hola, acabo de registrar mi pedido.')
+  lineas.push('')
+  lineas.push(`Mi código de pedido es ${orderCode}`)
+  lineas.push(`Mi nombre es ${customer.name}`)
 
-  // El DNI es opcional: si no lo puso, no se deja el « · DNI » colgando.
+  // El DNI es opcional: si no lo puso, la línea no aparece.
   const dni = customer.dni?.trim()
-  lineas.push(dni ? `👤 ${customer.name} · DNI ${dni}` : `👤 ${customer.name}`)
-  lineas.push(`📱 ${customer.phone}`)
+  if (dni) lineas.push(`Mi DNI es ${dni}`)
+
+  lineas.push(`Mi celular es ${customer.phone}`)
 
   // ── Productos y combos ──────────────────────────────────────────────────
   const itemsProductos = cart.map(item => {
     // «Único» es el color interno de los productos sin variante; mostrarlo
     // solo añade ruido para el cliente.
     const color = item.color && item.color !== 'Único' ? ` (${item.color})` : ''
-    return `📦 ${item.product_name}${color} × ${item.quantity}`
+    return `${item.product_name}${color} x ${item.quantity}`
   })
-  const itemsCombos = comboCart.map(c => `🎁 ${c.combo_name} × ${c.quantity}`)
-  const todos = [...itemsProductos, ...itemsCombos]
+  const itemsCombos = comboCart.map(c => `${c.combo_name} x ${c.quantity}`)
+  let todos = [...itemsProductos, ...itemsCombos]
 
   // Un carrito enorme produciría una URL que algunos navegadores truncan.
+  let resumenExtra: string | null = null
   if (todos.length > MAX_ITEMS_EN_MENSAJE) {
     const restantes = todos.length - MAX_ITEMS_EN_MENSAJE
-    lineas.push(...todos.slice(0, MAX_ITEMS_EN_MENSAJE))
-    lineas.push(`…y ${restantes} producto${restantes !== 1 ? 's' : ''} más`)
-  } else {
-    lineas.push(...todos)
+    resumenExtra = `y ${restantes} producto${restantes !== 1 ? 's' : ''} más`
+    todos = todos.slice(0, MAX_ITEMS_EN_MENSAJE)
   }
+
+  if (todos.length === 1) {
+    lineas.push(`El producto que escogí es ${todos[0]}`)
+  } else if (todos.length > 1) {
+    lineas.push('Los productos que escogí son:')
+    todos.forEach(item => lineas.push(`- ${item}`))
+  }
+  if (resumenExtra) lineas.push(`- ${resumenExtra}`)
 
   // ── Entrega ─────────────────────────────────────────────────────────────
   if (delivery.method === 'motorizado') {
-    lineas.push('🛵 Motorizado')
-    if (delivery.destination) lineas.push(`📍 ${delivery.destination}`)
+    lineas.push('Mi tipo de entrega es Motorizado')
+    if (delivery.destination) lineas.push(`Mi dirección es ${delivery.destination}`)
     const ref = delivery.reference?.trim()
-    if (ref) lineas.push(`📝 Ref: ${ref}`)
+    if (ref) lineas.push(`Mi referencia es ${ref}`)
 
     const lat = delivery.lat ? formatCoord(delivery.lat) : null
     const lng = delivery.lng ? formatCoord(delivery.lng) : null
     if (lat && lng) {
-      lineas.push(`🗺️ Ubicación: https://www.google.com/maps?q=${lat},${lng}`)
+      lineas.push(`Mi ubicación es https://www.google.com/maps?q=${lat},${lng}`)
     } else {
-      lineas.push('⚠️ No marcó su ubicación en el mapa')
+      lineas.push('No marqué mi ubicación en el mapa')
     }
   } else {
-    if (delivery.agency_name) lineas.push(`🚚 Agencia: ${delivery.agency_name}`)
-    if (delivery.destination) lineas.push(`📍 Destino: ${delivery.destination}`)
+    lineas.push('Mi tipo de entrega es por Agencia')
+    if (delivery.agency_name) lineas.push(`Mi agencia es ${delivery.agency_name}`)
+    if (delivery.destination) lineas.push(`Mi destino es ${delivery.destination}`)
   }
 
   return lineas.join('\n')
