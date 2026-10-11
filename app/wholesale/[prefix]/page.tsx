@@ -145,7 +145,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
   const filteredClearance = clearanceItems.filter(c => search === '' || c.product_name.toLowerCase().includes(search.toLowerCase()))
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: btnColor, color: txtColor }}>
+    <div translate="no" className="notranslate min-h-screen flex items-center justify-center" style={{ background: btnColor, color: txtColor }}>
       <div className="flex flex-col items-center gap-4">
         <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: color, borderTopColor: 'transparent' }} />
         <p className="text-sm text-gray-400">Cargando catálogo...</p>
@@ -154,7 +154,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
   )
 
   if (notFound) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: btnColor, color: txtColor }}>
+    <div translate="no" className="notranslate min-h-screen flex flex-col items-center justify-center p-6" style={{ background: btnColor, color: txtColor }}>
       <p className="text-white/20 text-6xl mb-4">🏭</p>
       <p className="text-white font-bold text-xl">Catálogo no disponible</p>
       <p className="text-white/40 text-sm mt-2">Contacta a la tienda para más información</p>
@@ -162,7 +162,7 @@ export default function WholesalePage({ params }: { params: Promise<{ prefix: st
   )
 
   return (
-    <div className={`min-h-screen ${dmSans.className}`} style={{ background: '#f9fafb' }}>
+    <div translate="no" className={`notranslate min-h-screen ${dmSans.className}`} style={{ background: '#f9fafb' }}>
       <style>{`
         .product-card { transition: transform 0.2s ease; }
         .product-card:active { transform: scale(0.97); }

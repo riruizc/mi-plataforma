@@ -650,7 +650,7 @@ export default function OrderForm() {
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
+    <div translate="no" className="notranslate min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
       <div className="flex flex-col items-center gap-3">
         <div className="w-8 h-8 border-2 border-white/10 border-t-white/60 rounded-full animate-spin" />
         <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>Cargando tienda...</p>
@@ -659,7 +659,7 @@ export default function OrderForm() {
   )
 
   if (!store) return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0a0a0a' }}>
+    <div translate="no" className="notranslate min-h-screen flex items-center justify-center p-4" style={{ background: '#0a0a0a' }}>
       <div className="text-center">
         <p className="text-white/20 text-5xl mb-4">🔍</p>
         <p className="text-white font-bold text-lg">Tienda no encontrada</p>
@@ -669,7 +669,7 @@ export default function OrderForm() {
   )
 
   if (formDisabled) return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#0a0a0a' }}>
+    <div translate="no" className="notranslate min-h-screen flex items-center justify-center p-4" style={{ background: '#0a0a0a' }}>
       <div className="rounded-2xl p-8 max-w-sm w-full text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
         {store.logo_url && <img src={store.logo_url} alt="Logo" className="w-16 h-16 rounded-2xl object-cover mx-auto mb-4" />}
         <p className="text-4xl mb-3">🚫</p>

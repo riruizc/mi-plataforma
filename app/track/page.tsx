@@ -46,7 +46,7 @@ function TrackPageContent() {
   const txtColor = order?.stores?.text_color || '#ffffff'
 
   return (
-    <div className={`min-h-screen ${dmSans.className}`} style={{ background: '#f9fafb' }}>
+    <div translate="no" className={`notranslate min-h-screen ${dmSans.className}`} style={{ background: '#f9fafb' }}>
 
       {/* Header */}
       <div className="sticky top-0 z-20" style={{ backgroundColor: themeColor }}>
@@ -210,7 +210,7 @@ function TrackPageContent() {
 export default function TrackPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f9fafb' }}>
+      <div translate="no" className="notranslate min-h-screen flex items-center justify-center" style={{ background: '#f9fafb' }}>
         <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
       </div>
     }>

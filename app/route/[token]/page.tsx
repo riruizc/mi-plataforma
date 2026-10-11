@@ -168,7 +168,7 @@ export default function RiderRoutePage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div translate="no" className="notranslate min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
         <div className="w-10 h-10 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
         <p className="text-gray-500 text-sm">Cargando ruta...</p>
@@ -177,7 +177,7 @@ export default function RiderRoutePage() {
   )
 
   if (!routeData) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+    <div translate="no" className="notranslate min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="text-center">
         <p className="text-5xl mb-4">🔒</p>
         <p className="text-gray-800 font-bold text-lg">Ruta no disponible</p>
@@ -194,7 +194,7 @@ export default function RiderRoutePage() {
   const allPickedUp = hasPickups && recogidos.length === pickupStores.length
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div translate="no" className="notranslate min-h-screen bg-gray-100">
 
       {/* HEADER STICKY */}
       <div className="bg-blue-600 sticky top-0 z-10 shadow-lg">

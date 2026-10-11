@@ -12,7 +12,7 @@ export default async function ContactPage({ params }: { params: Promise<{ prefix
     .single()
 
   if (!store) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: '#0a0a0a' }}>
+    <div translate="no" className="notranslate min-h-screen flex flex-col items-center justify-center p-6" style={{ background: '#0a0a0a' }}>
       <p className="text-white/20 text-5xl mb-4">🔍</p>
       <p className="text-white font-bold text-lg">Tienda no encontrada</p>
       <p className="text-white/40 text-sm mt-1">Verifica el enlace e intenta de nuevo</p>
@@ -28,7 +28,7 @@ export default async function ContactPage({ params }: { params: Promise<{ prefix
   const wholesaleUrl = `/wholesale/${store.store_prefix}`
 
   if (!store.contact_active) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: '#0a0a0a' }}>
+    <div translate="no" className="notranslate min-h-screen flex flex-col items-center justify-center p-6" style={{ background: '#0a0a0a' }}>
       <div className="rounded-3xl p-8 max-w-sm w-full text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
         {store.logo_url
           ? <img src={store.logo_url} alt={store.name} className="w-20 h-20 object-cover mx-auto mb-4 rounded-2xl" />
@@ -49,7 +49,7 @@ export default async function ContactPage({ params }: { params: Promise<{ prefix
   })()
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-5 ${dmSans.className}`} style={{ background: bg }}>
+    <div translate="no" className={`notranslate min-h-screen flex flex-col items-center justify-center p-5 ${dmSans.className}`} style={{ background: bg }}>
 
       <div className="max-w-sm w-full flex flex-col items-center text-center">
 

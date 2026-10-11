@@ -178,13 +178,13 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
   const filteredCategories = [...new Set(filteredProducts.map(p => p.category || 'Sin categoría'))]
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f9fafb' }}>
+    <div translate="no" className="notranslate min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f9fafb' }}>
       <div className="w-8 h-8 border-4 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: color }} />
     </div>
   )
 
   if (notFound) return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50">
+    <div translate="no" className="notranslate min-h-screen flex flex-col items-center justify-center p-6 bg-gray-50">
       <p className="text-4xl mb-3">🏪</p>
       <p className="text-gray-700 font-semibold text-lg">Catálogo no disponible</p>
       <p className="text-gray-400 text-sm mt-1">Catálogo en actualización, vuelve pronto</p>
@@ -192,7 +192,7 @@ export default function CatalogPage({ params }: { params: Promise<{ prefix: stri
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
+    <div translate="no" className="notranslate min-h-screen bg-gray-50 pb-32">
       <div className="sticky top-0 z-20 shadow-sm" style={{ backgroundColor: color }}>
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3 mb-3">
