@@ -425,11 +425,15 @@ export default function OrderForm() {
       if (error) { console.error('[order] destinos:', error); setDestinoLibre(true); return }
 
       // Dedupe por sede: si dos filas traen la misma, se conserva una sola.
+      // Array.isArray en vez de `|| []`: si la columna devolviera un objeto o
+      // una cadena, `for...of` lanzaría y tumbaría el formulario entero.
       const vistos = new Set<string>()
       const activos: DestinoDetalle[] = []
-      for (const fila of (filas || [])) {
-        for (const d of ((fila.destinations_detail || []) as DestinoDetalle[])) {
-          if (!d?.activo) continue
+      for (const fila of (Array.isArray(filas) ? filas : [])) {
+        const detalle = fila?.destinations_detail
+        if (!Array.isArray(detalle)) continue
+        for (const d of (detalle as DestinoDetalle[])) {
+          if (!d || typeof d !== 'object' || !d.activo) continue
           const k = claveDestino(d)
           if (vistos.has(k)) continue
           vistos.add(k)
@@ -449,9 +453,12 @@ export default function OrderForm() {
       // cualquier cosa que el cliente escribiera.
       const legado: DestinoDetalle[] = []
       const vistosTexto = new Set<string>()
-      for (const fila of (filas || [])) {
-        for (const texto of ((fila.destinations || []) as string[])) {
-          const limpio = String(texto || '').trim()
+      for (const fila of (Array.isArray(filas) ? filas : [])) {
+        const lista = fila?.destinations
+        if (!Array.isArray(lista)) continue
+        for (const texto of (lista as unknown[])) {
+          if (typeof texto !== 'string') continue
+          const limpio = texto.trim()
           if (!limpio || vistosTexto.has(limpio)) continue
           vistosTexto.add(limpio)
           legado.push(parsearDestinoTexto(limpio))
@@ -462,6 +469,14 @@ export default function OrderForm() {
       // Ni detalle ni lista: la agencia no tiene destinos configurados y el
       // cliente escribe el suyo, como siempre.
       else setDestinoLibre(true)
+    } catch (e) {
+      // Sin este catch, cualquier dato con una forma inesperada lanzaba y
+      // tumbaba la página completa con «se ha producido una excepción del
+      // lado del cliente». Un problema en los destinos nunca debe impedir
+      // que el cliente haga su pedido: se degrada a destino escrito a mano.
+      console.error('[order] cargarDestinos:', e)
+      setAgencyDestinos([])
+      setDestinoLibre(true)
     } finally {
       setLoadingDestinos(false)
     }
