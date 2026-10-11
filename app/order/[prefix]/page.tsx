@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { dmSans } from '@/lib/fonts'
 import { buildOrderMessage, buildWhatsAppUrl, isValidPeruMobile } from '@/lib/whatsapp'
-import { buscarDestinos, claveDestino, textoDestino, type DestinoDetalle } from '@/lib/destinos'
+import { buscarDestinos, claveDestino, parsearDestinoTexto, textoDestino, ubicacionCorta, type DestinoDetalle } from '@/lib/destinos'
 
 type Store = {
   id: string; name: string; store_prefix: string; theme_color: string
@@ -80,9 +80,9 @@ function AgencyDestinationSearch({ destinos, offersAir, seleccion, onSelect, onC
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <p className="font-bold text-sm text-gray-900">{destino.sede}</p>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {destino.distrito}, {destino.provincia} · {destino.departamento}
-            </p>
+            {ubicacionCorta(destino) && (
+              <p className="text-xs text-gray-500 mt-0.5">{ubicacionCorta(destino)}</p>
+            )}
             {destino.direccion && <p className="text-xs text-gray-700 mt-1">{destino.direccion}</p>}
             {destino.referencia && <p className="text-xs text-gray-400 mt-0.5">Ref: {destino.referencia}</p>}
           </div>
@@ -137,7 +137,7 @@ function AgencyDestinationSearch({ destinos, offersAir, seleccion, onSelect, onC
               onMouseDown={() => { onSelect(d, false); setQuery(''); setShowSuggestions(false) }}
               className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0 touch-manipulation">
               <p className="text-sm font-semibold text-gray-800">{d.sede}</p>
-              <p className="text-xs text-gray-500">{d.distrito}, {d.provincia} · {d.departamento}</p>
+              {ubicacionCorta(d) && <p className="text-xs text-gray-500">{ubicacionCorta(d)}</p>}
               {d.direccion && <p className="text-xs text-gray-400 truncate">{d.direccion}</p>}
             </button>
           ))}
@@ -439,12 +439,29 @@ export default function OrderForm() {
 
       if (activos.length > 0) {
         setAgencyDestinos(activos)
-      } else {
-        // Agencia aún sin importar su CSV: si tiene la lista de texto antigua
-        // no se puede mostrar el detalle, así que se deja escribir libremente,
-        // igual que antes de este cambio.
-        setDestinoLibre(true)
+        return
       }
+
+      // Sin CSV importado todavía: se usa la lista de texto de siempre
+      // (`destinations`). Sigue siendo un buscador con selección obligatoria —
+      // no un campo libre — porque es justo contra esa lista contra la que
+      // valida /api/orders. Dejarlo libre haría que el servidor rechazara
+      // cualquier cosa que el cliente escribiera.
+      const legado: DestinoDetalle[] = []
+      const vistosTexto = new Set<string>()
+      for (const fila of (filas || [])) {
+        for (const texto of ((fila.destinations || []) as string[])) {
+          const limpio = String(texto || '').trim()
+          if (!limpio || vistosTexto.has(limpio)) continue
+          vistosTexto.add(limpio)
+          legado.push(parsearDestinoTexto(limpio))
+        }
+      }
+
+      if (legado.length > 0) setAgencyDestinos(legado)
+      // Ni detalle ni lista: la agencia no tiene destinos configurados y el
+      // cliente escribe el suyo, como siempre.
+      else setDestinoLibre(true)
     } finally {
       setLoadingDestinos(false)
     }

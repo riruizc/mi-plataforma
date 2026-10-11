@@ -24,6 +24,17 @@ export type DestinoDetalle = {
   aereo: boolean
   /** false = la sede dejó de operar. No se borra, para no romper el historial. */
   activo: boolean
+  /**
+   * Texto original, solo para destinos que vienen de la lista antigua
+   * (`destinations`) y no del CSV.
+   *
+   * Cuando está presente se usa TAL CUAL como destino del pedido, en vez de
+   * reconstruirlo a partir de las cuatro partes. Reconstruirlo sería
+   * arriesgado: si la cadena guardada no tuviera exactamente el formato
+   * esperado, el texto resultante no coincidiría con la lista blanca del
+   * servidor y el pedido se rechazaría.
+   */
+  raw?: string
 }
 
 /** Sufijo que marca un envío aéreo dentro del texto del destino. */
@@ -41,8 +52,68 @@ export const SUFIJO_AEREO = ' - AEREO'
  * sede con `destination.split('/').pop()`. No cambiar sin revisar ambos.
  */
 export function textoDestino(d: DestinoDetalle, aereo = false): string {
+  // Lista antigua: se devuelve la cadena original intacta.
+  // Se compara con undefined, no por verdadero: una cadena vacía también debe
+  // devolverse tal cual en vez de reconstruirse como « /  /  / ».
+  if (d.raw !== undefined) return d.raw
   const base = `${d.departamento} / ${d.provincia} / ${d.distrito} / ${d.sede}`
   return aereo ? base + SUFIJO_AEREO : base
+}
+
+/**
+ * Convierte una cadena de la lista antigua (`destinations`) en un destino
+ * buscable, sin perder el texto original.
+ *
+ * Se usa mientras una agencia todavía no tiene su CSV importado: así el
+ * cliente sigue viendo el buscador de siempre en vez de un campo libre.
+ *
+ * `aereo` se deja en false a propósito: en la lista antigua las variantes
+ * aéreas son entradas independientes («… - AEREO»), así que aparecen como
+ * resultados propios y no como una opción dentro de la sede.
+ */
+export function parsearDestinoTexto(texto: string): DestinoDetalle {
+  const original = String(texto)
+  const partes = original.split('/').map(p => p.trim())
+
+  // Cadena sin «/» (p. ej. «Arequipa» o la falsa «Elige otro lugar.»): no hay
+  // ubigeo que extraer, así que todo es la sede. Si se repartiera, el nombre
+  // acabaría mostrándose dos veces en la tarjeta.
+  if (partes.length < 2) {
+    return {
+      departamento: '', provincia: '', distrito: '', sede: original,
+      direccion: '', referencia: '', aereo: false, activo: true, raw: original,
+    }
+  }
+
+  const [departamento = '', provincia = '', distrito = '', ...resto] = partes
+  // Si hubiera más de cuatro partes, el resto se considera parte de la sede.
+  // El respaldo al texto original evita una tarjeta con el título en blanco
+  // cuando la cadena trae menos partes de las esperadas.
+  const sede = resto.length > 0 ? resto.join(' / ') : (distrito || original)
+  return {
+    departamento, provincia, distrito, sede,
+    direccion: '', referencia: '',
+    aereo: false,
+    activo: true,
+    raw: original,
+  }
+}
+
+/**
+ * Ubicación legible para mostrar debajo del nombre de la sede.
+ *
+ * Tolera partes vacías (las cadenas de la lista antigua no siempre traen las
+ * cuatro) y colapsa las repetidas: «AREQUIPA / AREQUIPA / AREQUIPA» se
+ * muestra una sola vez en lugar de tres.
+ */
+export function ubicacionCorta(d: DestinoDetalle): string {
+  const partes = [d.distrito, d.provincia, d.departamento]
+    .map(p => (p || '').trim())
+    .filter(Boolean)
+  const unicas = partes.filter(
+    (p, i) => partes.findIndex(q => q.toUpperCase() === p.toUpperCase()) === i
+  )
+  return unicas.join(' · ')
 }
 
 /**
