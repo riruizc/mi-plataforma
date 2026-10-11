@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { Component, useEffect, useState, useRef, type ReactNode } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { dmSans } from '@/lib/fonts'
@@ -35,6 +35,30 @@ type CartItem = {
 }
 type ComboCartItem = {
   combo_id: string; combo_name: string; quantity: number; unit_price: number; items: ComboItem[]
+}
+
+/**
+ * Barrera de error alrededor del buscador de sedes.
+ *
+ * Un try/catch no sirve para esto: si el fallo ocurre mientras React dibuja,
+ * la excepción no pasa por el catch de la función que cargó los datos y
+ * React desmonta TODO el árbol — el cliente ve la pantalla en blanco con
+ * «se ha producido una excepción del lado del cliente» y pierde su carrito.
+ *
+ * Con esta barrera, el peor caso es quedarse sin buscador: el formulario
+ * sigue en pie y el cliente puede escribir su destino y terminar el pedido.
+ */
+class DestinoErrorBoundary extends Component<
+  { onError: (mensaje: string) => void; children: ReactNode },
+  { fallo: boolean }
+> {
+  state = { fallo: false }
+  static getDerivedStateFromError() { return { fallo: true } }
+  componentDidCatch(error: Error) {
+    console.error('[order] render del buscador de destinos:', error)
+    this.props.onError(`${error.name}: ${error.message}`)
+  }
+  render() { return this.state.fallo ? null : this.props.children }
 }
 
 /**
@@ -279,6 +303,10 @@ export default function OrderForm() {
   const [destinoSel, setDestinoSel] = useState<{ destino: DestinoDetalle; aereo: boolean } | null>(null)
   // true = la agencia no tiene sedes configuradas: se permite texto libre.
   const [destinoLibre, setDestinoLibre] = useState(false)
+  // Mensaje visible si la carga de destinos falla. Se muestra en pantalla, no
+  // solo en consola: en un iPhone no hay forma práctica de abrir la consola,
+  // y sin esto un fallo solo visible en móvil es imposible de diagnosticar.
+  const [destinoError, setDestinoError] = useState('')
 
   // Antes este timer vivía en (window as any)._geocodeTimer: estado global
   // compartido y sin limpieza al desmontar, así que un debounce en vuelo
@@ -406,6 +434,7 @@ export default function OrderForm() {
     setDestinoSel(null)
     setAgencyDestinos([])
     setDestinoLibre(false)
+    setDestinoError('')
     setDelivery(prev => ({ ...prev, agency_name: agencyName, destination: '' }))
     if (!agencyName || !store) return
 
@@ -477,6 +506,7 @@ export default function OrderForm() {
       console.error('[order] cargarDestinos:', e)
       setAgencyDestinos([])
       setDestinoLibre(true)
+      setDestinoError(e instanceof Error ? `${e.name}: ${e.message}` : String(e))
     } finally {
       setLoadingDestinos(false)
     }
@@ -1062,16 +1092,29 @@ export default function OrderForm() {
                           className="w-full px-3 py-3 rounded-xl text-base focus:outline-none focus:ring-1 text-gray-900" style={{ background: "rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.15)" }}
                           placeholder="Ciudad o distrito de destino" />
                       ) : (
-                        <AgencyDestinationSearch
-                          destinos={agencyDestinos}
-                          offersAir={!!agencies.find((a) => a.agency_name === delivery.agency_name)?.offers_air}
-                          seleccion={destinoSel}
-                          onSelect={elegirDestino}
-                          onClear={limpiarDestino}
-                          loading={loadingDestinos}
-                          themeColor={btnColor}
-                          textColor={txtColor}
-                        />
+                        <DestinoErrorBoundary onError={(m) => { setDestinoError(m); setDestinoLibre(true) }}>
+                          <AgencyDestinationSearch
+                            destinos={agencyDestinos}
+                            offersAir={!!agencies.find((a) => a.agency_name === delivery.agency_name)?.offers_air}
+                            seleccion={destinoSel}
+                            onSelect={elegirDestino}
+                            onClear={limpiarDestino}
+                            loading={loadingDestinos}
+                            themeColor={btnColor}
+                            textColor={txtColor}
+                          />
+                        </DestinoErrorBoundary>
+                      )}
+
+                      {/* Visible en pantalla a propósito: en un iPhone no hay
+                          forma práctica de abrir la consola del navegador. */}
+                      {destinoError && (
+                        <div className="mt-2 rounded-xl px-3 py-2" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                          <p className="text-xs" style={{ color: '#b91c1c' }}>
+                            No se pudo cargar la lista de destinos. Escribe tu destino y continúa normalmente.
+                          </p>
+                          <p className="text-[10px] mt-1 font-mono break-all" style={{ color: '#ef4444' }}>{destinoError}</p>
+                        </div>
                       )}
                     </div>
                   )}
