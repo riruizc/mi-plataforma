@@ -689,7 +689,7 @@ export default function OrderForm() {
   const secondaryText = '#6b7280'
 
   if (step === 4) return (
-    <div className={`min-h-screen flex items-center justify-center p-4 ${dmSans.className}`} style={{ background: '#f9fafb' }}>
+    <div translate="no" className={`notranslate min-h-screen flex items-center justify-center p-4 ${dmSans.className}`} style={{ background: '#f9fafb' }}>
       <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-sm">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)' }}>
           <span className="text-3xl">✅</span>
@@ -743,7 +743,15 @@ export default function OrderForm() {
   )
 
   return (
-    <div className={`min-h-screen ${dmSans.className}`} style={{ background: '#f9fafb' }}>
+    /* translate="no": el traductor del navegador (Safari en iOS, Google
+       Translate en Chrome) reemplaza los nodos de texto por los suyos. Cuando
+       React intercambia un bloque —p. ej. el spinner «Cargando destinos...»
+       por el buscador— el nodo que esperaba ya no está donde lo dejó y lanza
+       «NotFoundError: No se puede encontrar el objeto aquí», tumbando el
+       formulario completo. El pedido se pierde con el carrito dentro.
+       La página ya está en español para clientes peruanos, así que no se
+       pierde nada al excluirla de la traducción. */
+    <div translate="no" className={`notranslate min-h-screen ${dmSans.className}`} style={{ background: '#f9fafb' }}>
       {/* HEADER */}
       <div className="sticky top-0 z-10" style={{ backgroundColor: color }}>
         <div className="max-w-lg mx-auto px-4 pt-3 pb-2">
