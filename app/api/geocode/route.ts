@@ -16,7 +16,13 @@ function isRateLimited(ip: string) {
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')
-  if (!q) return NextResponse.json([])
+  // Geocodificación inversa: con lat/lon se devuelve la dirección de ese punto.
+  // Es lo que permite que marcar en el mapa rellene solo el campo «Dirección».
+  const latParam = req.nextUrl.searchParams.get('lat')
+  const lonParam = req.nextUrl.searchParams.get('lon')
+  const esInversa = latParam !== null && lonParam !== null
+
+  if (!esInversa && !q) return NextResponse.json([])
 
   // Verificar que la request viene de nuestro propio dominio.
   // Se compara el HOST exacto, no con .includes(): antes 'pedidospe.com'
@@ -42,8 +48,37 @@ export async function GET(req: NextRequest) {
     return NextResponse.json([], { status: 429 })
   }
 
+  // ── Geocodificación inversa: punto → dirección ──────────────────────────
+  if (esInversa) {
+    const lat = Number(latParam)
+    const lon = Number(lonParam)
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) ||
+        Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      return NextResponse.json({ error: 'Coordenadas inválidas' }, { status: 400 })
+    }
+    try {
+      // zoom=18 devuelve el nivel de calle/edificio, que es lo útil para que
+      // el motorizado sepa a qué puerta llegar.
+      const url = 'https://nominatim.openstreetmap.org/reverse?format=json&zoom=18'
+        + '&lat=' + encodeURIComponent(String(lat))
+        + '&lon=' + encodeURIComponent(String(lon))
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'MiPlataforma/1.0', 'Accept-Language': 'es' }
+      })
+      if (!res.ok) return NextResponse.json({})
+      const text = await res.text()
+      if (!text || text.trim() === '') return NextResponse.json({})
+      const data = JSON.parse(text)
+      return NextResponse.json({ display_name: data?.display_name || '' })
+    } catch {
+      // Un fallo aquí no debe romper nada: el formulario tiene su respaldo.
+      return NextResponse.json({})
+    }
+  }
+
+  // ── Búsqueda normal: texto → sugerencias ────────────────────────────────
   try {
-    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(q) + ', Lima, Peru'
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&q=' + encodeURIComponent(q!) + ', Lima, Peru'
     const res = await fetch(url, {
       headers: { 'User-Agent': 'MiPlataforma/1.0', 'Accept-Language': 'es' }
     })

@@ -313,6 +313,16 @@ export default function OrderForm() {
   // llamaba a setAddressSuggestions sobre un componente ya desmontado.
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // true cuando el cliente escribió la dirección a mano. Si es así, marcar un
+  // punto en el mapa NO la sobrescribe: puede haber puesto algo que ninguna
+  // base de datos conoce («casa de la esquina, portón verde»).
+  const direccionManualRef = useRef(false)
+  // Petición de geocodificación inversa en curso. Se guarda para descartar
+  // respuestas viejas: si el cliente mueve el pin dos veces seguidas, la
+  // primera respuesta podría llegar después y pisar la dirección correcta.
+  const reverseReqRef = useRef(0)
+  const [buscandoDireccion, setBuscandoDireccion] = useState(false)
+
   useEffect(() => { loadStore() }, [prefix])
 
   useEffect(() => () => { if (geocodeTimer.current) clearTimeout(geocodeTimer.current) }, [])
@@ -421,6 +431,49 @@ export default function OrderForm() {
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  /**
+   * El cliente marcó un punto: en el mapa, con «usar mi ubicación» o con el
+   * GPS al abrir.
+   *
+   * Antes esto solo guardaba lat/lng, y como la validación exige el texto de
+   * la dirección, el cliente marcaba su casa con precisión y el formulario le
+   * seguía diciendo «Indica tu dirección». Ahora el punto rellena la dirección
+   * por geocodificación inversa, así que marcar basta para continuar.
+   *
+   * El punto manda: la dirección es solo su descripción en palabras.
+   */
+  const marcarUbicacion = async (lat: number, lng: number) => {
+    setDelivery(prev => ({ ...prev, lat: String(lat), lng: String(lng) }))
+    setAddressSuggestions([])
+
+    // Si escribió su propia referencia, no se la pisamos.
+    if (direccionManualRef.current) return
+
+    const reqId = ++reverseReqRef.current
+    setBuscandoDireccion(true)
+    try {
+      const res = await fetch(`/api/geocode?lat=${lat}&lon=${lng}`)
+      const data = res.ok ? await res.json() : null
+      // Llegó tarde: el cliente ya movió el pin otra vez.
+      if (reqId !== reverseReqRef.current) return
+      const direccion = typeof data?.display_name === 'string' ? data.display_name.trim() : ''
+      setDelivery(prev => ({
+        ...prev,
+        // Respaldo con las coordenadas: si Nominatim no responde, el pedido
+        // no se queda bloqueado y la etiqueta imprime algo útil.
+        destination: direccion || `Punto marcado en el mapa (${lat.toFixed(6)}, ${lng.toFixed(6)})`,
+      }))
+    } catch {
+      if (reqId !== reverseReqRef.current) return
+      setDelivery(prev => ({
+        ...prev,
+        destination: prev.destination || `Punto marcado en el mapa (${lat.toFixed(6)}, ${lng.toFixed(6)})`,
+      }))
+    } finally {
+      if (reqId === reverseReqRef.current) setBuscandoDireccion(false)
     }
   }
 
@@ -1029,6 +1082,8 @@ export default function OrderForm() {
                       // Al volver a motorizado se descarta la sede elegida: si no,
                       // quedaría un destino de agencia pegado a un pedido a domicilio.
                       setDestinoSel(null); setAgencyDestinos([]); setDestinoLibre(false)
+                      // Se empieza de cero: la dirección vuelve a ser automática.
+                      direccionManualRef.current = false
                       setDelivery((prev) => ({ ...prev, method: 'motorizado', agency_name: '', destination: '', lat: '', lng: '' }))
                     }}
                     className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all touch-manipulation`}
@@ -1054,6 +1109,9 @@ export default function OrderForm() {
                   <input type="text" autoComplete="street-address" value={delivery.destination}
                     onChange={(e) => {
                       const value = e.target.value
+                      // A partir de aquí la dirección es suya: marcar el mapa
+                      // ya no se la sobrescribe.
+                      direccionManualRef.current = true
                       setDelivery((prev) => ({ ...prev, destination: value }))
                       if (value.length < 8) { setAddressSuggestions([]); return }
                       if (geocodeTimer.current) clearTimeout(geocodeTimer.current)
@@ -1073,7 +1131,14 @@ export default function OrderForm() {
                     <div className="absolute z-50 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-xl mt-1 max-h-52 overflow-y-auto">
                       {addressSuggestions.map((s: any) => (
                         <button key={s.place_id} type="button"
-                          onClick={() => { setDelivery((prev) => ({ ...prev, destination: s.display_name, lat: String(s.lat), lng: String(s.lon) })); setAddressSuggestions([]) }}
+                          onClick={() => {
+                            // Eligió una dirección del listado: vuelve a ser
+                            // automática, así puede afinar el pin después y la
+                            // dirección se actualiza con él.
+                            direccionManualRef.current = false
+                            setDelivery((prev) => ({ ...prev, destination: s.display_name, lat: String(s.lat), lng: String(s.lon) }))
+                            setAddressSuggestions([])
+                          }}
                           className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 border-b border-gray-100 last:border-0 touch-manipulation">
                           📍 {s.display_name}
                         </button>
@@ -1139,11 +1204,20 @@ export default function OrderForm() {
               {delivery.method === 'motorizado' && (
                 <div>
                   <label className="block text-sm font-medium mb-1" style={{ color: secondaryText }}>Ubicación en mapa <span className="text-gray-400 font-normal">(opcional)</span></label>
-                  <p className="text-xs text-gray-400 mb-2">Toca el mapa para marcar tu ubicación exacta</p>
+                  <p className="text-xs text-gray-400 mb-2">Toca el mapa para marcar tu ubicación exacta. La dirección de arriba se completará sola.</p>
                   <MapPicker lat={delivery.lat ? parseFloat(delivery.lat) : null} lng={delivery.lng ? parseFloat(delivery.lng) : null}
-                    onSelect={(lat, lng) => setDelivery((prev) => ({ ...prev, lat: String(lat), lng: String(lng) }))}
+                    onSelect={marcarUbicacion}
                     themeColor={btnColor} />
-                  {delivery.lat && delivery.lng && <p className="text-xs mt-2 font-medium" style={{ color: "#10b981" }}>✅ Ubicación marcada</p>}
+                  {buscandoDireccion ? (
+                    <p className="text-xs mt-2 font-medium flex items-center gap-1.5" style={{ color: secondaryText }}>
+                      <span className="w-3 h-3 border-2 border-gray-300 border-t-gray-500 rounded-full animate-spin" />
+                      Buscando la dirección de ese punto...
+                    </p>
+                  ) : delivery.lat && delivery.lng ? (
+                    <p className="text-xs mt-2 font-medium" style={{ color: "#10b981" }}>
+                      ✅ Ubicación marcada — el motorizado irá exactamente a este punto
+                    </p>
+                  ) : null}
                 </div>
               )}
             </div>
